@@ -1,0 +1,52 @@
+{
+  "name": "@one-source/mcp",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Unified MCP server for OneSource — 43 tools for blockchain data and API documentation",
+  "bin": {
+    "onesource-mcp": "./dist/cli.js"
+  },
+  "main": "./dist/create-server.js",
+  "types": "./dist/create-server.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/create-server.d.ts",
+      "default": "./dist/create-server.js"
+    }
+  },
+  "files": [
+    "dist/",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "@one-source/api-mcp": "^1.1.0",
+    "@one-source/docs-mcp": "^2.3.0",
+    "@modelcontextprotocol/sdk": "^1.27.1",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.7.0"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "onesource",
+    "web3",
+    "blockchain",
+    "graphql",
+    "documentation",
+    "x402"
+  ],
+  "author": "BlockParty",
+  "license": "UNLICENSED",
+  "homepage": "https://docs.onesource.io"
+}
