@@ -50,5 +50,10 @@
   ],
   "author": "BlockParty",
   "license": "UNLICENSED",
-  "homepage": "https://docs.onesource.io"
+  "homepage": "https://docs.onesource.io",
+  "mcpName": "io.onesource/mcp",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/blockparty-global/1s-mcp.git"
+  }
 }

@@ -11,23 +11,27 @@ import {
   createAnalytics as _createAnalytics,
   type Analytics as _Analytics,
   type ToolCallEvent as _ToolCallEvent,
-  type HttpCallEvent,
-  type ServiceEvent,
+  type HttpCallEvent as _HttpCallEvent,
+  type ServiceEvent as _ServiceEvent,
 } from '@one-source/api-mcp/analytics';
 
 /** ToolCallEvent with category widened to include docs tools. */
 export type ToolCallEvent = Omit<_ToolCallEvent, 'category'> & {
   category: _ToolCallEvent['category'] | 'docs';
+  source?: string;
 };
 
-/** Analytics interface with trackTool accepting the widened ToolCallEvent. */
-export interface Analytics extends Omit<_Analytics, 'trackTool'> {
+export type HttpCallEvent = _HttpCallEvent & { source?: string };
+export type ServiceEvent = _ServiceEvent & { source?: string };
+
+/** Analytics interface with widened event types that include `source`. */
+export interface Analytics extends Omit<_Analytics, 'trackTool' | 'trackHttp' | 'trackService'> {
   trackTool(event: ToolCallEvent): void;
+  trackHttp(event: HttpCallEvent): void;
+  trackService(event: ServiceEvent): void;
 }
 
 /** Create an analytics instance (Noop, Stderr, or Dashboard based on env vars). */
 export function createAnalytics(): Analytics {
   return _createAnalytics() as Analytics;
 }
-
-export type { HttpCallEvent, ServiceEvent };

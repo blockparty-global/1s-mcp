@@ -45,6 +45,7 @@ export function registerApiTools(
       backend_latency_ms: event.backend_latency_ms,
       x402_required: event.x402_required,
       timestamp: new Date().toISOString(),
+      source: 'unified',
     });
   };
 
@@ -79,6 +80,7 @@ export function registerApiTools(
             x402_required: event.x402_required,
             timestamp: new Date().toISOString(),
             session_id: sessionHash,
+            source: 'unified',
           });
         };
 
@@ -103,6 +105,7 @@ export function registerApiTools(
             client_version: clientInfo?.version,
             session_id: sessionHash,
             transport,
+            source: 'unified',
           });
 
           return {
@@ -130,6 +133,7 @@ export function registerApiTools(
             client_version: clientInfo?.version,
             session_id: sessionHash,
             transport,
+            source: 'unified',
           });
 
           return {

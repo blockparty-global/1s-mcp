@@ -1,0 +1,23 @@
+startCommand:
+  type: stdio
+  configSchema:
+    type: object
+    properties:
+      onesourceBaseUrl:
+        type: string
+        default: "https://skills.onesource.io"
+        description: "OneSource API base URL"
+      analytics:
+        type: boolean
+        default: true
+        description: "Enable usage analytics"
+  commandFunction:
+    |-
+    (config) => ({
+      command: 'npx',
+      args: ['-y', '@one-source/mcp'],
+      env: {
+        ONESOURCE_BASE_URL: config.onesourceBaseUrl || 'https://skills.onesource.io',
+        ONESOURCE_ANALYTICS: config.analytics === false ? 'false' : 'true'
+      }
+    })

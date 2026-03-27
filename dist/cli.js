@@ -35,6 +35,13 @@ if (args.includes('--http')) {
     // Shared singletons — reused across stateless per-request servers
     const sharedAnalytics = createAnalytics();
     const sharedClient = createClientFromEnv();
+    // Compute tool count once at startup (server object is discarded)
+    const { toolCount } = createMcpServer({
+        docsData,
+        analytics: sharedAnalytics,
+        client: sharedClient,
+        transport: 'http',
+    });
     const httpServer = createServer(async (req, res) => {
         // CORS headers
         res.setHeader('Access-Control-Allow-Origin', '*');
@@ -52,7 +59,7 @@ if (args.includes('--http')) {
                 status: 'ok',
                 server: 'onesource-mcp',
                 version: VERSION,
-                tools: 43,
+                tools: toolCount,
             }));
             return;
         }
@@ -108,6 +115,7 @@ if (args.includes('--http')) {
         timestamp: new Date().toISOString(),
         version: VERSION,
         details: `http:${port}`,
+        source: 'unified',
     });
     // Graceful shutdown — flush analytics before exit
     process.once('SIGINT', async () => {
@@ -116,6 +124,7 @@ if (args.includes('--http')) {
             service: 'onesource',
             timestamp: new Date().toISOString(),
             version: VERSION,
+            source: 'unified',
         });
         sharedAnalytics.stop();
         await Promise.race([
@@ -142,6 +151,7 @@ else {
         timestamp: new Date().toISOString(),
         version: VERSION,
         details: 'stdio',
+        source: 'unified',
     });
     // Graceful shutdown — flush analytics before exit
     process.once('SIGINT', async () => {
@@ -150,6 +160,7 @@ else {
             service: 'onesource',
             timestamp: new Date().toISOString(),
             version: VERSION,
+            source: 'unified',
         });
         analytics.stop();
         await Promise.race([

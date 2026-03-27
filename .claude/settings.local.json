@@ -3,7 +3,27 @@
     "allow": [
       "Bash(npm install:*)",
       "Bash(npm run:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "WebFetch(domain:github.com)",
+      "WebSearch",
+      "WebFetch(domain:glama.ai)",
+      "WebFetch(domain:smithery.ai)",
+      "WebFetch(domain:static.modelcontextprotocol.io)",
+      "WebFetch(domain:blog.modelcontextprotocol.io)",
+      "WebFetch(domain:code.visualstudio.com)",
+      "WebFetch(domain:registry.modelcontextprotocol.io)",
+      "WebFetch(domain:visualstudiomagazine.com)",
+      "WebFetch(domain:forum.cursor.com)",
+      "WebFetch(domain:dev.to)",
+      "WebFetch(domain:deepwiki.com)",
+      "WebFetch(domain:apigene.ai)",
+      "WebFetch(domain:workos.com)",
+      "Bash(npx tsc:*)",
+      "WebFetch(domain:modelcontextprotocol.info)",
+      "Bash(powershell -Command '$arch = if \\([System.Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture -eq \"\"Arm64\"\"\\) { \"\"arm64\"\" } else { \"\"amd64\"\" }; Invoke-WebRequest -Uri \"\"https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_windows_$arch.tar.gz\"\" -OutFile \"\"mcp-publisher.tar.gz\"\"; tar xf mcp-publisher.tar.gz mcp-publisher.exe; rm mcp-publisher.tar.gz')",
+      "Bash(./mcp-publisher.exe --help)",
+      "Bash(./mcp-publisher.exe login:*)",
+      "Bash(openssl genpkey:*)"
     ]
   },
   "enabledMcpjsonServers": [

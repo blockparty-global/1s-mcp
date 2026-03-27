@@ -67,6 +67,7 @@ function instrumentedTool(
       client_version: clientInfo?.version,
       session_id: sessionHash,
       transport,
+      source: 'unified',
     };
 
     try {
