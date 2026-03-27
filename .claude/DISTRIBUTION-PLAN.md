@@ -2,7 +2,7 @@
 
 ## Context
 
-`@one-source/mcp` v1.2.0 is published on npm. It's a combined MCP server with 43 tools (34 blockchain API + 9 docs). TypeScript, supports stdio + HTTP modes. GitHub repo: https://github.com/blockparty-global/1s-mcp
+`@one-source/mcp` v1.2.0 is published on npm. It's a combined MCP server with 31 tools (22 blockchain API + 9 docs). TypeScript, supports stdio + HTTP modes. GitHub repo: https://github.com/blockparty-global/1s-mcp
 
 This plan covers the three P0 distribution tasks — registry listings that require no new server code.
 
@@ -113,7 +113,7 @@ We want the namespace `io.onesource/mcp` (cleaner than `io.github.blockparty-glo
    {
      "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
      "name": "io.onesource/mcp",
-     "description": "43 tools for blockchain data, live chain queries, and API documentation",
+     "description": "31 tools for blockchain data, live chain queries, and API documentation",
      "title": "OneSource MCP",
      "version": "1.2.0",
      "websiteUrl": "https://docs.onesource.io",

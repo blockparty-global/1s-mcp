@@ -1,8 +1,8 @@
 # @one-source/mcp
 
-Unified MCP server for [OneSource](https://docs.onesource.io) — 43 tools for blockchain data, live chain queries, and API documentation in a single server.
+Unified MCP server for [OneSource](https://docs.onesource.io) — 31 tools for blockchain data, live chain queries, and API documentation in a single server.
 
-Combines [`@one-source/api-mcp`](https://www.npmjs.com/package/@one-source/api-mcp) (34 tools) and [`@one-source/docs-mcp`](https://www.npmjs.com/package/@one-source/docs-mcp) (9 tools) so your AI assistant gets full access to OneSource with one MCP connection.
+Combines [`@one-source/api-mcp`](https://www.npmjs.com/package/@one-source/api-mcp) (22 tools) and [`@one-source/docs-mcp`](https://www.npmjs.com/package/@one-source/docs-mcp) (9 tools) so your AI assistant gets full access to OneSource with one MCP connection.
 
 > **What is MCP?** The [Model Context Protocol](https://modelcontextprotocol.io) lets AI assistants call tools and access data sources. This server exposes both the OneSource blockchain API and its documentation as tools.
 
@@ -44,26 +44,9 @@ npx @one-source/mcp --http --port=8080
 
 Then connect your MCP client to `http://localhost:3000/`.
 
-## Tools (43)
+## Tools (31)
 
-### Blockchain API — Indexed Data (12 tools)
-
-| Tool | Description |
-|------|-------------|
-| `1s_address_txs` | Address transaction history |
-| `1s_block` | Block details by number |
-| `1s_contract_info` | Contract metadata |
-| `1s_erc1155_balance` | ERC1155 token balance |
-| `1s_erc20_balance` | ERC20 token balance |
-| `1s_erc20_transfers` | ERC20 transfer history |
-| `1s_events` | Event log search |
-| `1s_nft_media` | NFT processed media URLs |
-| `1s_nft_metadata` | NFT metadata and traits |
-| `1s_nft_owner` | NFT current owner |
-| `1s_tx_details` | Transaction with decoded events |
-| `1s_wallet_nfts` | Wallet NFT portfolio |
-
-### Blockchain API
+### Blockchain API — Live Chain (12 tools)
 
 | Tool | Description |
 |------|-------------|

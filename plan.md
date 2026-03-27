@@ -2,7 +2,7 @@
 
 ## Context
 
-Both MCP servers (API + Docs) are published and working independently on npm. The goal is a single `npx onesource-mcp` command that gives users all 43 tools. This is a meta-package that imports both existing packages as dependencies — no code duplication, independent release cycles.
+Both MCP servers (API + Docs) are published and working independently on npm. The goal is a single `npx onesource-mcp` command that gives users all 31 tools. This is a meta-package that imports both existing packages as dependencies — no code duplication, independent release cycles.
 
 ## Prerequisites (update existing packages)
 
@@ -58,7 +58,7 @@ onesource-mcp/
     ├── cli.ts                  # Entry point (bin: onesource-mcp)
     ├── create-server.ts        # Unified factory → { server, analytics }
     ├── analytics.ts            # Thin wrapper over api-mcp analytics (widens category type)
-    ├── register-api-tools.ts   # Registers 34 API tools from api-mcp
+    ├── register-api-tools.ts   # Registers 22 API tools from api-mcp
     ├── register-docs-tools.ts  # Registers 9 docs tools from docs-mcp
     └── version.ts              # Package version constant
 ```
@@ -74,7 +74,7 @@ onesource-mcp/
   "name": "onesource-mcp",
   "version": "1.0.0",
   "type": "module",
-  "description": "Unified MCP server for OneSource — 43 tools for blockchain data and API documentation",
+  "description": "Unified MCP server for OneSource — 31 tools for blockchain data and API documentation",
   "bin": { "onesource-mcp": "./dist/cli.js" },
   "main": "./dist/create-server.js",
   "types": "./dist/create-server.d.ts",
@@ -145,10 +145,10 @@ Exports:
 ### `src/register-api-tools.ts`
 
 Imports:
-- `allTools` from `@one-source/api-mcp/tools` — array of 34 `ToolDef` objects
+- `allTools` from `@one-source/api-mcp/tools` — array of 22 `ToolDef` objects
 - `createClientFromEnv` from `@one-source/api-mcp/client` — HTTP client factory
 
-Registers all 34 tools on the provided `McpServer` using `server.registerTool()` with the same instrumentation pattern from the api-mcp `create-server.ts`:
+Registers all 22 tools on the provided `McpServer` using `server.registerTool()` with the same instrumentation pattern from the api-mcp `create-server.ts`:
 - `performance.now()` timing
 - `Object.keys(input)` for param names
 - SHA-256 session hash (first 16 hex chars)
@@ -240,15 +240,15 @@ X402_ANALYTICS_KEY          # Dashboard auth token
 8. Implement `src/create-server.ts`
 9. Implement `src/cli.ts`
 10. `npm install && npm run build` — verify zero type errors
-11. Test stdio: `node dist/cli.js` — verify 43 tools
+11. Test stdio: `node dist/cli.js` — verify 31 tools
 12. Test HTTP: `node dist/cli.js --http` — verify `/health` and tool calls
 13. Publish `onesource-mcp@1.0.0`
 
 ## Verification
 
 1. `npm run build` — zero type errors
-2. `node dist/cli.js` — stdio mode, verify 43 tools listed
-3. `node dist/cli.js --http` — HTTP mode, verify `/health` returns `{ tools: 43 }`
+2. `node dist/cli.js` — stdio mode, verify 31 tools listed
+3. `node dist/cli.js --http` — HTTP mode, verify `/health` returns `{ tools: 31 }`
 4. Call an API tool (e.g., `1s_network_info`) + a docs tool (e.g., `search_docs`) — both work
 5. Check stderr for analytics JSON from both `onesource-api` and `onesource-docs` services
 6. `npx onesource-mcp` from a clean directory — installs and runs correctly

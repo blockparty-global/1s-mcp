@@ -23,7 +23,18 @@
       "Bash(powershell -Command '$arch = if \\([System.Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture -eq \"\"Arm64\"\"\\) { \"\"arm64\"\" } else { \"\"amd64\"\" }; Invoke-WebRequest -Uri \"\"https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_windows_$arch.tar.gz\"\" -OutFile \"\"mcp-publisher.tar.gz\"\"; tar xf mcp-publisher.tar.gz mcp-publisher.exe; rm mcp-publisher.tar.gz')",
       "Bash(./mcp-publisher.exe --help)",
       "Bash(./mcp-publisher.exe login:*)",
-      "Bash(openssl genpkey:*)"
+      "Bash(openssl genpkey:*)",
+      "Bash(find C:UsersgzDesktopBlockParty1s-mcpnode_modules@one-sourceapi-mcp -name *.ts -not -path */dist/* -not -path */node_modules/*)",
+      "WebFetch(domain:docs.cdp.coinbase.com)",
+      "WebFetch(domain:www.dwellir.com)",
+      "WebFetch(domain:x402.gitbook.io)",
+      "WebFetch(domain:www.x402.org)",
+      "WebFetch(domain:blog.quicknode.com)",
+      "WebFetch(domain:vercel.com)",
+      "WebFetch(domain:solana.com)",
+      "WebFetch(domain:socket.dev)",
+      "WebFetch(domain:blog.developerdao.com)",
+      "Bash(find C:UsersgzDesktopBlockParty1s-mcpnode_modules@one-sourceapi-mcp -type f -name *.js -o -name *.ts -o -name *.json -o -name *.d.ts)"
     ]
   },
   "enabledMcpjsonServers": [

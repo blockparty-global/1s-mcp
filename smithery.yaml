@@ -11,6 +11,9 @@ startCommand:
         type: boolean
         default: true
         description: "Enable usage analytics"
+      x402PrivateKey:
+        type: string
+        description: "EVM private key (hex, 0x-prefixed) for automatic x402 USDC payments on Base"
   commandFunction:
     |-
     (config) => ({
@@ -18,6 +21,7 @@ startCommand:
       args: ['-y', '@one-source/mcp'],
       env: {
         ONESOURCE_BASE_URL: config.onesourceBaseUrl || 'https://skills.onesource.io',
-        ONESOURCE_ANALYTICS: config.analytics === false ? 'false' : 'true'
+        ONESOURCE_ANALYTICS: config.analytics === false ? 'false' : 'true',
+        ...(config.x402PrivateKey ? { X402_PRIVATE_KEY: config.x402PrivateKey } : {})
       }
     })
