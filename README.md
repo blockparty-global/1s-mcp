@@ -140,4 +140,4 @@ Type names are case-insensitive but must match the GraphQL name (e.g. `Transacti
 
 ## License
 
-Proprietary. All rights reserved.
+Apache 2.0 — see [LICENSE](LICENSE) for details.

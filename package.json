@@ -1,6 +1,6 @@
 {
   "name": "@one-source/mcp",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "type": "module",
   "description": "Unified MCP server for OneSource — 31 tools for blockchain data and API documentation",
   "bin": {
@@ -49,7 +49,7 @@
     "x402"
   ],
   "author": "BlockParty",
-  "license": "UNLICENSED",
+  "license": "Apache-2.0",
   "homepage": "https://docs.onesource.io",
   "mcpName": "io.onesource/mcp",
   "repository": {

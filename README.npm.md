@@ -112,4 +112,4 @@ Documentation tools are always free — no API key or authentication needed.
 
 ## License
 
-Proprietary. All rights reserved.
+Apache 2.0
