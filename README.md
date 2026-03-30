@@ -138,6 +138,118 @@ Try reinstalling: `npm install @one-source/mcp`
 **"Type not found" even though it exists**
 Type names are case-insensitive but must match the GraphQL name (e.g. `Transaction`, not `transaction_type`). The tool will suggest close matches.
 
+## Registry Publishing
+
+This package is listed on the [official MCP Registry](https://registry.modelcontextprotocol.io) under the verified namespace `io.onesource/mcp` and on [Glama](https://glama.ai/mcp/servers). When releasing a new version, update both registries.
+
+### MCP Registry
+
+#### First-Time Setup
+
+##### 1. Install Go
+
+Download the installer for your platform from [go.dev/dl](https://go.dev/dl/) and run it. Verify:
+
+```bash
+go version
+```
+
+##### 2. Install mcp-publisher
+
+```bash
+go install github.com/modelcontextprotocol/registry/cmd/mcp-publisher@latest
+```
+
+If the Go module path has changed and the command fails, download the binary directly from the [mcp-publisher GitHub releases](https://github.com/modelcontextprotocol/registry/releases) page instead.
+
+On Windows, add Go's bin directory to your PATH if the command isn't recognized:
+
+```powershell
+$env:PATH += ";$env:USERPROFILE\go\bin"
+```
+
+Verify:
+
+```bash
+mcp-publisher --help
+```
+
+##### 3. DNS Authentication (already done)
+
+The `onesource.io` domain has a DNS TXT record that proves ownership of the `io.onesource` namespace. This is already configured — you don't need to redo it.
+
+The record is on the root domain (`onesource.io`, not `_mcp-registry.onesource.io`):
+
+```
+v=MCPv1; k=ed25519; p=7D3U5rufgNXb/lH2MthTRZdDzEGeE7/Jvg8YkiArQc8=
+```
+
+You can verify it resolves:
+
+```bash
+nslookup -type=TXT onesource.io 8.8.8.8
+```
+
+##### 4. Get the Private Key
+
+Authentication requires the ed25519 private key in **hex format** that corresponds to the public key in the DNS record. Ask the team lead for this key — it's stored in the team's password manager / vault.
+
+If you need to regenerate the keypair (this invalidates the current DNS record and requires updating it):
+
+1. Generate a new ed25519 keypair (e.g., `openssl genpkey -algorithm Ed25519 -out key.pem`)
+2. Extract the raw 32-byte private key seed and convert to hex:
+   ```bash
+   openssl pkey -in key.pem -outform DER | tail -c 32 | xxd -p -c 32
+   ```
+3. Extract the public key in base64 for the DNS TXT record:
+   ```bash
+   openssl pkey -in key.pem -pubout -outform DER | tail -c 32 | base64
+   ```
+4. Update the DNS TXT record on `onesource.io` with the new public key:
+   ```
+   v=MCPv1; k=ed25519; p=<base64-public-key>
+   ```
+5. Wait for DNS propagation before attempting to log in.
+
+#### Publishing a New Version
+
+Every time you release a new npm version, update the MCP Registry:
+
+1. **Publish to npm** (the registry validates the package exists, so this must happen first):
+   ```bash
+   npm run build
+   npm publish --access public
+   ```
+
+2. **Update `server.json`** — set both `version` fields to match the new npm version:
+   ```json
+   {
+     "version": "x.y.z",
+     ...
+     "packages": [{ "version": "x.y.z", ... }]
+   }
+   ```
+   The `mcpName` field in `package.json` must be `"io.onesource/mcp"` and must match the `name` field in `server.json`. This is already set — don't remove it.
+
+3. **Authenticate** (tokens expire, so do this each time):
+   ```bash
+   mcp-publisher login dns --domain onesource.io --private-key <ed25519-hex-private-key>
+   ```
+
+4. **Publish to the registry:**
+   ```bash
+   mcp-publisher publish
+   ```
+
+5. **Verify:**
+   ```bash
+   curl "https://registry.modelcontextprotocol.io/v0.1/servers?search=onesource"
+   ```
+
+### Glama
+
+Glama auto-syncs from the GitHub repo daily. No manual steps needed after a release — just make sure changes are pushed to `main`. The `glama.json` file in the repo root controls ownership. Manual re-sync is available from the [Glama admin panel](https://glama.ai/mcp/servers) after claiming the server.
+
 ## License
 
 Apache 2.0 — see [LICENSE](LICENSE) for details.
