@@ -1,6 +1,6 @@
 {
     "build": {
-      "buildCommand": "npx tsc"
+      "buildCommand": "./node_modules/.bin/tsc"
     },
     "deploy": {
       "startCommand": "node dist/cli.js --http"
