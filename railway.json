@@ -1,6 +1,6 @@
 {
     "build": {
-      "buildCommand": "./node_modules/.bin/tsc"
+      "buildCommand": "node node_modules/typescript/bin/tsc"
     },
     "deploy": {
       "startCommand": "node dist/cli.js --http"
