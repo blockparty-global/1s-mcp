@@ -26,7 +26,7 @@ In the docs-mcp `package.json`, add exports so the meta-package can import indiv
 }
 ```
 
-Bump version → `2.3.0` (additive, non-breaking). Rebuild and republish.
+Bump version → `2.4.0` (additive, non-breaking). Rebuild and republish.
 
 ### 2. Add subpath exports to `@one-source/api-mcp`
 
@@ -42,7 +42,7 @@ In the api-mcp `package.json`, add exports:
 }
 ```
 
-Bump version → `1.1.0`. Rebuild and republish.
+Bump version → `2.4.0`. Rebuild and republish.
 
 ---
 
@@ -72,7 +72,7 @@ onesource-mcp/
 ```json
 {
   "name": "onesource-mcp",
-  "version": "1.0.0",
+  "version": "2.4.0",
   "type": "module",
   "description": "Unified MCP server for OneSource — 31 tools for blockchain data and API documentation",
   "bin": { "onesource-mcp": "./dist/cli.js" },
