@@ -31,6 +31,18 @@
           "isSecret": false
         },
         {
+          "name": "ONESOURCE_ANALYTICS_URL",
+          "description": "Analytics dashboard URL (e.g. https://1s-analytics.vercel.app)",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "X402_ANALYTICS_KEY",
+          "description": "API key for the analytics dashboard",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
           "name": "X402_PRIVATE_KEY",
           "description": "EVM private key (hex, 0x-prefixed) for automatic x402 USDC payments on Base",
           "isRequired": false,

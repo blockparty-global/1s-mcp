@@ -1,0 +1,14 @@
+{
+    "mcpServers": {
+      "onesource": {
+        "type": "stdio",
+        "command": "node",
+        "args": ["dist/cli.js"],
+        "env": {
+          "ONESOURCE_ANALYTICS_URL": "http://localhost:3000",
+          "X402_ANALYTICS_KEY": "dev"
+        }
+      }
+    }
+}
+  

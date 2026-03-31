@@ -34,7 +34,14 @@
       "WebFetch(domain:solana.com)",
       "WebFetch(domain:socket.dev)",
       "WebFetch(domain:blog.developerdao.com)",
-      "Bash(find C:UsersgzDesktopBlockParty1s-mcpnode_modules@one-sourceapi-mcp -type f -name *.js -o -name *.ts -o -name *.json -o -name *.d.ts)"
+      "Bash(find C:UsersgzDesktopBlockParty1s-mcpnode_modules@one-sourceapi-mcp -type f -name *.js -o -name *.ts -o -name *.json -o -name *.d.ts)",
+      "WebFetch(domain:docs.railway.com)",
+      "Bash(node -e \"const {allTools} = require\\(''@one-source/api-mcp/tools''\\); console.log\\(''count:'', allTools.length\\); allTools.forEach\\(t => console.log\\(t.name\\)\\)\")",
+      "Bash(node -e \"import\\(''@one-source/api-mcp/tools''\\).then\\(m => { console.log\\(''count:'', m.allTools.length\\); m.allTools.forEach\\(t => console.log\\(t.name\\)\\) }\\)\")",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(gh api:*)",
+      "Bash(curl -s \"https://api.github.com/repos/appcypher/awesome-mcp-servers\")",
+      "WebFetch(domain:api.github.com)"
     ]
   },
   "enabledMcpjsonServers": [

@@ -11,6 +11,12 @@ startCommand:
         type: boolean
         default: true
         description: "Enable usage analytics"
+      analyticsUrl:
+        type: string
+        description: "Analytics dashboard URL (e.g. https://1s-analytics.vercel.app)"
+      analyticsKey:
+        type: string
+        description: "API key for the analytics dashboard"
       x402PrivateKey:
         type: string
         description: "EVM private key (hex, 0x-prefixed) for automatic x402 USDC payments on Base"
@@ -22,6 +28,8 @@ startCommand:
       env: {
         ONESOURCE_BASE_URL: config.onesourceBaseUrl || 'https://skills.onesource.io',
         ONESOURCE_ANALYTICS: config.analytics === false ? 'false' : 'true',
+        ...(config.analyticsUrl ? { ONESOURCE_ANALYTICS_URL: config.analyticsUrl } : {}),
+        ...(config.analyticsKey ? { X402_ANALYTICS_KEY: config.analyticsKey } : {}),
         ...(config.x402PrivateKey ? { X402_PRIVATE_KEY: config.x402PrivateKey } : {})
       }
     })

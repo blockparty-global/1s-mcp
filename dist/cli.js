@@ -10,10 +10,17 @@
 const args = process.argv.slice(2);
 if (args.includes('--http')) {
     // ---------- HTTP mode ----------
-    // Parse --port=N or --port N
+    // Port priority: PORT env var (set by Railway/hosting) > --port flag > 3000
     const portArgIdx = args.findIndex((a) => a === '--port' || a.startsWith('--port='));
     let port = 3000;
-    if (portArgIdx !== -1) {
+    const envPort = process.env.PORT;
+    if (envPort) {
+        const parsed = parseInt(envPort, 10);
+        if (!isNaN(parsed) && parsed >= 1 && parsed <= 65535) {
+            port = parsed;
+        }
+    }
+    else if (portArgIdx !== -1) {
         const arg = args[portArgIdx];
         const portStr = arg.startsWith('--port=')
             ? arg.split('=')[1]
@@ -103,11 +110,12 @@ if (args.includes('--http')) {
             }
         }
     });
-    // Bind to localhost only — no network exposure
-    httpServer.listen(port, '127.0.0.1', () => {
-        console.error(`[onesource] HTTP server listening on http://127.0.0.1:${port}`);
-        console.error(`[onesource] MCP endpoint: POST http://127.0.0.1:${port}/`);
-        console.error(`[onesource] Health: GET http://127.0.0.1:${port}/health`);
+    // Bind to 0.0.0.0 for deployment compatibility (Railway, Fly.io, etc.)
+    const host = '0.0.0.0';
+    httpServer.listen(port, host, () => {
+        console.error(`[onesource] HTTP server listening on http://${host}:${port}`);
+        console.error(`[onesource] MCP endpoint: POST http://${host}:${port}/`);
+        console.error(`[onesource] Health: GET http://${host}:${port}/health`);
     });
     sharedAnalytics.trackService({
         type: 'service_start',
