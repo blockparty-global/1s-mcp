@@ -47,12 +47,25 @@ if (args.includes('--http')) {
   const { createAnalytics } = await import('./analytics.js');
   const { createClientFromEnv } = await import('@one-source/api-mcp/client');
 
+  // x402 payment wrapper — only active when X402_PRIVATE_KEY is set
+  let x402Fetch: typeof globalThis.fetch | undefined;
+  try {
+    const { setupX402 } = await import('@one-source/api-mcp/x402');
+    const x402 = setupX402();
+    if (x402.enabled) {
+      console.error(`[onesource] x402 payments enabled (wallet: ${x402.address})`);
+      x402Fetch = x402.fetch;
+    }
+  } catch (err) {
+    console.error(`[onesource] x402 setup failed, continuing without payments: ${err instanceof Error ? err.message : err}`);
+  }
+
   // Pre-load docs data once at startup
   const docsData = loadData();
 
   // Shared singletons — reused across stateless per-request servers
   const sharedAnalytics = createAnalytics();
-  const sharedClient = createClientFromEnv();
+  const sharedClient = createClientFromEnv({ fetch: x402Fetch });
 
   // Compute tool count once at startup (server object is discarded)
   const { toolCount } = createMcpServer({
@@ -173,8 +186,23 @@ if (args.includes('--http')) {
   const { StdioServerTransport } = await import(
     '@modelcontextprotocol/sdk/server/stdio.js'
   );
+  const { createClientFromEnv } = await import('@one-source/api-mcp/client');
 
-  const { server, analytics } = createMcpServer({ transport: 'stdio' });
+  // x402 payment wrapper — only active when X402_PRIVATE_KEY is set
+  let x402Fetch: typeof globalThis.fetch | undefined;
+  try {
+    const { setupX402 } = await import('@one-source/api-mcp/x402');
+    const x402 = setupX402();
+    if (x402.enabled) {
+      console.error(`[onesource] x402 payments enabled (wallet: ${x402.address})`);
+      x402Fetch = x402.fetch;
+    }
+  } catch (err) {
+    console.error(`[onesource] x402 setup failed, continuing without payments: ${err instanceof Error ? err.message : err}`);
+  }
+
+  const client = createClientFromEnv({ fetch: x402Fetch });
+  const { server, analytics } = createMcpServer({ client, transport: 'stdio' });
   const stdioTransport = new StdioServerTransport();
   await server.connect(stdioTransport);
   console.error('[onesource] Server connected via stdio');
