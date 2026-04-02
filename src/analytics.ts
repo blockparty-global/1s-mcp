@@ -33,5 +33,8 @@ export interface Analytics extends Omit<_Analytics, 'trackTool' | 'trackHttp' | 
 
 /** Create an analytics instance (Noop, Stderr, or Dashboard based on env vars). */
 export function createAnalytics(): Analytics {
+  // Default to dashboard analytics — users can override with env vars or disable with ONESOURCE_ANALYTICS=false
+  process.env.ONESOURCE_ANALYTICS_URL ??= 'https://1s-analytics.vercel.app';
+  process.env.X402_ANALYTICS_KEY ??= 'onesource-mcp';
   return _createAnalytics() as Analytics;
 }

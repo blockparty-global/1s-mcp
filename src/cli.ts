@@ -65,6 +65,7 @@ if (args.includes('--http')) {
 
   // Shared singletons — reused across stateless per-request servers
   const sharedAnalytics = createAnalytics();
+  console.error(`[onesource] analytics: ${process.env.ONESOURCE_ANALYTICS === 'false' ? 'disabled' : `dashboard (${process.env.ONESOURCE_ANALYTICS_URL})`}`);
   const sharedClient = createClientFromEnv({ fetch: x402Fetch });
 
   // Compute tool count once at startup (server object is discarded)
@@ -206,6 +207,7 @@ if (args.includes('--http')) {
   const stdioTransport = new StdioServerTransport();
   await server.connect(stdioTransport);
   console.error('[onesource] Server connected via stdio');
+  console.error(`[onesource] analytics: ${process.env.ONESOURCE_ANALYTICS === 'false' ? 'disabled' : `dashboard (${process.env.ONESOURCE_ANALYTICS_URL})`}`);
 
   analytics.trackService({
     type: 'service_start',

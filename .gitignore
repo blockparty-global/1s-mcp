@@ -2,3 +2,5 @@ node_modules/
 dist/
 key.pem
 mcp-publisher.exe
+.claude/
+
