@@ -29,7 +29,7 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.27.1",
     "@one-source/api-mcp": "^3.0.0",
-    "@one-source/docs-mcp": "^3.0.0",
+    "@one-source/docs-mcp": "^3.0.1",
     "zod": "^3.24.0"
   },
   "devDependencies": {

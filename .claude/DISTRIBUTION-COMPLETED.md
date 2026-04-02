@@ -1,6 +1,6 @@
-# Distribution Progress: @one-source/mcp
+# Distribution & Analytics Progress: @one-source/mcp
 
-**Last updated:** 2026-03-31
+**Last updated:** 2026-04-02
 
 ---
 
@@ -111,29 +111,63 @@ Full instructions are in the README under "Registry Publishing".
 
 ---
 
+### 6. Analytics Fix (2026-04-02)
+
+**Status:** Implemented, pending commit/publish
+**Plan:** `.claude/fix-analytics-unified-mcp-2026-04-02.md`
+
+**Problem:** `createAnalytics()` required users to manually set `ONESOURCE_ANALYTICS_URL` and `X402_ANALYTICS_KEY` env vars. Without them, analytics silently fell back to `StderrAnalytics`. No user would ever set these — analytics needed to work out of the box.
+
+**What we changed:**
+
+1. **`src/analytics.ts`** — Added default env vars before `_createAnalytics()` call:
+   - `ONESOURCE_ANALYTICS_URL` defaults to `https://1s-analytics.vercel.app`
+   - `X402_ANALYTICS_KEY` defaults to `onesource-mcp`
+   - Uses `??=` so user-provided values are preserved
+   - `ONESOURCE_ANALYTICS=false` still disables analytics entirely
+
+2. **`src/cli.ts`** — Added analytics startup log in both HTTP and stdio modes:
+   ```
+   [onesource] analytics: dashboard (https://1s-analytics.vercel.app)
+   ```
+   Or if disabled: `[onesource] analytics: disabled`
+
+**Key decisions:**
+- Analytics URL and API key are hardcoded as defaults — users won't provide these, and they don't need to be secret
+- The analytics team specified these values; they are authoritative
+- The `??=` operator ensures any user overrides still work
+- Verified that `src/analytics.ts` is the single chokepoint — only file importing from `@one-source/api-mcp/analytics`
+- All callers (`create-server.ts`, `cli.ts`, `register-api-tools.ts`, `register-docs-tools.ts`) go through this wrapper
+
+**Behavior matrix:**
+
+| User configuration | Result |
+|---|---|
+| Nothing (default install) | DashboardAnalytics → `https://1s-analytics.vercel.app` |
+| Sets custom `ONESOURCE_ANALYTICS_URL` | DashboardAnalytics → their URL |
+| Sets `ONESOURCE_ANALYTICS=false` | NoopAnalytics (disabled) |
+
+**Verification:** `npm run build` passes clean. After publish, stderr should show analytics endpoint on startup.
+
+**Still needed:** Commit, `npm publish`, redeploy Railway, verify events appear in dashboard.
+
+---
+
 ## In Progress
 
-### 6. punkpeye/awesome-mcp-servers (PR needed)
+### 7. appcypher/awesome-mcp-servers (PR needed)
 
 **Status:** Not started
-**Repo:** https://github.com/punkpeye/awesome-mcp-servers
+**Repo:** https://github.com/appcypher/awesome-mcp-servers
 
-**Draft entry (Blockchain category, alphabetical order):**
+**Draft entry (Finance category, alphabetical order):**
 ```markdown
-- [OneSource MCP](https://github.com/blockparty-global/1s-mcp) ([Glama](https://glama.ai/mcp/servers/blockparty-global/1s-mcp)) - 43 tools for blockchain data, live chain queries (Ethereum, Sepolia, Avalanche), and GraphQL API documentation with x402 USDC payments on Base.
+- [OneSource MCP](https://github.com/blockparty-global/1s-mcp) - 43 tools for blockchain data and live chain queries across Ethereum, Sepolia, and Avalanche, with GraphQL API documentation and x402 USDC payments on Base
 ```
 
-**Requirements:** Glama verification (done), alphabetical placement, Glama link after GitHub link.
+**Requirements:** Alphabetical placement, concise description, no duplicates. Contributing guide at CONTRIBUTING.md in the repo.
 
-### 7. royyannick/awesome-blockchain-mcps (PR needed)
-
-**Status:** Not started
-**Repo:** https://github.com/royyannick/awesome-blockchain-mcps
-
-**Draft entry (On-Chain Integration category):**
-```markdown
-**[OneSource MCP](https://github.com/blockparty-global/1s-mcp)** – **43 tools** for blockchain data and live chain queries across **Ethereum, Sepolia, and Avalanche**. Includes ERC20/ERC721/ERC1155 balance checks, event log queries, ENS resolution, contract detection, gas estimation, and **9 GraphQL documentation tools**. Supports automatic **x402 USDC payments** on Base.
-```
+**Note:** punkpeye/awesome-mcp-servers and royyannick/awesome-blockchain-mcps both appear to be offline/404 as of 2026-03-31. appcypher is the largest active general list (5,339 stars).
 
 ---
 
@@ -147,7 +181,7 @@ Full instructions are in the README under "Registry Publishing".
 
 ---
 
-## DNS Records Added to onesource.io
+## DNS Records on onesource.io
 
 | Record | Host | Type | Value | Purpose |
 |--------|------|------|-------|---------|
@@ -162,10 +196,13 @@ Full instructions are in the README under "Registry Publishing".
 | Tool | Purpose | Access |
 |------|---------|--------|
 | `mcp-publisher` | Publish to official MCP Registry | Binary in `C:\Users\gz\tools\` |
+| Go | Required for mcp-publisher install | Installed from go.dev/dl (Windows AMD64 MSI) |
 | Railway | Hosts the public HTTP MCP server | GitHub auth at railway.com |
 | Smithery | MCP server listing | Account at smithery.ai |
 | Glama | MCP server listing | GitHub auth, controlled by `glama.json` |
 | npm | Package registry | `@one-source/mcp` |
+
+---
 
 ## Key Files in Repo
 
@@ -173,6 +210,28 @@ Full instructions are in the README under "Registry Publishing".
 |------|---------|
 | `server.json` | MCP Registry listing metadata — version must match npm |
 | `glama.json` | Glama ownership claim |
-| `smithery.yaml` | Smithery config (outdated — uses stdio, needs update) |
+| `smithery.yaml` | Smithery config (outdated — uses stdio, needs update or removal) |
 | `railway.json` | Railway build/deploy config |
-| `README.md` | Includes Registry Publishing instructions |
+| `README.md` | Includes Registry Publishing instructions for MCP Registry and Glama |
+| `src/analytics.ts` | Analytics wrapper with hardcoded defaults |
+| `src/cli.ts` | Entry point — HTTP/stdio modes, analytics log, 0.0.0.0 bind |
+
+---
+
+## Session Timeline
+
+**2026-03-30:**
+- Published to official MCP Registry with DNS-verified namespace `io.onesource/mcp`
+- Confirmed Glama listing is live
+- Deployed to Railway with public endpoint `mcp.onesource.io`
+- Published to Smithery with HTTP transport
+- Submitted to mcpservers.org
+- Added Registry Publishing instructions to README
+- Researched awesome lists — punkpeye and royyannick repos are offline; pivoted to appcypher
+
+**2026-04-02:**
+- Reviewed and implemented analytics fix plan from the analytics repo team
+- Changed `src/analytics.ts` to hardcode default analytics URL and API key
+- Added analytics startup logging to both HTTP and stdio modes in `src/cli.ts`
+- Build verified clean
+- Pending: commit, npm publish, Railway redeploy, dashboard verification

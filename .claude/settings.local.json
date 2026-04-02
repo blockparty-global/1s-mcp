@@ -41,7 +41,9 @@
       "WebFetch(domain:raw.githubusercontent.com)",
       "Bash(gh api:*)",
       "Bash(curl -s \"https://api.github.com/repos/appcypher/awesome-mcp-servers\")",
-      "WebFetch(domain:api.github.com)"
+      "WebFetch(domain:api.github.com)",
+      "Bash(find /c/Users/gz/desktop/BlockParty/1s-mcp -type f -name .env*)",
+      "Bash(grep -r \"X402_PRIVATE_KEY\\\\|x402\" /c/Users/gz/desktop/BlockParty/1s-mcp --include=*.ts --include=*.json --include=*.yaml --include=*.md)"
     ]
   },
   "enabledMcpjsonServers": [

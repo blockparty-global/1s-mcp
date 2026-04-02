@@ -110,9 +110,49 @@ All blockchain API tools accept an optional `network` parameter:
 
 ## Payment (x402)
 
-Blockchain API endpoints are priced in USDC on Base via [x402](https://github.com/coinbase/x402). When the backend has payments enabled, tool calls return a 402 with payment details. Agents using [`@x402/fetch`](https://www.npmjs.com/package/@x402/fetch) handle this automatically.
+Blockchain API endpoints are priced in USDC on Base via [x402](https://github.com/coinbase/x402). When you set `X402_PRIVATE_KEY`, the server automatically handles payments — tool calls that return HTTP 402 are paid and retried without any extra work from the agent.
 
-Documentation tools are always free — no API key or authentication needed.
+Documentation tools are always free — no key or payment needed.
+
+### Setup
+
+1. **Get an EVM private key** — export one from MetaMask, Coinbase Wallet, or any EVM wallet. The key is a hex string starting with `0x`.
+2. **Fund the wallet with USDC on Base** — the wallet address derived from the key must hold USDC on the [Base](https://base.org) network. Bridge or transfer USDC to it.
+3. **Pass the key to the server** using one of the methods below.
+
+### Claude Code
+
+```bash
+claude mcp add onesource -e X402_PRIVATE_KEY=0x... -- npx @one-source/mcp
+```
+
+### Claude Desktop / Cursor
+
+Add the `env` block to your MCP config:
+
+```json
+{
+  "mcpServers": {
+    "onesource": {
+      "command": "npx",
+      "args": ["-y", "@one-source/mcp"],
+      "env": {
+        "X402_PRIVATE_KEY": "0x..."
+      }
+    }
+  }
+}
+```
+
+### Any MCP Client (stdio)
+
+```bash
+X402_PRIVATE_KEY=0x... npx @one-source/mcp
+```
+
+### Security
+
+Never commit your private key to source control. Use environment variables, a `.env` file (excluded from git), or a secrets manager.
 
 ## Environment Variables
 
