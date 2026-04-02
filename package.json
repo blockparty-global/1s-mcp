@@ -1,7 +1,7 @@
 {
   "name": "@one-source/mcp",
   "mcpName": "io.onesource/mcp",
-  "version": "2.6.0",
+  "version": "3.0.0",
   "type": "module",
   "description": "Unified MCP server for OneSource — 31 tools for blockchain data and API documentation",
   "bin": {
@@ -28,8 +28,8 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.27.1",
-    "@one-source/api-mcp": "^2.5.0",
-    "@one-source/docs-mcp": "^2.4.0",
+    "@one-source/api-mcp": "^3.0.0",
+    "@one-source/docs-mcp": "^3.0.0",
     "zod": "^3.24.0"
   },
   "devDependencies": {
