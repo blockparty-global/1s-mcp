@@ -1,9 +1,9 @@
 {
   "name": "@one-source/mcp",
   "mcpName": "io.onesource/mcp",
-  "version": "3.1.0",
+  "version": "3.1.1",
   "type": "module",
-  "description": "Unified MCP server for OneSource — 31 tools for blockchain data and API documentation",
+  "description": "Unified MCP server for OneSource — 32 tools for blockchain data and API documentation",
   "bin": {
     "onesource-mcp": "./dist/cli.js"
   },
@@ -18,6 +18,7 @@
   "files": [
     "dist/",
     "README.md",
+    "SKILL.md",
     "LICENSE"
   ],
   "scripts": {

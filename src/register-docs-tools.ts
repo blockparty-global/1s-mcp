@@ -1,5 +1,5 @@
 /**
- * Register all 9 docs tools from @one-source/docs-mcp onto a shared McpServer.
+ * Register all 10 docs tools from @one-source/docs-mcp onto a shared McpServer.
  *
  * Replicates the exact instrumentation pattern from docs-mcp's create-server.ts:
  * performance timing, session hashing, and error sanitization.
@@ -46,7 +46,7 @@ function instrumentedTool(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   schema: any,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  handler: (input: any) => string,
+  handler: (input: any) => string | Promise<string>,
 ): void {
   server.tool(name, description, schema, async (input: Record<string, unknown>, extra: RequestHandlerExtra<ServerRequest, ServerNotification>) => {
     const start = performance.now();
@@ -71,7 +71,7 @@ function instrumentedTool(
     };
 
     try {
-      const text = handler(input);
+      const text = await handler(input);
       const durationMs = Math.round(performance.now() - start);
 
       analytics.trackTool({
@@ -108,6 +108,10 @@ export interface RegisterDocsToolsOptions {
   transport?: 'stdio' | 'http';
   /** Pre-loaded docs data (avoids re-reading files per request in HTTP mode). */
   data?: LoadedData;
+  /** Whether x402 payments are enabled (set during startup). */
+  x402Enabled?: boolean;
+  /** Wallet address derived from X402_PRIVATE_KEY (set during startup). */
+  x402Address?: string;
 }
 
 /**
@@ -180,7 +184,118 @@ export function registerDocsTools(opts: RegisterDocsToolsOptions): number {
     () => handleGetAuthenticationGuide(),
   );
 
-  return 9;
+  const x402Enabled = opts.x402Enabled;
+  const x402Address = opts.x402Address;
+
+  instrumentedTool(server, analytics, transport,
+    '1s_setup_check',
+    'Check OneSource MCP server health — version (current vs latest), x402 payment status, wallet address, API connectivity, and setup instructions if anything is missing. Free, no payment required. Call this first when troubleshooting.',
+    {},
+    async () => {
+      const sections: string[] = [];
+
+      // 1. Server version
+      sections.push('## Server Version\n');
+      sections.push(`Current: ${VERSION}`);
+
+      let latestVersion = 'unknown';
+      try {
+        const res = await fetch('https://registry.npmjs.org/@one-source/mcp/latest', {
+          signal: AbortSignal.timeout(5000),
+        });
+        if (res.ok) {
+          const data = await res.json() as { version: string };
+          latestVersion = data.version;
+        }
+      } catch { /* network error — skip */ }
+
+      sections.push(`Latest:  ${latestVersion}`);
+      if (latestVersion !== 'unknown' && latestVersion !== VERSION) {
+        sections.push('\n**Update available!** Run: `npx @one-source/mcp@latest`');
+      } else if (latestVersion === VERSION) {
+        sections.push('\nYou are on the latest version.');
+      }
+
+      // 2. x402 payment status
+      sections.push('\n## x402 Payment Status\n');
+
+      const enabled = x402Enabled ?? !!process.env.X402_PRIVATE_KEY;
+
+      if (enabled && x402Address) {
+        sections.push('Status: **Configured**');
+        sections.push(`Wallet: \`${x402Address}\``);
+        sections.push('\nThis wallet must hold USDC on the **Base** network to pay for API calls.');
+      } else if (enabled) {
+        sections.push('Status: **Configured** (wallet address not available)');
+      } else {
+        sections.push('Status: **Not configured**');
+        sections.push('\nBlockchain API tools require x402 payment. Without a key, paid endpoints return HTTP 402 errors.\n');
+        sections.push('### How to configure x402\n');
+        sections.push('1. **Get an EVM private key** — export from MetaMask, Coinbase Wallet, or generate one:');
+        sections.push('   ```');
+        sections.push('   # Generate a new key');
+        sections.push('   echo "0x$(openssl rand -hex 32)"');
+        sections.push('   ```\n');
+        sections.push('2. **Fund the wallet** with USDC on the **Base** network (not Ethereum mainnet). A few dollars is enough for hundreds of queries.\n');
+        sections.push('3. **Set the key** for your MCP client:\n');
+        sections.push('   **Claude Code:**');
+        sections.push('   ```');
+        sections.push('   claude mcp remove onesource');
+        sections.push('   claude mcp add onesource -e X402_PRIVATE_KEY=0x... -- npx @one-source/mcp');
+        sections.push('   ```\n');
+        sections.push('   **Claude Desktop / Cursor** — add an `env` block to your MCP config:');
+        sections.push('   ```json');
+        sections.push('   {');
+        sections.push('     "mcpServers": {');
+        sections.push('       "onesource": {');
+        sections.push('         "command": "npx",');
+        sections.push('         "args": ["-y", "@one-source/mcp"],');
+        sections.push('         "env": { "X402_PRIVATE_KEY": "0x..." }');
+        sections.push('       }');
+        sections.push('     }');
+        sections.push('   }');
+        sections.push('   ```\n');
+        sections.push('   **Any MCP client (stdio):**');
+        sections.push('   ```');
+        sections.push('   X402_PRIVATE_KEY=0x... npx @one-source/mcp');
+        sections.push('   ```\n');
+        sections.push('4. **Restart the MCP server** after setting the key.\n');
+        sections.push('**Security:** Never commit your private key to source control. Use environment variables or a secrets manager.');
+      }
+
+      // 3. API connectivity
+      sections.push('\n## API Connectivity\n');
+      const baseUrl = process.env.ONESOURCE_BASE_URL ?? 'https://skills.onesource.io';
+      try {
+        const res = await fetch(baseUrl, { method: 'HEAD', signal: AbortSignal.timeout(5000) });
+        sections.push(`Backend: **Reachable** (${baseUrl})`);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        sections.push(`Backend: **Unreachable** — ${msg}`);
+      }
+
+      // 4. Transport
+      sections.push('\n## Transport\n');
+      sections.push(`Mode: ${transport ?? 'unknown'}`);
+
+      // 5. Next steps
+      sections.push('\n## Next Steps\n');
+      if (!enabled) {
+        sections.push('- Configure x402 payments to use blockchain API tools (see instructions above)');
+      }
+      if (latestVersion !== 'unknown' && latestVersion !== VERSION) {
+        sections.push('- Update to the latest version: `npx @one-source/mcp@latest`');
+      }
+      sections.push('- Documentation tools are free — try `search_docs` or `list_supported_chains`');
+      if (enabled) {
+        sections.push('- Try a paid API tool: `1s_network_info` (returns chain ID, block number, gas price)');
+      }
+
+      return sections.join('\n');
+    },
+  );
+
+  return 10;
 }
 
 export { loadData, type LoadedData };

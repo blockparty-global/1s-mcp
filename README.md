@@ -1,8 +1,8 @@
 # @one-source/mcp
 
-Unified MCP server for [OneSource](https://docs.onesource.io) — 31 tools for blockchain data, live chain queries, and API documentation in a single server.
+Unified MCP server for [OneSource](https://docs.onesource.io) — 32 tools for blockchain data, live chain queries, and API documentation in a single server.
 
-Combines [`@one-source/api-mcp`](https://www.npmjs.com/package/@one-source/api-mcp) (22 tools) and [`@one-source/docs-mcp`](https://www.npmjs.com/package/@one-source/docs-mcp) (9 tools) so your AI assistant gets full access to OneSource with one MCP connection.
+Combines [`@one-source/api-mcp`](https://www.npmjs.com/package/@one-source/api-mcp) (22 tools) and [`@one-source/docs-mcp`](https://www.npmjs.com/package/@one-source/docs-mcp) (10 tools) so your AI assistant gets full access to OneSource with one MCP connection.
 
 > **What is MCP?** The [Model Context Protocol](https://modelcontextprotocol.io) lets AI assistants call tools and access data sources. This server exposes both the OneSource blockchain API and its documentation as tools.
 
@@ -46,7 +46,7 @@ Then connect your MCP client to `http://localhost:3000/`.
 
 Health check: `GET http://localhost:3000/health`
 
-## Tools (31)
+## Tools (32)
 
 ### Blockchain API — Live Chain (12 tools)
 
@@ -82,12 +82,13 @@ RPC only.
 | `1s_storage_read` | Read storage slot |
 | `1s_tx_receipt` | Transaction receipt |
 
-### Documentation (9 tools)
+### Documentation & Setup (10 tools)
 
 Read-only, no API key required.
 
 | Tool | Purpose | When to use |
 |------|---------|-------------|
+| `1s_setup_check` | Server health, version, x402 status, setup instructions | First thing to call — checks if everything is configured |
 | `search_docs` | Keyword search across all documentation | Finding guides, concepts, or API patterns |
 | `get_query_reference` | Full reference for a root GraphQL query | Building a specific query with correct args/filters |
 | `get_type_definition` | Schema definition for any type/enum/input | Understanding field shapes and return types |

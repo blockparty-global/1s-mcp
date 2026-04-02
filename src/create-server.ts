@@ -1,7 +1,7 @@
 /**
  * Unified MCP Server Factory
  *
- * Creates a single McpServer named 'onesource' with all 31 tools
+ * Creates a single McpServer named 'onesource' with all 32 tools
  * (22 API + 9 docs) by delegating to the two register modules.
  */
 
@@ -21,6 +21,10 @@ export interface CreateServerOptions {
   client?: OneSourceClient;
   /** Transport mode — passed through to analytics events. */
   transport?: 'stdio' | 'http';
+  /** Whether x402 payments are enabled (set during startup). */
+  x402Enabled?: boolean;
+  /** Wallet address derived from X402_PRIVATE_KEY (set during startup). */
+  x402Address?: string;
 }
 
 export interface CreateServerResult {
@@ -54,6 +58,8 @@ export function createMcpServer(opts?: CreateServerOptions): CreateServerResult 
     analytics,
     transport,
     data: opts?.docsData,
+    x402Enabled: opts?.x402Enabled,
+    x402Address: opts?.x402Address,
   });
 
   return { server, analytics, client, toolCount: apiCount + docsCount };

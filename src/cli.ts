@@ -49,12 +49,16 @@ if (args.includes('--http')) {
 
   // x402 payment wrapper — only active when X402_PRIVATE_KEY is set
   let x402Fetch: typeof globalThis.fetch | undefined;
+  let x402Enabled = false;
+  let x402Address: string | undefined;
   try {
     const { setupX402 } = await import('@one-source/api-mcp/x402');
     const x402 = setupX402();
     if (x402.enabled) {
       console.error(`[onesource] x402 payments enabled (wallet: ${x402.address})`);
       x402Fetch = x402.fetch;
+      x402Enabled = true;
+      x402Address = x402.address;
     }
   } catch (err) {
     console.error(`[onesource] x402 setup failed, continuing without payments: ${err instanceof Error ? err.message : err}`);
@@ -74,6 +78,8 @@ if (args.includes('--http')) {
     analytics: sharedAnalytics,
     client: sharedClient,
     transport: 'http',
+    x402Enabled,
+    x402Address,
   });
 
   const httpServer = createServer(async (req, res) => {
@@ -117,6 +123,8 @@ if (args.includes('--http')) {
       analytics: sharedAnalytics,
       client: sharedClient,
       transport: 'http',
+      x402Enabled,
+      x402Address,
     });
     const httpTransport = new StreamableHTTPServerTransport({
       sessionIdGenerator: undefined,
@@ -191,19 +199,23 @@ if (args.includes('--http')) {
 
   // x402 payment wrapper — only active when X402_PRIVATE_KEY is set
   let x402Fetch: typeof globalThis.fetch | undefined;
+  let x402Enabled = false;
+  let x402Address: string | undefined;
   try {
     const { setupX402 } = await import('@one-source/api-mcp/x402');
     const x402 = setupX402();
     if (x402.enabled) {
       console.error(`[onesource] x402 payments enabled (wallet: ${x402.address})`);
       x402Fetch = x402.fetch;
+      x402Enabled = true;
+      x402Address = x402.address;
     }
   } catch (err) {
     console.error(`[onesource] x402 setup failed, continuing without payments: ${err instanceof Error ? err.message : err}`);
   }
 
   const client = createClientFromEnv({ fetch: x402Fetch });
-  const { server, analytics } = createMcpServer({ client, transport: 'stdio' });
+  const { server, analytics } = createMcpServer({ client, transport: 'stdio', x402Enabled, x402Address });
   const stdioTransport = new StdioServerTransport();
   await server.connect(stdioTransport);
   console.error('[onesource] Server connected via stdio');

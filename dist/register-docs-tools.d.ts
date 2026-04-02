@@ -1,5 +1,5 @@
 /**
- * Register all 9 docs tools from @one-source/docs-mcp onto a shared McpServer.
+ * Register all 10 docs tools from @one-source/docs-mcp onto a shared McpServer.
  *
  * Replicates the exact instrumentation pattern from docs-mcp's create-server.ts:
  * performance timing, session hashing, and error sanitization.
@@ -14,6 +14,10 @@ export interface RegisterDocsToolsOptions {
     transport?: 'stdio' | 'http';
     /** Pre-loaded docs data (avoids re-reading files per request in HTTP mode). */
     data?: LoadedData;
+    /** Whether x402 payments are enabled (set during startup). */
+    x402Enabled?: boolean;
+    /** Wallet address derived from X402_PRIVATE_KEY (set during startup). */
+    x402Address?: string;
 }
 /**
  * Register all docs tools and return the tool count.
