@@ -8,6 +8,39 @@
  *   npx onesource-mcp --http --port=8080
  */
 const args = process.argv.slice(2);
+/** Fetch the latest published version from npm (3s timeout, returns null on failure). */
+async function checkLatestVersion() {
+    try {
+        const res = await fetch('https://registry.npmjs.org/@one-source/mcp/latest', {
+            signal: AbortSignal.timeout(3000),
+        });
+        if (!res.ok)
+            return null;
+        const data = await res.json();
+        return data.version ?? null;
+    }
+    catch {
+        return null;
+    }
+}
+/** Build the MCP instructions string based on version comparison. */
+function buildInstructions(currentVersion, latestVersion) {
+    const baseline = [
+        'OneSource MCP — 32 tools for blockchain data and API documentation.',
+        '',
+        'Blockchain API tools require x402 payment (USDC on Base). If a tool returns a 402 error, the user needs to configure X402_PRIVATE_KEY. Call 1s_setup_check for diagnostics and setup instructions.',
+        '',
+        'Documentation tools (search_docs, get_query_reference, etc.) are always free.',
+    ].join('\n');
+    if (latestVersion && latestVersion !== currentVersion) {
+        return [
+            `UPDATE AVAILABLE: OneSource MCP v${currentVersion} is installed but v${latestVersion} is available. Newer versions may include new tools, bug fixes, or protocol changes. Ask the user to update by running: npx -y @one-source/mcp@latest`,
+            '',
+            baseline,
+        ].join('\n');
+    }
+    return baseline;
+}
 if (args.includes('--http')) {
     // ---------- HTTP mode ----------
     // Port priority: PORT env var (set by Railway/hosting) > --port flag > 3000
@@ -56,6 +89,18 @@ if (args.includes('--http')) {
     }
     // Pre-load docs data once at startup
     const docsData = loadData();
+    // Check for updates (non-blocking, 3s timeout)
+    const latestVersion = await checkLatestVersion();
+    const instructions = buildInstructions(VERSION, latestVersion);
+    if (latestVersion && latestVersion !== VERSION) {
+        console.error(`[onesource] v${VERSION} (update available: v${latestVersion})`);
+    }
+    else if (latestVersion) {
+        console.error(`[onesource] v${VERSION} (latest)`);
+    }
+    else {
+        console.error(`[onesource] v${VERSION}`);
+    }
     // Shared singletons — reused across stateless per-request servers
     const sharedAnalytics = createAnalytics();
     console.error(`[onesource] analytics: ${process.env.ONESOURCE_ANALYTICS === 'false' ? 'disabled' : `dashboard (${process.env.ONESOURCE_ANALYTICS_URL})`}`);
@@ -68,6 +113,7 @@ if (args.includes('--http')) {
         transport: 'http',
         x402Enabled,
         x402Address,
+        instructions,
     });
     const httpServer = createServer(async (req, res) => {
         // CORS headers
@@ -108,6 +154,7 @@ if (args.includes('--http')) {
             transport: 'http',
             x402Enabled,
             x402Address,
+            instructions,
         });
         const httpTransport = new StreamableHTTPServerTransport({
             sessionIdGenerator: undefined,
@@ -189,8 +236,20 @@ else {
     catch (err) {
         console.error(`[onesource] x402 setup failed, continuing without payments: ${err instanceof Error ? err.message : err}`);
     }
+    // Check for updates (non-blocking, 3s timeout)
+    const latestVersion = await checkLatestVersion();
+    const instructions = buildInstructions(VERSION, latestVersion);
+    if (latestVersion && latestVersion !== VERSION) {
+        console.error(`[onesource] v${VERSION} (update available: v${latestVersion})`);
+    }
+    else if (latestVersion) {
+        console.error(`[onesource] v${VERSION} (latest)`);
+    }
+    else {
+        console.error(`[onesource] v${VERSION}`);
+    }
     const client = createClientFromEnv({ fetch: x402Fetch });
-    const { server, analytics } = createMcpServer({ client, transport: 'stdio', x402Enabled, x402Address });
+    const { server, analytics } = createMcpServer({ client, transport: 'stdio', x402Enabled, x402Address, instructions });
     const stdioTransport = new StdioServerTransport();
     await server.connect(stdioTransport);
     console.error('[onesource] Server connected via stdio');

@@ -22,6 +22,8 @@ export interface CreateServerOptions {
     x402Enabled?: boolean;
     /** Wallet address derived from X402_PRIVATE_KEY (set during startup). */
     x402Address?: string;
+    /** Server instructions injected into the LLM's system prompt by MCP clients. */
+    instructions?: string;
 }
 export interface CreateServerResult {
     server: McpServer;

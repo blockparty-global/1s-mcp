@@ -15,10 +15,7 @@ import { VERSION } from './version.js';
 export function createMcpServer(opts) {
     const analytics = opts?.analytics ?? createAnalytics();
     const transport = opts?.transport;
-    const server = new McpServer({
-        name: 'onesource',
-        version: VERSION,
-    });
+    const server = new McpServer({ name: 'onesource', version: VERSION }, opts?.instructions ? { instructions: opts.instructions } : undefined);
     const { client, count: apiCount } = registerApiTools({
         server,
         analytics,

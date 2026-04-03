@@ -9,7 +9,17 @@ description: >-
 
 # OneSource MCP Setup Guide
 
-OneSource MCP provides 32 tools for blockchain data, live chain queries, and API documentation. Documentation tools are free. Blockchain API tools require x402 micropayments in USDC on the Base network.
+OneSource MCP provides 33 tools for blockchain data, live chain queries, and API documentation. Documentation tools are free. Blockchain API tools require x402 micropayments in USDC on the Base network.
+
+## Before You Start
+
+**Always call `1s_setup_check` before using any other OneSource tools.** This checks the installed version against the latest release and reports x402 payment status.
+
+- **If an update is available:** Tell the user and help them update before proceeding. Run `npx -y @one-source/mcp@latest` to get the latest version. The update takes effect on the next session — the user will need to restart their MCP client.
+- **If `1s_setup_check` is not available:** The MCP is either not installed or running a version before this tool existed. Help the user install or update using the instructions in Step 2 below.
+- **If x402 is not configured:** The tool will include setup instructions. Walk the user through them before attempting paid API calls.
+
+Do not skip this step — outdated versions may be missing tools, fixes, or protocol changes.
 
 ## Step 1: Check Current Installation
 
@@ -26,7 +36,7 @@ If the tool is not available, the MCP is not installed — go to Step 2.
 ### Claude Code
 
 ```bash
-claude mcp add onesource -- npx @one-source/mcp
+claude mcp add onesource -- npx -y @one-source/mcp@latest
 ```
 
 ### Claude Desktop / Cursor
@@ -38,7 +48,7 @@ Add to your MCP configuration file:
   "mcpServers": {
     "onesource": {
       "command": "npx",
-      "args": ["-y", "@one-source/mcp"]
+      "args": ["-y", "@one-source/mcp@latest"]
     }
   }
 }
@@ -47,7 +57,7 @@ Add to your MCP configuration file:
 ### Any MCP Client (stdio)
 
 ```bash
-npx @one-source/mcp
+npx -y @one-source/mcp@latest
 ```
 
 ### Check for Updates
@@ -58,7 +68,7 @@ Compare the installed version (shown in `1s_setup_check` output) against the lat
 npm view @one-source/mcp version
 ```
 
-To update, reinstall or use `npx @one-source/mcp@latest`.
+To update, reinstall with `@latest` or clear the npx cache: `npx -y @one-source/mcp@latest`.
 
 ## Step 3: Get an EVM Private Key
 
@@ -105,7 +115,7 @@ If you have USDC on Ethereum mainnet, bridge it to Base using the [Base Bridge](
 
 ```bash
 claude mcp remove onesource
-claude mcp add onesource -e X402_PRIVATE_KEY=0x... -- npx @one-source/mcp
+claude mcp add onesource -e X402_PRIVATE_KEY=0x... -- npx -y @one-source/mcp@latest
 ```
 
 ### Claude Desktop / Cursor
@@ -117,7 +127,7 @@ Add the `env` block to your MCP config:
   "mcpServers": {
     "onesource": {
       "command": "npx",
-      "args": ["-y", "@one-source/mcp"],
+      "args": ["-y", "@one-source/mcp@latest"],
       "env": {
         "X402_PRIVATE_KEY": "0x..."
       }
@@ -129,7 +139,7 @@ Add the `env` block to your MCP config:
 ### Any MCP Client (stdio)
 
 ```bash
-X402_PRIVATE_KEY=0x... npx @one-source/mcp
+X402_PRIVATE_KEY=0x... npx -y @one-source/mcp@latest
 ```
 
 ### Security

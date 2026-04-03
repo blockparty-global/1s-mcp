@@ -1,5 +1,5 @@
 /**
- * Register all 10 docs tools from @one-source/docs-mcp onto a shared McpServer.
+ * Register all 11 docs tools from @one-source/docs-mcp onto a shared McpServer.
  *
  * Replicates the exact instrumentation pattern from docs-mcp's create-server.ts:
  * performance timing, session hashing, and error sanitization.

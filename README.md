@@ -1,8 +1,8 @@
 # @one-source/mcp
 
-Unified MCP server for [OneSource](https://docs.onesource.io) — 32 tools for blockchain data, live chain queries, and API documentation in a single server.
+Unified MCP server for [OneSource](https://docs.onesource.io) — 33 tools for blockchain data, live chain queries, and API documentation in a single server.
 
-Combines [`@one-source/api-mcp`](https://www.npmjs.com/package/@one-source/api-mcp) (22 tools) and [`@one-source/docs-mcp`](https://www.npmjs.com/package/@one-source/docs-mcp) (10 tools) so your AI assistant gets full access to OneSource with one MCP connection.
+Combines [`@one-source/api-mcp`](https://www.npmjs.com/package/@one-source/api-mcp) (22 tools) and [`@one-source/docs-mcp`](https://www.npmjs.com/package/@one-source/docs-mcp) (11 tools) so your AI assistant gets full access to OneSource with one MCP connection.
 
 > **What is MCP?** The [Model Context Protocol](https://modelcontextprotocol.io) lets AI assistants call tools and access data sources. This server exposes both the OneSource blockchain API and its documentation as tools.
 
@@ -11,7 +11,7 @@ Combines [`@one-source/api-mcp`](https://www.npmjs.com/package/@one-source/api-m
 ### Claude Code
 
 ```bash
-claude mcp add onesource -- npx @one-source/mcp
+claude mcp add onesource -- npx -y @one-source/mcp@latest
 ```
 
 ### Claude Desktop / Cursor
@@ -23,7 +23,7 @@ Add to your MCP config:
   "mcpServers": {
     "onesource": {
       "command": "npx",
-      "args": ["-y", "@one-source/mcp"]
+      "args": ["-y", "@one-source/mcp@latest"]
     }
   }
 }
@@ -32,21 +32,21 @@ Add to your MCP config:
 ### Any MCP Client (stdio)
 
 ```bash
-npx @one-source/mcp
+npx -y @one-source/mcp@latest
 ```
 
 ### HTTP Server (self-hosted)
 
 ```bash
-npx @one-source/mcp --http
-npx @one-source/mcp --http --port=8080
+npx -y @one-source/mcp@latest --http
+npx -y @one-source/mcp@latest --http --port=8080
 ```
 
 Then connect your MCP client to `http://localhost:3000/`.
 
 Health check: `GET http://localhost:3000/health`
 
-## Tools (32)
+## Tools (33)
 
 ### Blockchain API — Live Chain (12 tools)
 
@@ -82,7 +82,7 @@ RPC only.
 | `1s_storage_read` | Read storage slot |
 | `1s_tx_receipt` | Transaction receipt |
 
-### Documentation & Setup (10 tools)
+### Documentation & Setup (11 tools)
 
 Read-only, no API key required.
 
@@ -98,6 +98,7 @@ Read-only, no API key required.
 | `get_pagination_guide` | Cursor-based pagination pattern with examples | Implementing pagination for list queries |
 | `get_schema_overview` | High-level summary of the entire schema | Exploring the API surface before diving in |
 | `get_authentication_guide` | API key format, headers, and endpoints | Setting up authentication for the first time |
+| `get_mcp_setup_guide` | MCP installation, setup, x402 config guide | Setting up the MCP server or configuring payments |
 
 ## Networks
 
@@ -124,7 +125,7 @@ Documentation tools are always free — no key or payment needed.
 ### Claude Code
 
 ```bash
-claude mcp add onesource -e X402_PRIVATE_KEY=0x... -- npx @one-source/mcp
+claude mcp add onesource -e X402_PRIVATE_KEY=0x... -- npx -y @one-source/mcp@latest
 ```
 
 ### Claude Desktop / Cursor
@@ -136,7 +137,7 @@ Add the `env` block to your MCP config:
   "mcpServers": {
     "onesource": {
       "command": "npx",
-      "args": ["-y", "@one-source/mcp"],
+      "args": ["-y", "@one-source/mcp@latest"],
       "env": {
         "X402_PRIVATE_KEY": "0x..."
       }
@@ -148,7 +149,7 @@ Add the `env` block to your MCP config:
 ### Any MCP Client (stdio)
 
 ```bash
-X402_PRIVATE_KEY=0x... npx @one-source/mcp
+X402_PRIVATE_KEY=0x... npx -y @one-source/mcp@latest
 ```
 
 ### Security
@@ -171,7 +172,7 @@ Never commit your private key to source control. Use environment variables, a `.
 That's normal — stdio mode waits for JSON-RPC input on stdin. Use `--http` if you want an HTTP server you can curl.
 
 **Port already in use**
-Specify a different port: `npx @one-source/mcp --http --port=8080`
+Specify a different port: `npx -y @one-source/mcp@latest --http --port=8080`
 
 **Tools return "Data files may be missing"**
 Try reinstalling: `npm install @one-source/mcp`

@@ -1,5 +1,5 @@
 /**
- * Register all 10 docs tools from @one-source/docs-mcp onto a shared McpServer.
+ * Register all 11 docs tools from @one-source/docs-mcp onto a shared McpServer.
  *
  * Replicates the exact instrumentation pattern from docs-mcp's create-server.ts:
  * performance timing, session hashing, and error sanitization.
@@ -16,6 +16,7 @@ import { getFilterReferenceSchema, handleGetFilterReference } from '@one-source/
 import { getPaginationGuideSchema, handleGetPaginationGuide } from '@one-source/docs-mcp/tools/get-pagination-guide';
 import { getSchemaOverviewSchema, handleGetSchemaOverview } from '@one-source/docs-mcp/tools/get-schema-overview';
 import { getAuthenticationGuideSchema, handleGetAuthenticationGuide } from '@one-source/docs-mcp/tools/get-authentication-guide';
+import { getMcpSetupGuideSchema, handleGetMcpSetupGuide } from '@one-source/docs-mcp/tools/get-mcp-setup-guide';
 import { VERSION } from './version.js';
 function hashSession(sessionId) {
     if (!sessionId)
@@ -97,6 +98,7 @@ export function registerDocsTools(opts) {
     instrumentedTool(server, analytics, transport, 'get_pagination_guide', 'Get the cursor-based pagination pattern with examples for a list query.', getPaginationGuideSchema.shape, (input) => handleGetPaginationGuide(input, schema));
     instrumentedTool(server, analytics, transport, 'get_schema_overview', 'Get a high-level summary of the entire GraphQL schema — all queries, types, enums, and scalars.', getSchemaOverviewSchema.shape, () => handleGetSchemaOverview(schema));
     instrumentedTool(server, analytics, transport, 'get_authentication_guide', 'Get the authentication guide — API key format, endpoints, headers, and common mistakes.', getAuthenticationGuideSchema.shape, () => handleGetAuthenticationGuide());
+    instrumentedTool(server, analytics, transport, 'get_mcp_setup_guide', 'Get the MCP installation and setup guide — quickstart, per-client instructions, x402 payments, configuration, and individual MCP packages. Use the topic parameter to focus on a specific area.', getMcpSetupGuideSchema.shape, (input) => handleGetMcpSetupGuide(input, sections));
     const x402Enabled = opts.x402Enabled;
     const x402Address = opts.x402Address;
     instrumentedTool(server, analytics, transport, '1s_setup_check', 'Check OneSource MCP server health — version (current vs latest), x402 payment status, wallet address, API connectivity, and setup instructions if anything is missing. Free, no payment required. Call this first when troubleshooting.', {}, async () => {
@@ -147,7 +149,7 @@ export function registerDocsTools(opts) {
             sections.push('   **Claude Code:**');
             sections.push('   ```');
             sections.push('   claude mcp remove onesource');
-            sections.push('   claude mcp add onesource -e X402_PRIVATE_KEY=0x... -- npx @one-source/mcp');
+            sections.push('   claude mcp add onesource -e X402_PRIVATE_KEY=0x... -- npx -y @one-source/mcp@latest');
             sections.push('   ```\n');
             sections.push('   **Claude Desktop / Cursor** — add an `env` block to your MCP config:');
             sections.push('   ```json');
@@ -155,7 +157,7 @@ export function registerDocsTools(opts) {
             sections.push('     "mcpServers": {');
             sections.push('       "onesource": {');
             sections.push('         "command": "npx",');
-            sections.push('         "args": ["-y", "@one-source/mcp"],');
+            sections.push('         "args": ["-y", "@one-source/mcp@latest"],');
             sections.push('         "env": { "X402_PRIVATE_KEY": "0x..." }');
             sections.push('       }');
             sections.push('     }');
@@ -163,7 +165,7 @@ export function registerDocsTools(opts) {
             sections.push('   ```\n');
             sections.push('   **Any MCP client (stdio):**');
             sections.push('   ```');
-            sections.push('   X402_PRIVATE_KEY=0x... npx @one-source/mcp');
+            sections.push('   X402_PRIVATE_KEY=0x... npx -y @one-source/mcp@latest');
             sections.push('   ```\n');
             sections.push('4. **Restart the MCP server** after setting the key.\n');
             sections.push('**Security:** Never commit your private key to source control. Use environment variables or a secrets manager.');
@@ -196,7 +198,7 @@ export function registerDocsTools(opts) {
         }
         return sections.join('\n');
     });
-    return 10;
+    return 11;
 }
 export { loadData };
 //# sourceMappingURL=register-docs-tools.js.map

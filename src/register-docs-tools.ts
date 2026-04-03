@@ -1,5 +1,5 @@
 /**
- * Register all 10 docs tools from @one-source/docs-mcp onto a shared McpServer.
+ * Register all 11 docs tools from @one-source/docs-mcp onto a shared McpServer.
  *
  * Replicates the exact instrumentation pattern from docs-mcp's create-server.ts:
  * performance timing, session hashing, and error sanitization.
@@ -21,6 +21,7 @@ import { getFilterReferenceSchema, handleGetFilterReference } from '@one-source/
 import { getPaginationGuideSchema, handleGetPaginationGuide } from '@one-source/docs-mcp/tools/get-pagination-guide';
 import { getSchemaOverviewSchema, handleGetSchemaOverview } from '@one-source/docs-mcp/tools/get-schema-overview';
 import { getAuthenticationGuideSchema, handleGetAuthenticationGuide } from '@one-source/docs-mcp/tools/get-authentication-guide';
+import { getMcpSetupGuideSchema, handleGetMcpSetupGuide } from '@one-source/docs-mcp/tools/get-mcp-setup-guide';
 
 import type { Analytics, ToolCallEvent } from './analytics.js';
 import { VERSION } from './version.js';
@@ -184,6 +185,13 @@ export function registerDocsTools(opts: RegisterDocsToolsOptions): number {
     () => handleGetAuthenticationGuide(),
   );
 
+  instrumentedTool(server, analytics, transport,
+    'get_mcp_setup_guide',
+    'Get the MCP installation and setup guide — quickstart, per-client instructions, x402 payments, configuration, and individual MCP packages. Use the topic parameter to focus on a specific area.',
+    getMcpSetupGuideSchema.shape,
+    (input) => handleGetMcpSetupGuide(input, sections),
+  );
+
   const x402Enabled = opts.x402Enabled;
   const x402Address = opts.x402Address;
 
@@ -241,7 +249,7 @@ export function registerDocsTools(opts: RegisterDocsToolsOptions): number {
         sections.push('   **Claude Code:**');
         sections.push('   ```');
         sections.push('   claude mcp remove onesource');
-        sections.push('   claude mcp add onesource -e X402_PRIVATE_KEY=0x... -- npx @one-source/mcp');
+        sections.push('   claude mcp add onesource -e X402_PRIVATE_KEY=0x... -- npx -y @one-source/mcp@latest');
         sections.push('   ```\n');
         sections.push('   **Claude Desktop / Cursor** — add an `env` block to your MCP config:');
         sections.push('   ```json');
@@ -249,7 +257,7 @@ export function registerDocsTools(opts: RegisterDocsToolsOptions): number {
         sections.push('     "mcpServers": {');
         sections.push('       "onesource": {');
         sections.push('         "command": "npx",');
-        sections.push('         "args": ["-y", "@one-source/mcp"],');
+        sections.push('         "args": ["-y", "@one-source/mcp@latest"],');
         sections.push('         "env": { "X402_PRIVATE_KEY": "0x..." }');
         sections.push('       }');
         sections.push('     }');
@@ -257,7 +265,7 @@ export function registerDocsTools(opts: RegisterDocsToolsOptions): number {
         sections.push('   ```\n');
         sections.push('   **Any MCP client (stdio):**');
         sections.push('   ```');
-        sections.push('   X402_PRIVATE_KEY=0x... npx @one-source/mcp');
+        sections.push('   X402_PRIVATE_KEY=0x... npx -y @one-source/mcp@latest');
         sections.push('   ```\n');
         sections.push('4. **Restart the MCP server** after setting the key.\n');
         sections.push('**Security:** Never commit your private key to source control. Use environment variables or a secrets manager.');
@@ -295,7 +303,7 @@ export function registerDocsTools(opts: RegisterDocsToolsOptions): number {
     },
   );
 
-  return 10;
+  return 11;
 }
 
 export { loadData, type LoadedData };
