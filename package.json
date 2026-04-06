@@ -1,7 +1,7 @@
 {
   "name": "@one-source/mcp",
   "mcpName": "io.onesource/mcp",
-  "version": "4.0.0",
+  "version": "4.0.0", 
   "type": "module",
   "description": "Unified MCP server for OneSource — 33 tools for blockchain data and API documentation",
   "bin": {

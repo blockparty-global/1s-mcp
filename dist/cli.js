@@ -26,7 +26,7 @@ async function checkLatestVersion() {
 /** Build the MCP instructions string based on version comparison. */
 function buildInstructions(currentVersion, latestVersion) {
     const baseline = [
-        'OneSource MCP — 32 tools for blockchain data and API documentation.',
+        'OneSource MCP — 33 tools for blockchain data and API documentation.',
         '',
         'Blockchain API tools require x402 payment (USDC on Base). If a tool returns a 402 error, the user needs to configure X402_PRIVATE_KEY. Call 1s_setup_check for diagnostics and setup instructions.',
         '',

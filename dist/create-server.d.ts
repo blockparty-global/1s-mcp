@@ -1,7 +1,7 @@
 /**
  * Unified MCP Server Factory
  *
- * Creates a single McpServer named 'onesource' with all 32 tools
+ * Creates a single McpServer named 'onesource' with all 33 tools
  * (22 API + 9 docs) by delegating to the two register modules.
  */
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';

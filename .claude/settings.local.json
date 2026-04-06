@@ -44,11 +44,31 @@
       "WebFetch(domain:api.github.com)",
       "Bash(find /c/Users/gz/desktop/BlockParty/1s-mcp -type f -name .env*)",
       "Bash(grep -r \"X402_PRIVATE_KEY\\\\|x402\" /c/Users/gz/desktop/BlockParty/1s-mcp --include=*.ts --include=*.json --include=*.yaml --include=*.md)",
-      "Bash(npm:*)"
+      "Bash(npm:*)",
+      "Bash(npx --version)",
+      "Bash(npx:*)",
+      "WebFetch(domain:www.npmjs.com)",
+      "WebFetch(domain:steipete.me)",
+      "WebFetch(domain:hanzilla.co)",
+      "WebFetch(domain:docs.npmjs.com)",
+      "mcp__plugin_compound-engineering_context7__resolve-library-id",
+      "Bash(xargs grep:*)",
+      "mcp__plugin_compound-engineering_context7__query-docs",
+      "WebFetch(domain:spec.modelcontextprotocol.io)",
+      "Bash(where gh:*)",
+      "WebFetch(domain:gelembjuk.com)",
+      "WebFetch(domain:zazencodes.substack.com)",
+      "WebFetch(domain:www.mcpevals.io)",
+      "Skill(update-config)",
+      "Bash(grep:*)",
+      "WebFetch(domain:claudefa.st)",
+      "Bash(node .claude/hooks/check-mcp-version.mjs)"
     ]
   },
   "enabledMcpjsonServers": [
     "mirdan",
-    "figma"
-  ]
+    "figma",
+    "onesource"
+  ],
+  "enableAllProjectMcpServers": true
 }
