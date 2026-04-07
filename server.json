@@ -3,7 +3,7 @@
   "name": "io.onesource/mcp",
   "description": "33 tools for blockchain data, live chain queries, and API documentation",
   "title": "OneSource MCP",
-  "version": "4.0.0",
+  "version": "4.0.2",
   "websiteUrl": "https://docs.onesource.io",
   "repository": {
     "url": "https://github.com/blockparty-global/1s-mcp",
@@ -13,7 +13,7 @@
     {
       "registryType": "npm",
       "identifier": "@one-source/mcp",
-      "version": "4.0.0",
+      "version": "4.0.2",
       "transport": {
         "type": "stdio"
       },

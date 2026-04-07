@@ -153,28 +153,50 @@ Full instructions are in the README under "Registry Publishing".
 
 ---
 
-## In Progress
+## Blocked / Deprioritized
 
-### 7. appcypher/awesome-mcp-servers (PR needed)
+### 7. Awesome Lists (awesome-mcp-servers)
 
-**Status:** Not started
-**Repo:** https://github.com/appcypher/awesome-mcp-servers
+**Status:** Blocked — all three major lists are inaccessible as of 2026-04-07
+- **appcypher/awesome-mcp-servers** — repo owner has disabled pull requests
+- **punkpeye/awesome-mcp-servers** — offline/404 as of 2026-03-31
+- **royyannick/awesome-blockchain-mcps** — offline/404 as of 2026-03-31
 
-**Draft entry (Finance category, alphabetical order):**
+**Prepared entry (if a viable list opens up):**
 ```markdown
-- [OneSource MCP](https://github.com/blockparty-global/1s-mcp) - 43 tools for blockchain data and live chain queries across Ethereum, Sepolia, and Avalanche, with GraphQL API documentation and x402 USDC payments on Base
+- <img src="https://onesource.io/favicon.ico" height="14"/> [OneSource MCP](https://github.com/blockparty-global/1s-mcp) - 33 tools for live blockchain queries, ENS resolution, NFT metadata, contract detection, and built-in API documentation across Ethereum, Sepolia, and Avalanche with x402 USDC payments on Base
 ```
 
-**Requirements:** Alphabetical placement, concise description, no duplicates. Contributing guide at CONTRIBUTING.md in the repo.
+**Fork with entry ready:** https://github.com/GiselleDZ/awesome-mcp-servers (branch: add-onesource-mcp)
 
-**Note:** punkpeye/awesome-mcp-servers and royyannick/awesome-blockchain-mcps both appear to be offline/404 as of 2026-03-31. appcypher is the largest active general list (5,339 stars).
+---
+
+## Completed (2026-04-07)
+
+### 8. Claude Code Plugin
+
+**Status:** Implemented, pending commit/publish
+
+**What we did:**
+- Created `.claude-plugin/plugin.json` — plugin manifest (name: `onesource`, v4.0.2)
+- Created `.claude-plugin/marketplace.json` — self-hosted marketplace catalog (name: `onesource-mcp`)
+- Moved `SKILL.md` to `skills/onesource-mcp-setup/SKILL.md` (plugin spec requires `skills/<name>/` path)
+- Updated `.mcp.json` from dev config (`node dist/cli.js`) to user-facing config (`npx -y @one-source/mcp@latest`)
+- Updated `package.json`: bumped version to 4.0.2, changed `files` array to include `skills/` instead of `SKILL.md`
+- Removed outdated `smithery.yaml` (Smithery listing already live via HTTP)
+- Updated `server.json` version to 4.0.2
+
+**How users install:**
+```
+claude plugin marketplace add blockparty-global/1s-mcp
+claude plugin install onesource@onesource-mcp
+```
+
+**Still needed:** Commit, npm publish, push to main, then submit to official Anthropic marketplace at https://claude.ai/settings/plugins/submit
 
 ---
 
 ## Not Started (P1)
-
-### 8. Claude Code Plugin
-- `marketplace.json` + SKILL.md files for Claude Code's skill marketplace
 
 ### 9. Cross-tool Awareness
 - Update all READMEs to reference the full suite of registry listings with badges/links
@@ -210,7 +232,10 @@ Full instructions are in the README under "Registry Publishing".
 |------|---------|
 | `server.json` | MCP Registry listing metadata — version must match npm |
 | `glama.json` | Glama ownership claim |
-| `smithery.yaml` | Smithery config (outdated — uses stdio, needs update or removal) |
+| `.claude-plugin/plugin.json` | Claude Code plugin manifest |
+| `.claude-plugin/marketplace.json` | Self-hosted marketplace catalog |
+| `skills/onesource-mcp-setup/SKILL.md` | Setup skill for plugin users |
+| `.mcp.json` | User-facing MCP config (installed with plugin) |
 | `railway.json` | Railway build/deploy config |
 | `README.md` | Includes Registry Publishing instructions for MCP Registry and Glama |
 | `src/analytics.ts` | Analytics wrapper with hardcoded defaults |

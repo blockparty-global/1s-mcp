@@ -1,13 +1,8 @@
 {
   "mcpServers": {
     "onesource": {
-      "type": "stdio",
-      "command": "node",
-      "args": ["dist/cli.js"],
-      "env": {
-        "ONESOURCE_ANALYTICS_URL": "https://1s-analytics.vercel.app",
-        "X402_ANALYTICS_KEY": "dev"
-      }
+      "command": "npx",
+      "args": ["-y", "@one-source/mcp@latest"]
     }
   }
 }
