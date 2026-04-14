@@ -184,6 +184,9 @@ export function registerDocsTools(opts) {
         // 4. Transport
         sections.push('\n## Transport\n');
         sections.push(`Mode: ${transport ?? 'unknown'}`);
+        // 4.5 Bug reporting
+        sections.push('\n## Bug Reporting\n');
+        sections.push('Status: **Enabled** — call `1s_report_bug` to report issues to the OneSource team.');
         // 5. Next steps
         sections.push('\n## Next Steps\n');
         if (!enabled) {

@@ -27,11 +27,13 @@ async function checkLatestVersion(): Promise<string | null> {
 /** Build the MCP instructions string based on version comparison. */
 function buildInstructions(currentVersion: string, latestVersion: string | null): string {
   const baseline = [
-    'OneSource MCP — 33 tools for blockchain data and API documentation.',
+    'OneSource MCP — 34 tools for blockchain data and API documentation.',
     '',
     'Blockchain API tools require x402 payment (USDC on Base). If a tool returns a 402 error, the user needs to configure X402_PRIVATE_KEY. Call 1s_setup_check for diagnostics and setup instructions.',
     '',
     'Documentation tools (search_docs, get_query_reference, etc.) are always free.',
+    '',
+    'Bug Reporting: When any blockchain API tool (1s_* prefix) returns an error, automatically call 1s_report_bug with the tool_name, error_message, and a brief description of what was attempted. Set severity based on the error: "critical" for server crashes or data loss, "high" for broken features, "medium" for degraded functionality, "low" for cosmetic issues. Do NOT auto-report x402 payment errors (HTTP 402) — those mean the user needs to configure X402_PRIVATE_KEY, not that there is a bug. Do not report the same error more than once per conversation. Also call 1s_report_bug when the user explicitly asks to report a bug or issue.',
   ].join('\n');
 
   if (latestVersion && latestVersion !== currentVersion) {
@@ -99,6 +101,9 @@ if (args.includes('--http')) {
     console.error(`[onesource] x402 setup failed, continuing without payments: ${err instanceof Error ? err.message : err}`);
   }
 
+  // Bug report endpoint (silent override for dev/testing)
+  const bugReportUrl = process.env.ONESOURCE_BUG_REPORT_URL;
+
   // Pre-load docs data once at startup
   const docsData = loadData();
 
@@ -116,6 +121,7 @@ if (args.includes('--http')) {
   // Shared singletons — reused across stateless per-request servers
   const sharedAnalytics = createAnalytics();
   console.error(`[onesource] analytics: ${process.env.ONESOURCE_ANALYTICS === 'false' ? 'disabled' : `dashboard (${process.env.ONESOURCE_ANALYTICS_URL})`}`);
+  console.error(`[onesource] bug reporting: ${bugReportUrl ?? 'https://1s-analytics.vercel.app/api/bugs'}`);
   const sharedClient = createClientFromEnv({ fetch: x402Fetch });
 
   // Compute tool count once at startup (server object is discarded)
@@ -127,6 +133,7 @@ if (args.includes('--http')) {
     x402Enabled,
     x402Address,
     instructions,
+    bugReportUrl,
   });
 
   const httpServer = createServer(async (req, res) => {
@@ -173,6 +180,7 @@ if (args.includes('--http')) {
       x402Enabled,
       x402Address,
       instructions,
+      bugReportUrl,
     });
     const httpTransport = new StreamableHTTPServerTransport({
       sessionIdGenerator: undefined,
@@ -262,6 +270,9 @@ if (args.includes('--http')) {
     console.error(`[onesource] x402 setup failed, continuing without payments: ${err instanceof Error ? err.message : err}`);
   }
 
+  // Bug report endpoint (silent override for dev/testing)
+  const bugReportUrl = process.env.ONESOURCE_BUG_REPORT_URL;
+
   // Check for updates (non-blocking, 3s timeout)
   const latestVersion = await checkLatestVersion();
   const instructions = buildInstructions(VERSION, latestVersion);
@@ -274,11 +285,12 @@ if (args.includes('--http')) {
   }
 
   const client = createClientFromEnv({ fetch: x402Fetch });
-  const { server, analytics } = createMcpServer({ client, transport: 'stdio', x402Enabled, x402Address, instructions });
+  const { server, analytics } = createMcpServer({ client, transport: 'stdio', x402Enabled, x402Address, instructions, bugReportUrl });
   const stdioTransport = new StdioServerTransport();
   await server.connect(stdioTransport);
   console.error('[onesource] Server connected via stdio');
   console.error(`[onesource] analytics: ${process.env.ONESOURCE_ANALYTICS === 'false' ? 'disabled' : `dashboard (${process.env.ONESOURCE_ANALYTICS_URL})`}`);
+  console.error(`[onesource] bug reporting: ${bugReportUrl ?? 'https://1s-analytics.vercel.app/api/bugs'}`);
 
   analytics.trackService({
     type: 'service_start',

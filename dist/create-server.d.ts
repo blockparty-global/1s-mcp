@@ -1,8 +1,8 @@
 /**
  * Unified MCP Server Factory
  *
- * Creates a single McpServer named 'onesource' with all 33 tools
- * (22 API + 9 docs) by delegating to the two register modules.
+ * Creates a single McpServer named 'onesource' with all 34 tools
+ * (22 API + 11 docs + 1 bug report) by delegating to the register modules.
  */
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { OneSourceClient } from '@one-source/api-mcp/client';
@@ -24,6 +24,8 @@ export interface CreateServerOptions {
     x402Address?: string;
     /** Server instructions injected into the LLM's system prompt by MCP clients. */
     instructions?: string;
+    /** Override the default bug report endpoint (for dev/testing). */
+    bugReportUrl?: string;
 }
 export interface CreateServerResult {
     server: McpServer;

@@ -9,7 +9,7 @@ description: >-
 
 # OneSource MCP Setup Guide
 
-OneSource MCP provides 33 tools for blockchain data, live chain queries, and API documentation. Documentation tools are free. Blockchain API tools require x402 micropayments in USDC on the Base network.
+OneSource MCP provides 34 tools for blockchain data, live chain queries, and API documentation. Documentation tools are free. Blockchain API tools require x402 micropayments in USDC on the Base network.
 
 ## Before You Start
 
@@ -20,6 +20,8 @@ OneSource MCP provides 33 tools for blockchain data, live chain queries, and API
 - **If x402 is not configured:** The tool will include setup instructions. Walk the user through them before attempting paid API calls.
 
 Do not skip this step — outdated versions may be missing tools, fixes, or protocol changes.
+
+> **Note:** The `get_mcp_setup_guide` tool also provides setup documentation and can be used as a reference alongside this guide.
 
 ## Step 1: Check Current Installation
 
@@ -72,7 +74,9 @@ To update, reinstall with `@latest` or clear the npx cache: `npx -y @one-source/
 
 ## Step 3: Get an EVM Private Key
 
-The `X402_PRIVATE_KEY` is an EVM wallet private key — the same kind used by MetaMask, Coinbase Wallet, or Foundry. It must be a hex string starting with `0x`.
+The `X402_PRIVATE_KEY` is an EVM wallet private key — the same kind used by MetaMask, Coinbase Wallet, or Foundry. It must start with `0x` followed by 64 hex characters (e.g. `0x4c08...7e3d`).
+
+> **Important:** Some wallets (including MetaMask) export the private key **without** the `0x` prefix — it will look like just a long string of letters and numbers. If the key you copied doesn't start with `0x`, you need to add `0x` to the beginning yourself before using it as `X402_PRIVATE_KEY`.
 
 ### Option A: Export from MetaMask
 
@@ -80,7 +84,7 @@ The `X402_PRIVATE_KEY` is an EVM wallet private key — the same kind used by Me
 2. Click the three dots next to the account name
 3. Go to **Account details** > **Show private key**
 4. Enter your MetaMask password
-5. Copy the key (starts with `0x`)
+5. Copy the key — if it doesn't already start with `0x`, add `0x` to the beginning
 
 ### Option B: Export from Coinbase Wallet
 
@@ -90,26 +94,21 @@ The `X402_PRIVATE_KEY` is an EVM wallet private key — the same kind used by Me
 ### Option C: Generate a New Wallet
 
 ```bash
-# Using OpenSSL
+# Using OpenSSL (macOS/Linux, or Git Bash on Windows)
 echo "0x$(openssl rand -hex 32)"
 
 # Using Foundry (if installed)
 cast wallet new
 ```
 
+```powershell
+# PowerShell (Windows)
+"0x" + -join ((1..32) | ForEach-Object { "{0:x2}" -f (Get-Random -Max 256) })
+```
+
 **Important:** Use a dedicated wallet for MCP payments — do not use your primary wallet with large holdings. Transfer only what you need.
 
-## Step 4: Fund the Wallet with USDC on Base
-
-The wallet must hold **USDC on the Base network** (not Ethereum mainnet, not other tokens).
-
-1. Get the wallet address — set the key (Step 5) and call `1s_setup_check` to see the address, or import the key into MetaMask to see it.
-2. Send USDC to that address **on the Base network**.
-3. A few dollars ($1–5 USDC) is enough for hundreds of API calls.
-
-If you have USDC on Ethereum mainnet, bridge it to Base using the [Base Bridge](https://bridge.base.org) or any cross-chain bridge that supports Base.
-
-## Step 5: Set the Private Key
+## Step 4: Set the Private Key
 
 ### Claude Code
 
@@ -117,6 +116,8 @@ If you have USDC on Ethereum mainnet, bridge it to Base using the [Base Bridge](
 claude mcp remove onesource
 claude mcp add onesource -e X402_PRIVATE_KEY=0x... -- npx -y @one-source/mcp@latest
 ```
+
+> **Scope tip:** Claude Code stores MCP configs at three levels — `user`, `project`, and `local`. Use `local` scope (the default for `claude mcp add`) for faster debugging and testing. You can check which scope your config is in by looking at `.claude/settings.local.json` (local), `.claude/settings.json` (project), or `~/.claude/settings.json` (user).
 
 ### Claude Desktop / Cursor
 
@@ -142,27 +143,113 @@ Add the `env` block to your MCP config:
 X402_PRIVATE_KEY=0x... npx -y @one-source/mcp@latest
 ```
 
+### Manual Setup (Editing the Config File Directly)
+
+The CLI commands above write to a JSON config file. You can also edit this file directly — this is useful for debugging or if you want to understand what the setup actually does.
+
+**Claude Code** — Find which file your config is in by running `claude mcp get onesource`. Depending on the scope:
+- **Local:** `.claude/settings.local.json` in your project directory
+- **Project:** `.claude/settings.json` in your project directory
+- **User:** `~/.claude/settings.json` (macOS/Linux) or `%USERPROFILE%\.claude\settings.json` (Windows)
+
+**Claude Desktop:**
+- **macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`
+- **Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
+
+**Cursor:**
+- **macOS:** `~/.cursor/mcp.json`
+- **Windows:** `%USERPROFILE%\.cursor\mcp.json`
+
+Open the config file and add (or update) the `onesource` entry inside `"mcpServers"`:
+
+```json
+{
+  "mcpServers": {
+    "onesource": {
+      "command": "npx",
+      "args": ["-y", "@one-source/mcp@latest"],
+      "env": {
+        "X402_PRIVATE_KEY": "0xYOUR_PRIVATE_KEY_HERE"
+      }
+    }
+  }
+}
+```
+
+Save the file, then reload (see below).
+
+### Important: Reload After Config Changes
+
+Changing the config file (via `claude mcp add` or manual edit) does **not** automatically restart the running MCP server. You must reload:
+
+- **Claude Code:** Run `/reload-plugins` (preferred — no restart needed), or restart Claude Code entirely.
+- **Claude Desktop / Cursor:** Restart the app — close it completely and reopen.
+
+Without reloading, the old server process keeps running with the old config, and `1s_setup_check` will still show "Not configured" even though the key is in the file.
+
+### Alternative: Set the Key as an Environment Variable
+
+If the `env` block in the config isn't reaching the server after reloading, you can set the key as an environment variable directly instead:
+
+**bash / zsh (macOS / Linux):**
+
+```bash
+export X402_PRIVATE_KEY=0x...
+```
+
+To make it persistent, add the line to your `~/.bashrc`, `~/.zshrc`, or `~/.profile`.
+
+**PowerShell (Windows):**
+
+```powershell
+$env:X402_PRIVATE_KEY = "0x..."
+```
+
+This only lasts for the current session. To make it persistent, either:
+- Add it to your PowerShell profile (`notepad $PROFILE`, add the line, restart PowerShell)
+- Or set it as a system environment variable: **Settings > System > About > Advanced system settings > Environment Variables > User variables > New** — name: `X402_PRIVATE_KEY`, value: `0x...`
+
+After setting the variable, restart your MCP client and run `1s_setup_check` to confirm.
+
+> **Windows note:** Claude Code's `/doctor` command may warn that Windows requires a `cmd /c` wrapper to execute `npx`. If you encounter issues, update the config to use `"command": "cmd"` with `"args": ["/c", "npx", "-y", "@one-source/mcp@latest"]`.
+
 ### Security
 
 - **Never** commit your private key to source control.
 - Use environment variables, a `.env` file (excluded from git), or a secrets manager.
 - Use a dedicated wallet with minimal funds — only what you need for API calls.
 
+## Step 5: Fund the Wallet with USDC on Base
+
+The wallet must hold **USDC on the Base network** (not Ethereum mainnet, not other tokens).
+
+1. Get the wallet address — call `1s_setup_check` (it shows the address after you set the key), or import the key into MetaMask to see it.
+2. Send USDC to that address **on the Base network**.
+3. A few dollars ($1–5 USDC) is enough for hundreds of API calls.
+
+If you have USDC on Ethereum mainnet, bridge it to Base using the [Base Bridge](https://bridge.base.org) or any cross-chain bridge that supports Base.
+
 ## Step 6: Verify
 
-After setting the key and restarting the MCP server, call `1s_setup_check` again. You should see:
+After setting the key, reload and verify:
 
-- **x402 status:** Configured
-- **Wallet address:** Your wallet address
-- **API backend:** Reachable
+1. **Reload the MCP server** — In Claude Code, run `/reload-plugins` to pick up config changes without restarting the session.
+2. **Check MCP connection** — Run `/mcp` to confirm the `onesource` server is connected.
+3. **Run `1s_setup_check`** — You should see:
+   - **x402 status:** Configured
+   - **Wallet address:** Your wallet address
+   - **API backend:** Reachable
+4. **Test a paid tool** — Try `1s_network_info` to confirm payments work end-to-end.
 
-Then try a paid tool like `1s_network_info` to confirm payments work end-to-end.
+> **Tip:** If you edited the config file manually (instead of using `claude mcp add`), you must run `/reload-plugins` for changes to take effect. Restarting Claude Code also works.
 
 ## Troubleshooting
 
 | Problem | Solution |
 |---------|----------|
-| `1s_setup_check` shows "Not configured" | The `X402_PRIVATE_KEY` env var is not reaching the server. Check your MCP client config and restart. |
+| `1s_setup_check` shows "Not configured" | Most common cause: config was changed but the MCP server wasn't reloaded. Run `/reload-plugins` in Claude Code, or restart Claude Desktop / Cursor. If the key still isn't reaching the server, try setting it as an environment variable directly — see **Alternative: Set the Key as an Environment Variable** above. |
+| "MCP server onesource already exists" error | Run `claude mcp remove onesource` first, then re-add it with your updated config. |
+| Config changed but nothing happened | Run `/reload-plugins` in Claude Code to reload MCP servers, then `/mcp` to check connection status. |
 | Tool returns HTTP 402 error | x402 is not configured, or the wallet has insufficient USDC on Base. |
 | "x402 setup failed" in server logs | The private key format is wrong. It must be a 64-character hex string prefixed with `0x`. |
 | Key is set but wallet shows 0 USDC | Make sure USDC is on the **Base** network, not Ethereum mainnet or another chain. |

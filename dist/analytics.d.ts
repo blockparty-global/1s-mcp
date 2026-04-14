@@ -9,7 +9,7 @@
 import { type Analytics as _Analytics, type ToolCallEvent as _ToolCallEvent, type HttpCallEvent as _HttpCallEvent, type ServiceEvent as _ServiceEvent } from '@one-source/api-mcp/analytics';
 /** ToolCallEvent with category widened to include docs tools. */
 export type ToolCallEvent = Omit<_ToolCallEvent, 'category'> & {
-    category: _ToolCallEvent['category'] | 'docs';
+    category: _ToolCallEvent['category'] | 'docs' | 'ops';
     source?: string;
 };
 export type HttpCallEvent = _HttpCallEvent & {

@@ -1,6 +1,6 @@
 # @one-source/mcp
 
-Unified MCP server for [OneSource](https://docs.onesource.io) — 33 tools for blockchain data, live chain queries, and API documentation in a single server.
+Unified MCP server for [OneSource](https://docs.onesource.io) — 34 tools for blockchain data, live chain queries, and API documentation in a single server.
 
 Combines [`@one-source/api-mcp`](https://www.npmjs.com/package/@one-source/api-mcp) (22 tools) and [`@one-source/docs-mcp`](https://www.npmjs.com/package/@one-source/docs-mcp) (11 tools) so your AI assistant gets full access to OneSource with one MCP connection.
 
@@ -44,7 +44,9 @@ npx -y @one-source/mcp@latest --http --port=8080
 
 Then connect your MCP client to `http://localhost:3000/`.
 
-## Tools (33)
+Health check: `GET http://localhost:3000/health`
+
+## Tools (34)
 
 ### Blockchain API — Live Chain (12 tools)
 
@@ -65,6 +67,8 @@ Then connect your MCP client to `http://localhost:3000/`.
 
 ### Blockchain API — Chain Utilities (10 tools)
 
+RPC only.
+
 | Tool | Description |
 |------|-------------|
 | `1s_contract_code` | Contract bytecode |
@@ -78,13 +82,14 @@ Then connect your MCP client to `http://localhost:3000/`.
 | `1s_storage_read` | Read storage slot |
 | `1s_tx_receipt` | Transaction receipt |
 
-### Documentation & Setup (11 tools)
+### Documentation, Setup & Ops (12 tools)
 
 Read-only, no API key required.
 
 | Tool | Purpose | When to use |
 |------|---------|-------------|
 | `1s_setup_check` | Server health, version, x402 status, setup instructions | First thing to call — checks if everything is configured |
+| `1s_report_bug` | Report bugs to Slack (or GitHub Issues fallback) | When a tool errors or user wants to report an issue |
 | `search_docs` | Keyword search across all documentation | Finding guides, concepts, or API patterns |
 | `get_query_reference` | Full reference for a root GraphQL query | Building a specific query with correct args/filters |
 | `get_type_definition` | Schema definition for any type/enum/input | Understanding field shapes and return types |
@@ -114,7 +119,7 @@ Documentation tools are always free — no key or payment needed.
 
 ### Setup
 
-1. **Get an EVM private key** — export one from MetaMask, Coinbase Wallet, or any EVM wallet. The key is a hex string starting with `0x`.
+1. **Get an EVM private key** — export one from MetaMask, Coinbase Wallet, or any EVM wallet. The key must start with `0x` followed by 64 hex characters (e.g. `0x4c08...7e3d`). Some wallets export the key without the `0x` prefix — if yours is just letters and numbers without `0x` at the start, add `0x` to the beginning yourself.
 2. **Fund the wallet with USDC on Base** — the wallet address derived from the key must hold USDC on the [Base](https://base.org) network. Bridge or transfer USDC to it.
 3. **Pass the key to the server** using one of the methods below.
 
@@ -148,9 +153,55 @@ Add the `env` block to your MCP config:
 X402_PRIVATE_KEY=0x... npx -y @one-source/mcp@latest
 ```
 
+### Config File Locations
+
+If you prefer editing the config file directly instead of using CLI commands:
+
+| Client | Config file path |
+|--------|-----------------|
+| Claude Code | Run `claude mcp get onesource` to see the file path |
+| Claude Desktop (macOS) | `~/Library/Application Support/Claude/claude_desktop_config.json` |
+| Claude Desktop (Windows) | `%APPDATA%\Claude\claude_desktop_config.json` |
+| Cursor (macOS) | `~/.cursor/mcp.json` |
+| Cursor (Windows) | `%USERPROFILE%\.cursor\mcp.json` |
+
+Add the `onesource` entry inside `"mcpServers"` using the JSON block shown above.
+
+### Alternative: Set as an Environment Variable
+
+Instead of the `env` config block, you can set `X402_PRIVATE_KEY` as a shell or system environment variable: `export X402_PRIVATE_KEY=0x...` (bash/zsh) or `$env:X402_PRIVATE_KEY = "0x..."` (PowerShell). Set it at the OS level for persistence across sessions.
+
 ### Security
 
 Never commit your private key to source control. Use environment variables, a `.env` file (excluded from git), or a secrets manager.
+
+> **After any config change:** Run `/reload-plugins` in Claude Code, or restart Claude Desktop / Cursor. The MCP server must be reloaded to pick up new environment variables.
+
+## Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `X402_PRIVATE_KEY` | — | EVM private key (hex, 0x-prefixed) for automatic x402 USDC payments on Base |
+| `ONESOURCE_BASE_URL` | `https://skills.onesource.io` | API base URL |
+| `ONESOURCE_ANALYTICS` | — | Set to `false` to disable analytics |
+
+## Troubleshooting
+
+**`1s_setup_check` shows "Not configured"** — Reload the MCP server first (see note above). If the key still isn't reaching the server after reloading, set it as an environment variable directly.
+
+**"MCP server onesource already exists" error** — Run `claude mcp remove onesource` first, then re-add.
+
+**Windows: `npx` requires `cmd /c` wrapper** — Update your MCP config to use `"command": "cmd"` with `"args": ["/c", "npx", "-y", "@one-source/mcp@latest"]`. Claude Code's `/doctor` command can diagnose this.
+
+**`npx` hangs with no output** — That's normal in stdio mode. Use `--http` for an HTTP server.
+
+**Port already in use** — Specify a different port: `npx -y @one-source/mcp@latest --http --port=8080`
+
+## Links
+
+- [GitHub Repository](https://github.com/blockparty-global/1s-mcp)
+- [OneSource Documentation](https://docs.onesource.io)
+- [Report an Issue](https://github.com/blockparty-global/1s-mcp/issues)
 
 ## License
 

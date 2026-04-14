@@ -194,17 +194,16 @@ export function registerDocsTools(opts: RegisterDocsToolsOptions): number {
 
   const x402Enabled = opts.x402Enabled;
   const x402Address = opts.x402Address;
-
   instrumentedTool(server, analytics, transport,
     '1s_setup_check',
     'Check OneSource MCP server health — version (current vs latest), x402 payment status, wallet address, API connectivity, and setup instructions if anything is missing. Free, no payment required. Call this first when troubleshooting.',
     {},
     async () => {
-      const sections: string[] = [];
+      const parts: string[] = [];
 
       // 1. Server version
-      sections.push('## Server Version\n');
-      sections.push(`Current: ${VERSION}`);
+      parts.push('## Server Version\n');
+      parts.push(`Current: ${VERSION}`);
 
       let latestVersion = 'unknown';
       try {
@@ -217,89 +216,100 @@ export function registerDocsTools(opts: RegisterDocsToolsOptions): number {
         }
       } catch { /* network error — skip */ }
 
-      sections.push(`Latest:  ${latestVersion}`);
+      parts.push(`Latest:  ${latestVersion}`);
       if (latestVersion !== 'unknown' && latestVersion !== VERSION) {
-        sections.push('\n**Update available!** Run: `npx @one-source/mcp@latest`');
+        parts.push('\n**Update available!** Run: `npx -y @one-source/mcp@latest`');
       } else if (latestVersion === VERSION) {
-        sections.push('\nYou are on the latest version.');
+        parts.push('\nYou are on the latest version.');
       }
 
       // 2. x402 payment status
-      sections.push('\n## x402 Payment Status\n');
+      parts.push('\n## x402 Payment Status\n');
 
       const enabled = x402Enabled ?? !!process.env.X402_PRIVATE_KEY;
 
       if (enabled && x402Address) {
-        sections.push('Status: **Configured**');
-        sections.push(`Wallet: \`${x402Address}\``);
-        sections.push('\nThis wallet must hold USDC on the **Base** network to pay for API calls.');
+        parts.push('Status: **Configured**');
+        parts.push(`Wallet: \`${x402Address}\``);
+        parts.push('\nThis wallet must hold USDC on the **Base** network to pay for API calls.');
       } else if (enabled) {
-        sections.push('Status: **Configured** (wallet address not available)');
+        parts.push('Status: **Configured** (wallet address not available)');
       } else {
-        sections.push('Status: **Not configured**');
-        sections.push('\nBlockchain API tools require x402 payment. Without a key, paid endpoints return HTTP 402 errors.\n');
-        sections.push('### How to configure x402\n');
-        sections.push('1. **Get an EVM private key** — export from MetaMask, Coinbase Wallet, or generate one:');
-        sections.push('   ```');
-        sections.push('   # Generate a new key');
-        sections.push('   echo "0x$(openssl rand -hex 32)"');
-        sections.push('   ```\n');
-        sections.push('2. **Fund the wallet** with USDC on the **Base** network (not Ethereum mainnet). A few dollars is enough for hundreds of queries.\n');
-        sections.push('3. **Set the key** for your MCP client:\n');
-        sections.push('   **Claude Code:**');
-        sections.push('   ```');
-        sections.push('   claude mcp remove onesource');
-        sections.push('   claude mcp add onesource -e X402_PRIVATE_KEY=0x... -- npx -y @one-source/mcp@latest');
-        sections.push('   ```\n');
-        sections.push('   **Claude Desktop / Cursor** — add an `env` block to your MCP config:');
-        sections.push('   ```json');
-        sections.push('   {');
-        sections.push('     "mcpServers": {');
-        sections.push('       "onesource": {');
-        sections.push('         "command": "npx",');
-        sections.push('         "args": ["-y", "@one-source/mcp@latest"],');
-        sections.push('         "env": { "X402_PRIVATE_KEY": "0x..." }');
-        sections.push('       }');
-        sections.push('     }');
-        sections.push('   }');
-        sections.push('   ```\n');
-        sections.push('   **Any MCP client (stdio):**');
-        sections.push('   ```');
-        sections.push('   X402_PRIVATE_KEY=0x... npx -y @one-source/mcp@latest');
-        sections.push('   ```\n');
-        sections.push('4. **Restart the MCP server** after setting the key.\n');
-        sections.push('**Security:** Never commit your private key to source control. Use environment variables or a secrets manager.');
+        parts.push('Status: **Not configured**');
+        parts.push('\nBlockchain API tools require x402 payment. Without a key, paid endpoints return HTTP 402 errors.\n');
+        parts.push('### How to configure x402\n');
+        parts.push('1. **Get an EVM private key** — export from MetaMask, Coinbase Wallet, or generate one.');
+        parts.push('   The key must start with `0x` followed by 64 hex characters. Some wallets export without the `0x` prefix — if so, add `0x` to the beginning yourself.');
+        parts.push('   ```');
+        parts.push('   # Generate a new key (macOS/Linux, or Git Bash on Windows)');
+        parts.push('   echo "0x$(openssl rand -hex 32)"');
+        parts.push('   ```\n');
+        parts.push('2. **Fund the wallet** with USDC on the **Base** network (not Ethereum mainnet). A few dollars is enough for hundreds of queries.\n');
+        parts.push('3. **Set the key** for your MCP client:\n');
+        parts.push('   **Claude Code:**');
+        parts.push('   ```');
+        parts.push('   claude mcp remove onesource');
+        parts.push('   claude mcp add onesource -e X402_PRIVATE_KEY=0x... -- npx -y @one-source/mcp@latest');
+        parts.push('   ```\n');
+        parts.push('   **Claude Desktop / Cursor** — add an `env` block to your MCP config:');
+        parts.push('   ```json');
+        parts.push('   {');
+        parts.push('     "mcpServers": {');
+        parts.push('       "onesource": {');
+        parts.push('         "command": "npx",');
+        parts.push('         "args": ["-y", "@one-source/mcp@latest"],');
+        parts.push('         "env": { "X402_PRIVATE_KEY": "0x..." }');
+        parts.push('       }');
+        parts.push('     }');
+        parts.push('   }');
+        parts.push('   ```\n');
+        parts.push('   **Any MCP client (stdio):**');
+        parts.push('   ```');
+        parts.push('   X402_PRIVATE_KEY=0x... npx -y @one-source/mcp@latest');
+        parts.push('   ```\n');
+        parts.push('   **Alternative — set `X402_PRIVATE_KEY` as a shell or system environment variable:**');
+        parts.push('   ```');
+        parts.push('   # bash/zsh: export X402_PRIVATE_KEY=0x...');
+        parts.push('   # PowerShell: $env:X402_PRIVATE_KEY = "0x..."');
+        parts.push('   ```\n');
+        parts.push('4. **Reload the MCP server** after setting the key — run `/reload-plugins` in Claude Code, or restart Claude Desktop / Cursor.\n');
+        parts.push('**Security:** Never commit your private key to source control. Use environment variables or a secrets manager.\n');
+        parts.push('For detailed setup instructions, call the `get_mcp_setup_guide` tool.');
       }
 
       // 3. API connectivity
-      sections.push('\n## API Connectivity\n');
+      parts.push('\n## API Connectivity\n');
       const baseUrl = process.env.ONESOURCE_BASE_URL ?? 'https://skills.onesource.io';
       try {
         const res = await fetch(baseUrl, { method: 'HEAD', signal: AbortSignal.timeout(5000) });
-        sections.push(`Backend: **Reachable** (${baseUrl})`);
+        parts.push(`Backend: **Reachable** (${baseUrl})`);
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
-        sections.push(`Backend: **Unreachable** — ${msg}`);
+        parts.push(`Backend: **Unreachable** — ${msg}`);
       }
 
       // 4. Transport
-      sections.push('\n## Transport\n');
-      sections.push(`Mode: ${transport ?? 'unknown'}`);
+      parts.push('\n## Transport\n');
+      parts.push(`Mode: ${transport ?? 'unknown'}`);
+
+      // 4.5 Bug reporting
+      parts.push('\n## Bug Reporting\n');
+      parts.push('Status: **Enabled** — call `1s_report_bug` to report issues to the OneSource team.');
 
       // 5. Next steps
-      sections.push('\n## Next Steps\n');
+      parts.push('\n## Next Steps\n');
       if (!enabled) {
-        sections.push('- Configure x402 payments to use blockchain API tools (see instructions above)');
+        parts.push('- Configure x402 payments to use blockchain API tools (see instructions above)');
       }
       if (latestVersion !== 'unknown' && latestVersion !== VERSION) {
-        sections.push('- Update to the latest version: `npx @one-source/mcp@latest`');
+        parts.push('- Update to the latest version: `npx -y @one-source/mcp@latest`');
       }
-      sections.push('- Documentation tools are free — try `search_docs` or `list_supported_chains`');
+      parts.push('- Documentation tools are free — try `search_docs` or `list_supported_chains`');
       if (enabled) {
-        sections.push('- Try a paid API tool: `1s_network_info` (returns chain ID, block number, gas price)');
+        parts.push('- Try a paid API tool: `1s_network_info` (returns chain ID, block number, gas price)');
       }
 
-      return sections.join('\n');
+      return parts.join('\n');
     },
   );
 

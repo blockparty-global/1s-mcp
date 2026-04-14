@@ -1,14 +1,15 @@
 /**
  * Unified MCP Server Factory
  *
- * Creates a single McpServer named 'onesource' with all 33 tools
- * (22 API + 9 docs) by delegating to the two register modules.
+ * Creates a single McpServer named 'onesource' with all 34 tools
+ * (22 API + 11 docs + 1 bug report) by delegating to the register modules.
  */
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { OneSourceClient } from '@one-source/api-mcp/client';
 import { registerApiTools } from './register-api-tools.js';
 import { registerDocsTools, loadData, type LoadedData } from './register-docs-tools.js';
+import { registerBugReportTool } from './register-bug-report-tool.js';
 import { createAnalytics, type Analytics } from './analytics.js';
 import { VERSION } from './version.js';
 
@@ -27,6 +28,8 @@ export interface CreateServerOptions {
   x402Address?: string;
   /** Server instructions injected into the LLM's system prompt by MCP clients. */
   instructions?: string;
+  /** Override the default bug report endpoint (for dev/testing). */
+  bugReportUrl?: string;
 }
 
 export interface CreateServerResult {
@@ -64,7 +67,14 @@ export function createMcpServer(opts?: CreateServerOptions): CreateServerResult 
     x402Address: opts?.x402Address,
   });
 
-  return { server, analytics, client, toolCount: apiCount + docsCount };
+  const bugCount = registerBugReportTool({
+    server,
+    analytics,
+    transport,
+    bugReportUrl: opts?.bugReportUrl,
+  });
+
+  return { server, analytics, client, toolCount: apiCount + docsCount + bugCount };
 }
 
 export { loadData, type LoadedData };

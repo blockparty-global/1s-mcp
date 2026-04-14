@@ -17,7 +17,7 @@ import {
 
 /** ToolCallEvent with category widened to include docs tools. */
 export type ToolCallEvent = Omit<_ToolCallEvent, 'category'> & {
-  category: _ToolCallEvent['category'] | 'docs';
+  category: _ToolCallEvent['category'] | 'docs' | 'ops';
   source?: string;
 };
 
