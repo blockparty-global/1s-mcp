@@ -110,6 +110,11 @@ Blockchain API tools require authentication. Two options are available — if bo
 
 ### Option 1: API Key
 
+1. Go to [app.onesource.io](https://app.onesource.io) and create an account.
+2. Subscribe to a developer plan (Stripe checkout).
+3. Navigate to **API Keys** and generate a key.
+4. Copy the key — it starts with `sk_`.
+
 #### Claude Code
 
 ```bash
