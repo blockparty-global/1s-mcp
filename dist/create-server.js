@@ -1,12 +1,12 @@
 /**
  * Unified MCP Server Factory
  *
- * Creates a single McpServer named 'onesource' with all 34 tools
- * (22 API + 11 docs + 1 bug report) by delegating to the register modules.
+ * Creates a single McpServer named 'onesource' with all 24 tools
+ * (22 API + 1 setup check + 1 bug report) by delegating to the register modules.
  */
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { registerApiTools } from './register-api-tools.js';
-import { registerDocsTools, loadData } from './register-docs-tools.js';
+import { registerDocsTools } from './register-docs-tools.js';
 import { registerBugReportTool } from './register-bug-report-tool.js';
 import { createAnalytics } from './analytics.js';
 import { VERSION } from './version.js';
@@ -22,13 +22,14 @@ export function createMcpServer(opts) {
         analytics,
         transport,
         client: opts?.client,
+        authMethod: opts?.authMethod,
     });
     const docsCount = registerDocsTools({
         server,
         analytics,
         transport,
-        data: opts?.docsData,
-        x402Enabled: opts?.x402Enabled,
+        // data: opts?.docsData,
+        authMethod: opts?.authMethod,
         x402Address: opts?.x402Address,
     });
     const bugCount = registerBugReportTool({
@@ -39,7 +40,7 @@ export function createMcpServer(opts) {
     });
     return { server, analytics, client, toolCount: apiCount + docsCount + bugCount };
 }
-export { loadData };
+// export { loadData, type LoadedData };
 export { VERSION };
 export { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 //# sourceMappingURL=create-server.js.map

@@ -24,6 +24,8 @@ export interface RegisterApiToolsOptions {
   transport?: 'stdio' | 'http';
   /** Override the default client (useful for sharing across HTTP requests). */
   client?: OneSourceClient;
+  /** Active authentication method, determined at startup. */
+  authMethod?: 'api_key' | 'x402' | 'none';
 }
 
 /**
@@ -33,6 +35,7 @@ export function registerApiTools(
   opts: RegisterApiToolsOptions,
 ): { client: OneSourceClient; count: number } {
   const { server, analytics, transport } = opts;
+  const authMethod = opts.authMethod;
   const client = opts.client ?? createClientFromEnv();
 
   // Wire HTTP-level analytics from base client (default handler for non-overridden calls)
@@ -100,7 +103,7 @@ export function registerApiTools(
             input_params: inputKeys,
             response_size: text.length,
             version: VERSION,
-            auth_method: x402Seen ? 'x402' : 'none',
+            auth_method: authMethod === 'api_key' ? 'api_key' : (x402Seen ? 'x402' : 'none'),
             client_name: clientInfo?.name,
             client_version: clientInfo?.version,
             session_id: sessionHash,
@@ -128,7 +131,7 @@ export function registerApiTools(
             input_params: inputKeys,
             response_size: 0,
             version: VERSION,
-            auth_method: x402Seen ? 'x402' : 'none',
+            auth_method: authMethod === 'api_key' ? 'api_key' : (x402Seen ? 'x402' : 'none'),
             client_name: clientInfo?.name,
             client_version: clientInfo?.version,
             session_id: sessionHash,

@@ -14,6 +14,8 @@ export interface RegisterApiToolsOptions {
     transport?: 'stdio' | 'http';
     /** Override the default client (useful for sharing across HTTP requests). */
     client?: OneSourceClient;
+    /** Active authentication method, determined at startup. */
+    authMethod?: 'api_key' | 'x402' | 'none';
 }
 /**
  * Register all API tools and return the client instance + tool count.

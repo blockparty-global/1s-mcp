@@ -1,9 +1,9 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.onesource/mcp",
-  "description": "34 tools for blockchain data, live chain queries, and API documentation",
+  "description": "24 tools for blockchain data and live chain queries",
   "title": "OneSource MCP",
-  "version": "4.0.2",
+  "version": "5.0.0",
   "websiteUrl": "https://docs.onesource.io",
   "repository": {
     "url": "https://github.com/blockparty-global/1s-mcp",
@@ -13,7 +13,7 @@
     {
       "registryType": "npm",
       "identifier": "@one-source/mcp",
-      "version": "4.0.4",
+      "version": "5.0.0",
       "transport": {
         "type": "stdio"
       },
@@ -44,7 +44,7 @@
         },
         {
           "name": "X402_PRIVATE_KEY",
-          "description": "EVM private key (hex, 0x-prefixed) for automatic x402 USDC payments on Base",
+          "description": "EVM private key (64-char hex, 0x prefix optional) for automatic x402 USDC payments on Base",
           "isRequired": false,
           "isSecret": true
         }

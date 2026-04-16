@@ -9,7 +9,7 @@ description: >-
 
 # OneSource MCP Setup Guide
 
-OneSource MCP provides 34 tools for blockchain data, live chain queries, and API documentation. Documentation tools are free. Blockchain API tools require x402 micropayments in USDC on the Base network.
+OneSource MCP provides 24 tools for blockchain data and live chain queries. Blockchain API tools require authentication — either an API key (`ONESOURCE_API_KEY`) or x402 micropayments in USDC on the Base network (`X402_PRIVATE_KEY`).
 
 ## Before You Start
 
@@ -20,8 +20,6 @@ OneSource MCP provides 34 tools for blockchain data, live chain queries, and API
 - **If x402 is not configured:** The tool will include setup instructions. Walk the user through them before attempting paid API calls.
 
 Do not skip this step — outdated versions may be missing tools, fixes, or protocol changes.
-
-> **Note:** The `get_mcp_setup_guide` tool also provides setup documentation and can be used as a reference alongside this guide.
 
 ## Step 1: Check Current Installation
 
@@ -74,9 +72,7 @@ To update, reinstall with `@latest` or clear the npx cache: `npx -y @one-source/
 
 ## Step 3: Get an EVM Private Key
 
-The `X402_PRIVATE_KEY` is an EVM wallet private key — the same kind used by MetaMask, Coinbase Wallet, or Foundry. It must start with `0x` followed by 64 hex characters (e.g. `0x4c08...7e3d`).
-
-> **Important:** Some wallets (including MetaMask) export the private key **without** the `0x` prefix — it will look like just a long string of letters and numbers. If the key you copied doesn't start with `0x`, you need to add `0x` to the beginning yourself before using it as `X402_PRIVATE_KEY`.
+The `X402_PRIVATE_KEY` is an EVM wallet private key — the same kind used by MetaMask, Coinbase Wallet, or Foundry. It is a 64-character hex string. The `0x` prefix is optional — both formats are accepted.
 
 ### Option A: Export from MetaMask
 
@@ -84,7 +80,7 @@ The `X402_PRIVATE_KEY` is an EVM wallet private key — the same kind used by Me
 2. Click the three dots next to the account name
 3. Go to **Account details** > **Show private key**
 4. Enter your MetaMask password
-5. Copy the key — if it doesn't already start with `0x`, add `0x` to the beginning
+5. Copy the key
 
 ### Option B: Export from Coinbase Wallet
 
@@ -95,7 +91,7 @@ The `X402_PRIVATE_KEY` is an EVM wallet private key — the same kind used by Me
 
 ```bash
 # Using OpenSSL (macOS/Linux, or Git Bash on Windows)
-echo "0x$(openssl rand -hex 32)"
+openssl rand -hex 32
 
 # Using Foundry (if installed)
 cast wallet new
@@ -103,7 +99,7 @@ cast wallet new
 
 ```powershell
 # PowerShell (Windows)
-"0x" + -join ((1..32) | ForEach-Object { "{0:x2}" -f (Get-Random -Max 256) })
+-join ((1..32) | ForEach-Object { "{0:x2}" -f (Get-Random -Max 256) })
 ```
 
 **Important:** Use a dedicated wallet for MCP payments — do not use your primary wallet with large holdings. Transfer only what you need.
@@ -251,6 +247,6 @@ After setting the key, reload and verify:
 | "MCP server onesource already exists" error | Run `claude mcp remove onesource` first, then re-add it with your updated config. |
 | Config changed but nothing happened | Run `/reload-plugins` in Claude Code to reload MCP servers, then `/mcp` to check connection status. |
 | Tool returns HTTP 402 error | x402 is not configured, or the wallet has insufficient USDC on Base. |
-| "x402 setup failed" in server logs | The private key format is wrong. It must be a 64-character hex string prefixed with `0x`. |
+| "x402 setup failed" in server logs | The private key format is wrong. It must be a 64-character hex string (with or without `0x` prefix). |
 | Key is set but wallet shows 0 USDC | Make sure USDC is on the **Base** network, not Ethereum mainnet or another chain. |
 | Tools work but results seem stale | Check `1s_setup_check` for version — you may need to update to the latest. |

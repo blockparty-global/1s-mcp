@@ -52,7 +52,7 @@ export function registerBugReportTool(opts: RegisterBugReportToolOptions): numbe
     'Report a bug or issue to the OneSource team. Use when a tool returns an unexpected error or when the user asks to report a problem. Free, no payment required.',
     z.object({
       description: z.string().describe('What went wrong — describe the bug, what you expected, and what actually happened.'),
-      tool_name: z.string().optional().describe('The MCP tool that produced the error (e.g. 1s_network_info, search_docs).'),
+      tool_name: z.string().optional().describe('The MCP tool that produced the error (e.g. 1s_network_info, 1s_erc20_balance_live).'),
       error_message: z.string().optional().describe('The error message or relevant output from the failed tool call.'),
       severity: z.enum(['low', 'medium', 'high', 'critical']).optional().describe('Bug severity: low (cosmetic), medium (degraded function), high (feature broken), critical (server crash or data loss).'),
       network: z.string().optional().describe('The blockchain network involved, if applicable (e.g. ethereum, sepolia, avax).'),

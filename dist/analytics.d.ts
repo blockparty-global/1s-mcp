@@ -7,9 +7,10 @@
  * JSON, so the wider category type is safe at runtime.
  */
 import { type Analytics as _Analytics, type ToolCallEvent as _ToolCallEvent, type HttpCallEvent as _HttpCallEvent, type ServiceEvent as _ServiceEvent } from '@one-source/api-mcp/analytics';
-/** ToolCallEvent with category widened to include docs tools. */
-export type ToolCallEvent = Omit<_ToolCallEvent, 'category'> & {
+/** ToolCallEvent with category and auth_method widened to include unified MCP additions. */
+export type ToolCallEvent = Omit<_ToolCallEvent, 'category' | 'auth_method'> & {
     category: _ToolCallEvent['category'] | 'docs' | 'ops';
+    auth_method: _ToolCallEvent['auth_method'] | 'api_key';
     source?: string;
 };
 export type HttpCallEvent = _HttpCallEvent & {
