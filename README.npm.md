@@ -101,14 +101,14 @@ All blockchain API tools accept an optional `network` parameter:
 
 ## Authentication
 
-Blockchain API tools require authentication. Two options are available — API key takes priority if both are set.
+Blockchain API tools require authentication. Two options are available — if both are set, API key takes priority.
 
 | Method | Variable | Description |
 |--------|----------|-------------|
 | API key | `ONESOURCE_API_KEY` | Unlimited calls, no per-call cost |
-| x402 micropayments | `X402_PRIVATE_KEY` | Pay-per-call via USDC on Base |
+| x402 micropayments | `X402_PRIVATE_KEY` | Pay-per-call via USDC on Base, no account required |
 
-### Option 1: API Key (recommended)
+### Option 1: API Key
 
 #### Claude Code
 
@@ -138,16 +138,19 @@ claude mcp add onesource -e ONESOURCE_API_KEY=<key> -- npx -y @one-source/mcp@la
 ONESOURCE_API_KEY=<key> npx -y @one-source/mcp@latest
 ```
 
+After adding, reload the MCP server and call `1s_setup_check` — it should show `Status: Configured (API key)`.
+
 ### Option 2: x402 Micropayments
 
-1. **Get an EVM private key** — export from MetaMask, Coinbase Wallet, or generate one. The key is a 64-character hex string. The `0x` prefix is optional — both formats are accepted.
-2. **Fund the wallet with USDC on Base** — bridge or transfer USDC to the derived wallet address on [Base](https://base.org).
-3. **Pass the key to the server:**
+Pay-per-call via USDC on Base using [x402](https://github.com/coinbase/x402). No account required — just an EVM wallet funded with USDC. The server handles payments transparently.
+
+1. **Get an EVM private key** — export from MetaMask, Coinbase Wallet, or generate a fresh one. The key is a 64-character hex string. The `0x` prefix is optional — both formats are accepted.
+2. **Pass the key to the server:**
 
 #### Claude Code
 
 ```bash
-claude mcp add onesource -e X402_PRIVATE_KEY=0x... -- npx -y @one-source/mcp@latest
+claude mcp add onesource -e X402_PRIVATE_KEY=<key> -- npx -y @one-source/mcp@latest
 ```
 
 #### Claude Desktop / Cursor
@@ -159,7 +162,7 @@ claude mcp add onesource -e X402_PRIVATE_KEY=0x... -- npx -y @one-source/mcp@lat
       "command": "npx",
       "args": ["-y", "@one-source/mcp@latest"],
       "env": {
-        "X402_PRIVATE_KEY": "0x..."
+        "X402_PRIVATE_KEY": "<key>"
       }
     }
   }
@@ -169,8 +172,12 @@ claude mcp add onesource -e X402_PRIVATE_KEY=0x... -- npx -y @one-source/mcp@lat
 #### Any MCP Client (stdio)
 
 ```bash
-X402_PRIVATE_KEY=0x... npx -y @one-source/mcp@latest
+X402_PRIVATE_KEY=<key> npx -y @one-source/mcp@latest
 ```
+
+3. **Reload and find your wallet address** — reload the MCP server, then call `1s_setup_check`. It will show the wallet address derived from your key under "Wallet address".
+4. **Fund that address with USDC on Base** — send USDC to the address shown, on the [Base](https://base.org) network. A few dollars ($1–5 USDC) is enough for hundreds of calls. Bridge from Ethereum mainnet if needed using the [Base Bridge](https://bridge.base.org).
+5. **Verify** — call `1s_network_info` for ethereum. If it returns chain data, payments are working.
 
 ### Security
 

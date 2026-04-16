@@ -1,23 +1,23 @@
 ---
 name: onesource-mcp-setup
 description: >-
-  Guide for installing and configuring the OneSource MCP server with x402
-  payments. Covers installation, version checking, wallet setup, USDC
+  Guide for installing and configuring the OneSource MCP server. Covers both
+  authentication options (API key and x402 micropayments), wallet setup, USDC
   funding on Base, and verification. Use when a user needs help setting up
-  OneSource MCP or configuring x402 payments.
+  OneSource MCP or configuring either auth method.
 ---
 
 # OneSource MCP Setup Guide
 
-OneSource MCP provides 24 tools for blockchain data and live chain queries. Blockchain API tools require authentication — either an API key (`ONESOURCE_API_KEY`) or x402 micropayments in USDC on the Base network (`X402_PRIVATE_KEY`).
+OneSource MCP provides 24 tools for blockchain data and live chain queries. Blockchain API tools require authentication — either an API key (`ONESOURCE_API_KEY`) or x402 micropayments in USDC on the Base network (`X402_PRIVATE_KEY`). If both are set, API key takes priority.
 
 ## Before You Start
 
-**Always call `1s_setup_check` before using any other OneSource tools.** This checks the installed version against the latest release and reports x402 payment status.
+**Always call `1s_setup_check` before using any other OneSource tools.** This checks the installed version against the latest release and reports authentication status.
 
 - **If an update is available:** Tell the user and help them update before proceeding. Run `npx -y @one-source/mcp@latest` to get the latest version. The update takes effect on the next session — the user will need to restart their MCP client.
 - **If `1s_setup_check` is not available:** The MCP is either not installed or running a version before this tool existed. Help the user install or update using the instructions in Step 2 below.
-- **If x402 is not configured:** The tool will include setup instructions. Walk the user through them before attempting paid API calls.
+- **If auth is not configured:** The tool will include setup instructions. Walk the user through them before attempting API calls.
 
 Do not skip this step — outdated versions may be missing tools, fixes, or protocol changes.
 
@@ -25,8 +25,8 @@ Do not skip this step — outdated versions may be missing tools, fixes, or prot
 
 Call the `1s_setup_check` tool. It reports:
 - Server version (current vs latest)
-- Whether x402 payments are configured
-- Wallet address (if configured)
+- Which auth method is active (API key, x402), or whether auth is not yet configured
+- Wallet address (if x402 is configured)
 - API backend connectivity
 
 If the tool is not available, the MCP is not installed — go to Step 2.
@@ -70,7 +70,54 @@ npm view @one-source/mcp version
 
 To update, reinstall with `@latest` or clear the npx cache: `npx -y @one-source/mcp@latest`.
 
-## Step 3: Get an EVM Private Key
+## Step 3: Configure Authentication
+
+Choose one option. If both are set, API key takes priority.
+
+### Option A: API Key
+
+Set `ONESOURCE_API_KEY` with your OneSource API key.
+
+#### Claude Code
+
+```bash
+claude mcp remove onesource
+claude mcp add onesource -e ONESOURCE_API_KEY=<key> -- npx -y @one-source/mcp@latest
+```
+
+#### Claude Desktop / Cursor
+
+Add the `env` block to your MCP config:
+
+```json
+{
+  "mcpServers": {
+    "onesource": {
+      "command": "npx",
+      "args": ["-y", "@one-source/mcp@latest"],
+      "env": {
+        "ONESOURCE_API_KEY": "<key>"
+      }
+    }
+  }
+}
+```
+
+#### Any MCP Client (stdio)
+
+```bash
+ONESOURCE_API_KEY=<key> npx -y @one-source/mcp@latest
+```
+
+After adding the key, reload the MCP server (run `/reload-plugins` in Claude Code, or restart Claude Desktop / Cursor), then call `1s_setup_check`. It should show `Status: Configured (API key)`. You're done — skip to Step 7 to verify a live tool call.
+
+---
+
+### Option B: x402 Micropayments
+
+Pay-per-call using USDC on Base. No account required — just an EVM wallet funded with USDC. The server handles payments transparently. Continue with Steps 3B through 6 below.
+
+## Step 3B: Get an EVM Private Key
 
 The `X402_PRIVATE_KEY` is an EVM wallet private key — the same kind used by MetaMask, Coinbase Wallet, or Foundry. It is a 64-character hex string. The `0x` prefix is optional — both formats are accepted.
 
@@ -104,7 +151,7 @@ cast wallet new
 
 **Important:** Use a dedicated wallet for MCP payments — do not use your primary wallet with large holdings. Transfer only what you need.
 
-## Step 4: Set the Private Key
+## Step 4: Set the Private Key (x402)
 
 ### Claude Code
 
@@ -215,27 +262,32 @@ After setting the variable, restart your MCP client and run `1s_setup_check` to 
 - Use environment variables, a `.env` file (excluded from git), or a secrets manager.
 - Use a dedicated wallet with minimal funds — only what you need for API calls.
 
-## Step 5: Fund the Wallet with USDC on Base
+## Step 5: Find Your Wallet Address (x402)
+
+After setting the key and reloading the MCP server:
+
+1. Call `1s_setup_check` — it shows the wallet address derived from your key under "Wallet address". This is the address you need to fund.
+2. Alternatively, import the key into MetaMask to see the address.
+
+## Step 6: Fund the Wallet with USDC on Base (x402)
 
 The wallet must hold **USDC on the Base network** (not Ethereum mainnet, not other tokens).
 
-1. Get the wallet address — call `1s_setup_check` (it shows the address after you set the key), or import the key into MetaMask to see it.
-2. Send USDC to that address **on the Base network**.
-3. A few dollars ($1–5 USDC) is enough for hundreds of API calls.
+1. Send USDC to the wallet address from Step 5 **on the Base network**.
+2. A few dollars ($1–5 USDC) is enough for hundreds of API calls.
 
-If you have USDC on Ethereum mainnet, bridge it to Base using the [Base Bridge](https://bridge.base.org) or any cross-chain bridge that supports Base.
+If your USDC is on Ethereum mainnet, bridge it to Base using the [Base Bridge](https://bridge.base.org) or any cross-chain bridge that supports Base.
 
-## Step 6: Verify
+## Step 7: Verify
 
-After setting the key, reload and verify:
+After setting your auth (either option) and reloading:
 
-1. **Reload the MCP server** — In Claude Code, run `/reload-plugins` to pick up config changes without restarting the session.
-2. **Check MCP connection** — Run `/mcp` to confirm the `onesource` server is connected.
-3. **Run `1s_setup_check`** — You should see:
-   - **x402 status:** Configured
-   - **Wallet address:** Your wallet address
+1. **Check MCP connection** — Run `/mcp` to confirm the `onesource` server is connected.
+2. **Run `1s_setup_check`** — You should see:
+   - **Authentication:** `Configured (API key)` or `Configured (x402)` — not "Not configured"
+   - **Wallet address:** Your wallet address (x402 only)
    - **API backend:** Reachable
-4. **Test a paid tool** — Try `1s_network_info` to confirm payments work end-to-end.
+3. **Test a live tool** — Call `1s_network_info` for ethereum. If it returns a block number and gas price, auth is working end-to-end.
 
 > **Tip:** If you edited the config file manually (instead of using `claude mcp add`), you must run `/reload-plugins` for changes to take effect. Restarting Claude Code also works.
 
@@ -244,9 +296,10 @@ After setting the key, reload and verify:
 | Problem | Solution |
 |---------|----------|
 | `1s_setup_check` shows "Not configured" | Most common cause: config was changed but the MCP server wasn't reloaded. Run `/reload-plugins` in Claude Code, or restart Claude Desktop / Cursor. If the key still isn't reaching the server, try setting it as an environment variable directly — see **Alternative: Set the Key as an Environment Variable** above. |
+| `1s_setup_check` shows API key configured but tools return 402 | The key may be invalid or the account may not have a developer plan. Verify the key at app.onesource.io. |
 | "MCP server onesource already exists" error | Run `claude mcp remove onesource` first, then re-add it with your updated config. |
 | Config changed but nothing happened | Run `/reload-plugins` in Claude Code to reload MCP servers, then `/mcp` to check connection status. |
-| Tool returns HTTP 402 error | x402 is not configured, or the wallet has insufficient USDC on Base. |
+| Tool returns HTTP 402 error (x402 path) | x402 is not configured, or the wallet has insufficient USDC on Base. Check `1s_setup_check` for wallet address and balance. |
 | "x402 setup failed" in server logs | The private key format is wrong. It must be a 64-character hex string (with or without `0x` prefix). |
 | Key is set but wallet shows 0 USDC | Make sure USDC is on the **Base** network, not Ethereum mainnet or another chain. |
 | Tools work but results seem stale | Check `1s_setup_check` for version — you may need to update to the latest. |

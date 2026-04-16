@@ -174,7 +174,7 @@ Read storage slot 0 of contract 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48 on et
 
 **Prompt:**
 ```
-Estimate the gas for transferring 0 ETH from 0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045 to 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48 on ethereum using 1s_estimate_gas
+Estimate the gas for transferring 0 ETH from 0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045 to 0x000000000000000000000000000000000000dEaD on ethereum using 1s_estimate_gas
 ```
 
 **Expected:** Returns a gas estimate (likely `21000` for a simple ETH transfer).
@@ -407,6 +407,8 @@ Set `ONESOURCE_API_KEY` to spaces only (e.g., `"   "`).
 
 These tests verify that the server installs, removes, and reinstalls cleanly across different auth configurations. Run these in order. Each step uses Claude Code (`claude mcp` commands) — adapt to config file edits for Claude Desktop / Cursor.
 
+> **Shell env leak:** If `ONESOURCE_API_KEY` or `X402_PRIVATE_KEY` is exported in your shell (e.g. `~/.zshenv`), the MCP subprocess inherits it even when not passed via `-e`. Cycles 1 and 3 test "no API key" and "x402 only" respectively — for those to be valid, pass `-e ONESOURCE_API_KEY=` explicitly to override any shell value.
+
 ---
 
 ### Cycle 1 — Install with no auth → verify → remove
@@ -476,7 +478,7 @@ Reload: `/reload-plugins`
 Expected: Auth status shows `Configured (x402)` with wallet address.
 
 **Step 3:** Call `1s_network_info` for ethereum  
-Expected: Returns chain data — confirms x402 auth is working.
+Expected: Returns chain data — confirms x402 key is valid and the server is configured correctly. Note: this does not verify that USDC was actually spent. For payment verification, see Phase 9.
 
 **Step 4:** Remove:
 ```bash
@@ -592,6 +594,126 @@ Expected response:
 ```
 
 Connect an MCP client to `http://localhost:3000/` and run `1s_setup_check` to verify transport shows `http`.
+
+---
+
+## Phase 9 — x402 End-to-End (Real Payments)
+
+Verifies that x402 payments are actually being processed — USDC is spent from the wallet, not just that tools return data. Run this with a dedicated test wallet funded with a small amount of USDC on Base. Do not use a primary wallet.
+
+**Prerequisites:**
+- A dedicated EVM wallet private key (64-char hex)
+- USDC on Base funded to the derived wallet address — $1–2 is enough
+- MCP installed with `X402_PRIVATE_KEY` only (no `ONESOURCE_API_KEY`)
+- One of: Basescan bookmarked, or Foundry's `cast` installed
+
+---
+
+### Step 1 — Record starting USDC balance on Base
+
+Before any tool calls, note the exact USDC balance of the test wallet on the Base network.
+
+**Via Basescan:**
+```
+https://basescan.org/address/<your-wallet-address>
+```
+Click "Token Holdings" — find USDC and note the exact balance (e.g. `4.250000`).
+
+**Via Foundry cast:**
+```bash
+cast call 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913 \
+  "balanceOf(address)(uint256)" <your-wallet-address> \
+  --rpc-url https://mainnet.base.org
+```
+Result is in raw units (6 decimals) — divide by 1,000,000 to get USDC.
+
+---
+
+### Step 2 — Install with x402 only and verify auth
+
+```bash
+claude mcp remove onesource 2>/dev/null; \
+claude mcp add onesource -e X402_PRIVATE_KEY=<your-hex-key> -- npx -y @one-source/mcp@latest
+```
+Reload: `/reload-plugins`
+
+Call `1s_setup_check`. Confirm:
+- Auth shows `Configured (x402)` — not "Configured (API key)", not "Not configured"
+- Wallet address matches your test wallet
+- Backend: Reachable
+
+**If it shows `Configured (API key)`:** An `ONESOURCE_API_KEY` env var is leaking from your shell. Run `claude mcp remove onesource`, then reinstall with `-e ONESOURCE_API_KEY=` to explicitly clear it:
+```bash
+claude mcp add onesource -e X402_PRIVATE_KEY=<key> -e ONESOURCE_API_KEY= -- npx -y @one-source/mcp@latest
+```
+
+---
+
+### Step 3 — Run 5 paid tool calls
+
+Run each prompt below. Each successful response (real data, not a 402 error) means one x402 payment was processed.
+
+```
+Call 1s_network_info for ethereum
+```
+Expected: chain ID `1`, a recent block number, gas price.
+
+```
+Resolve the ENS name vitalik.eth using 1s_ens_resolve
+```
+Expected: `0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045`
+
+```
+Get the USDC balance of 0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045 using contract 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48 on ethereum using 1s_erc20_balance_live
+```
+Expected: a USDC balance (any number, including 0).
+
+```
+Who owns Bored Ape #1 (token ID 1) from contract 0xBC4CA0EdA7647A8aB7C2061c2E118A18a936f13D on ethereum? Use 1s_nft_owner_live
+```
+Expected: an Ethereum address.
+
+```
+Get the total supply of USDC (contract 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48) on ethereum using 1s_total_supply_live
+```
+Expected: a very large number (~55 billion USDC).
+
+Record how many of the 5 returned real data vs. 402.
+
+---
+
+### Step 4 — Record ending USDC balance
+
+Wait ~30 seconds for Base to finalize, then check the balance again using the same method as Step 1.
+
+---
+
+### Step 5 — Assert
+
+| Check | Expected | Pass |
+|-------|----------|------|
+| All 5 tools returned real data | No 402s in the batch | ✅ / ❌ |
+| USDC balance decreased | Ending balance < starting balance | ✅ / ❌ |
+| Balance delta is ~$0.015 USDC | Between $0.010 and $0.025 for 5 calls (~$0.003/call) | ✅ / ❌ |
+
+---
+
+### Fail conditions
+
+| Symptom | Likely cause |
+|---------|-------------|
+| All tools return 402 | x402 not configured, wallet not funded, or wallet on wrong network (must be Base) |
+| Tools return data but balance unchanged | Payment handshake bypassed — x402 middleware not firing or backend accepted call without payment |
+| Balance decreased by much more than $0.025 | Per-call cost has changed — update expected delta |
+| Some tools 402, others succeed | Intermittent payment failure — worth retrying and filing a bug if consistent |
+
+---
+
+### Cleanup
+
+```bash
+claude mcp remove onesource
+```
 
 ---
 
