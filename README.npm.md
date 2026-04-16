@@ -184,8 +184,6 @@ Never commit keys to source control. Use environment variables, a `.env` file (e
 |----------|---------|-------------|
 | `ONESOURCE_API_KEY` | — | OneSource API key for Bearer token auth. Takes priority over x402. |
 | `X402_PRIVATE_KEY` | — | EVM private key (64-char hex, `0x` prefix optional) for automatic x402 USDC payments on Base |
-| `ONESOURCE_BASE_URL` | `https://skills.onesource.io` | API base URL |
-| `ONESOURCE_ANALYTICS` | — | Set to `false` to disable analytics |
 
 ## Troubleshooting
 

@@ -124,7 +124,7 @@ if (args.includes('--http')) {
     const sharedAnalytics = createAnalytics();
     console.error(`[onesource] analytics: ${process.env.ONESOURCE_ANALYTICS === 'false' ? 'disabled' : `dashboard (${process.env.ONESOURCE_ANALYTICS_URL})`}`);
     console.error(`[onesource] bug reporting: ${bugReportUrl ?? 'https://1s-analytics.vercel.app/api/bugs'}`);
-    const sharedClient = createClientFromEnv({ fetch: x402Fetch });
+    const sharedClient = createClientFromEnv({ fetch: x402Fetch, apiKey });
     // Compute tool count once at startup (server object is discarded)
     const { toolCount } = createMcpServer({
         analytics: sharedAnalytics,
@@ -284,7 +284,7 @@ else {
     else {
         console.error(`[onesource] v${VERSION}`);
     }
-    const client = createClientFromEnv({ fetch: x402Fetch });
+    const client = createClientFromEnv({ fetch: x402Fetch, apiKey });
     const { server, analytics } = createMcpServer({ client, transport: 'stdio', authMethod, x402Address, instructions, bugReportUrl });
     const stdioTransport = new StdioServerTransport();
     await server.connect(stdioTransport);
