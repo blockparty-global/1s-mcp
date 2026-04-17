@@ -227,6 +227,12 @@ Never commit keys to source control. Use environment variables, a `.env` file (e
 **`1s_setup_check` shows "Not configured"**
 Set either `ONESOURCE_API_KEY` or `X402_PRIVATE_KEY`. Reload the MCP server after setting either variable (see note above). If the key still isn't reaching the server, set it as a shell environment variable directly.
 
+**Getting 403 / wrong key active despite correct setup**
+A key set in your shell profile (e.g. `~/.zshrc`, `~/.bash_profile`) is picked up by the MCP server process even if it isn't in your Claude MCP config. Run `echo $ONESOURCE_API_KEY` in your terminal to check. If it prints a value you didn't intend, unset it (`unset ONESOURCE_API_KEY`) or explicitly clear it when adding the server: `claude mcp add onesource -e ONESOURCE_API_KEY= -e X402_PRIVATE_KEY=<key> -- npx -y @one-source/mcp@latest`. `1s_setup_check` shows the first 6 characters of whichever key is active so you can confirm which one the server is using.
+
+**Instructions show wrong auth method after reinstall**
+`/reload-plugins` in Claude Code reconnects tools but may not refresh the system prompt the LLM sees. If you switch auth method (e.g. API key → x402), do a full Claude Code restart to ensure the instructions reflect the new auth.
+
 **"MCP server onesource already exists" error**
 Run `claude mcp remove onesource` first, then re-add with your updated config.
 
