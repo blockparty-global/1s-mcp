@@ -1,7 +1,7 @@
 # OneSource MCP — Full Testing Flow
-**Version:** 5.0.0  
+**Version:** 5.1.0  
 **Date:** 2026-04-16  
-**Purpose:** End-to-end verification of all 24 tools from a clean install.
+**Purpose:** End-to-end verification of all 27 tools from a clean install.
 
 ---
 
@@ -590,7 +590,7 @@ curl http://localhost:3000/health
 ```
 Expected response:
 ```json
-{"status":"ok","server":"onesource-mcp","version":"5.0.0","tools":24}
+{"status":"ok","server":"onesource-mcp","version":"5.1.0","tools":27}
 ```
 
 Connect an MCP client to `http://localhost:3000/` and run `1s_setup_check` to verify transport shows `http`.
@@ -726,8 +726,8 @@ claude mcp remove onesource
 | Chain utility tools | Returns structured data | Error or empty response |
 | Live chain tools | Returns data or valid empty result | Unhandled error or crash |
 | Bug reporting | Returns submission confirmation | Error or no response |
-| Tool count | 24 tools available | Fewer or more |
-| HTTP health check | `{"tools":24}` | Wrong count or 500 |
+| Tool count | 27 tools available | Fewer or more |
+| HTTP health check | `{"tools":27}` | Wrong count or 500 |
 
 ---
 

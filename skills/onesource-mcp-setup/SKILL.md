@@ -9,7 +9,7 @@ description: >-
 
 # OneSource MCP Setup Guide
 
-OneSource MCP provides 24 tools for blockchain data and live chain queries. Blockchain API tools require authentication — either an API key (`ONESOURCE_API_KEY`) or x402 micropayments in USDC on the Base network (`X402_PRIVATE_KEY`). If both are set, API key takes priority.
+OneSource MCP provides 27 tools for blockchain data and live chain queries. Blockchain API tools require authentication — either an API key (`ONESOURCE_API_KEY`) or x402 micropayments in USDC on the Base network (`X402_PRIVATE_KEY`). If both are set, API key takes priority.
 
 ## Before You Start
 
