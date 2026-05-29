@@ -81,17 +81,33 @@ export function registerBugReportTool(opts: RegisterBugReportToolOptions): numbe
       };
 
       try {
-        // Validate: description is required and non-empty
-        if (!input.description?.trim()) {
+        const descriptionTrimmed = input.description?.trim() ?? '';
+        const toolNameTrimmed = input.tool_name?.trim();
+        const networkTrimmed = input.network?.trim();
+
+        if (descriptionTrimmed.length < 10) {
           return {
-            content: [{ type: 'text' as const, text: 'Bug report requires a description. Please describe what went wrong.' }],
+            isError: true,
+            content: [{ type: 'text' as const, text: 'Bug report requires a description of at least 10 characters.' }],
+          };
+        }
+        if (toolNameTrimmed && !/^1s_[a-z][a-z0-9_]*[a-z0-9]$/.test(toolNameTrimmed)) {
+          return {
+            isError: true,
+            content: [{ type: 'text' as const, text: 'Invalid tool_name. Must be a valid OneSource tool name (e.g. 1s_network_info, 1s_erc20_balance_live).' }],
+          };
+        }
+        if (networkTrimmed !== undefined && (networkTrimmed.length === 0 || networkTrimmed.length > 100)) {
+          return {
+            isError: true,
+            content: [{ type: 'text' as const, text: 'Network field is too long. Use a blockchain network name like ethereum, sepolia, or avax.' }],
           };
         }
 
         // Build the payload — structured JSON, backend handles formatting
         const payload = {
-          description: input.description.slice(0, 3000),
-          tool_name: input.tool_name,
+          description: descriptionTrimmed.slice(0, 3000),
+          tool_name: toolNameTrimmed?.slice(0, 100),
           error_message: input.error_message?.slice(0, 1000),
           severity: input.severity ?? 'medium',
           network: input.network,

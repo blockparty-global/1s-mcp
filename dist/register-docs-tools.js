@@ -171,10 +171,15 @@ export function registerDocsTools(opts) {
         const activeMethod = authMethod ?? (runtimeApiKey ? 'api_key' : runtimeX402Key ? 'x402' : 'none');
         if (activeMethod === 'api_key') {
             parts.push('Status: **Configured (API key)**');
+            const keyPreview = runtimeApiKey?.trim().slice(0, 6);
+            if (keyPreview) {
+                parts.push(`Key: \`${keyPreview}••••••\``);
+            }
             if (bothSet) {
                 parts.push('\n⚠️ Both `ONESOURCE_API_KEY` and `X402_PRIVATE_KEY` are set. API key takes priority; x402 is not used.');
             }
             parts.push('\nAPI key authentication is active. Blockchain API tools are ready to use.');
+            parts.push('\n> **If this key was not explicitly set in your Claude MCP config**, it may be inherited from your shell environment. Run `echo $ONESOURCE_API_KEY` in your terminal to check.');
         }
         else if (activeMethod === 'x402') {
             parts.push('Status: **Configured (x402)**');
@@ -182,6 +187,7 @@ export function registerDocsTools(opts) {
                 parts.push(`Wallet: \`${x402Address}\``);
             }
             parts.push('\nThis wallet must hold USDC on the **Base** network to pay for API calls.');
+            parts.push('\n> **If this key was not explicitly set in your Claude MCP config**, it may be inherited from your shell environment. Run `echo $X402_PRIVATE_KEY` in your terminal to check.');
         }
         else {
             parts.push('Status: **Not configured**');
@@ -256,6 +262,7 @@ export function registerDocsTools(opts) {
         // 4. Transport
         parts.push('\n## Transport\n');
         parts.push(`Mode: ${transport ?? 'unknown'}`);
+        parts.push('\n> **Note:** If you recently changed auth method (e.g. API key → x402), restart Claude Code fully to refresh the LLM instructions. `/reload-plugins` reconnects tools but may not update the system prompt the LLM sees.');
         // 5. Bug reporting
         parts.push('\n## Bug Reporting\n');
         parts.push('Status: **Enabled** — call `1s_report_bug` to report issues to the OneSource team.');

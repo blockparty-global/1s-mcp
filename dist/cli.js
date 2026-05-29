@@ -31,7 +31,7 @@ function buildInstructions(currentVersion, latestVersion, authMethod) {
             ? 'Blockchain API tools require x402 payment (USDC on Base). If a tool returns a 402 error, the user needs to configure X402_PRIVATE_KEY. Call 1s_setup_check for diagnostics and setup instructions.'
             : 'Blockchain API tools require authentication. Set ONESOURCE_API_KEY (API key) or X402_PRIVATE_KEY (x402 micropayments) to access them. Call 1s_setup_check for setup instructions.';
     const baseline = [
-        'OneSource MCP — 24 tools for blockchain data.',
+        'OneSource MCP — 27 tools for blockchain data.',
         '',
         authLine,
         '',

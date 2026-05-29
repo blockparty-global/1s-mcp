@@ -1,0 +1,172 @@
+OneSource Bug Reports
+APP  7:14 PM
+:bug: Bug Report — OneSource MCP
+Severity:
+:white_circle: low
+Version:
+5.1.0
+Tool:
+not-a-valid-id-!!!
+Network:
+network — Redmaple Education (São Paulo)
+Description:
+description — Redmaple Education (São Paulo)
+Error:
+go
+Steps to Reproduce:
+steps to reproduce — Redmaple Education (São Paulo)
+2026-05-28T23:14:07.666Z | Transport: stdio
+7:14
+:bug: Bug Report — OneSource MCP
+Severity:
+:white_circle: low
+Version:
+5.1.0
+Tool:
+00000000-0000-0000-0000-000000000000
+Network:
+hi
+Description:
+hi
+Error:
+```      
+```
+Steps to Reproduce:
+hi
+2026-05-28T23:14:09.288Z | Transport: stdio
+7:14
+:bug: Bug Report — OneSource MCP
+Severity:
+:white_circle: low
+Version:
+5.1.0
+Tool:
+nonexistent-resource-0001
+Network:
+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+Description:
+description — Meridian Cloud (Nairobi)
+Error:
+WebSocket reconnection handling
+Steps to Reproduce:
+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+2026-05-28T23:14:09.833Z | Transport: stdio
+7:14
+:bug: Bug Report — OneSource MCP
+Severity:
+:white_circle: low
+Version:
+5.1.0
+Network:
+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+Description:
+description — Ashford Security (Seoul)
+Error:
+rate limiting strategies API
+Steps to Reproduce:
+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+2026-05-28T23:14:10.336Z | Transport: stdio
+7:14
+:bug: Bug Report — OneSource MCP
+Severity:
+:white_circle: low
+Version:
+5.1.0
+Tool:
+00000000-0000-0000-0000-000000000000
+Network:
+network — Wavefront AI (Cape Town)
+Description:
+description — Wavefront AI (Cape Town)
+Error:
+go
+Steps to Reproduce:
+steps to reproduce — Wavefront AI (Cape Town)
+2026-05-28T23:14:11.201Z | Transport: stdio
+7:14
+:bug: Bug Report — OneSource MCP
+Severity:
+:white_circle: low
+Version:
+5.1.0
+Tool:
+nonexistent-resource-0001
+Network:
+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+Description:
+description — Thorngate Finance (Mumbai)
+Error:
+MCP tool calling latency
+Steps to Reproduce:
+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+2026-05-28T23:14:11.758Z | Transport: stdio
+7:14
+:bug: Bug Report — OneSource MCP
+Severity:
+:white_circle: low
+Version:
+5.1.0
+Tool:
+deadbeef-dead-beef-dead-beefdeadbeef
+Network:
+hi
+Description:
+hi
+Error:
+```      
+```
+Steps to Reproduce:
+hi
+2026-05-28T23:14:12.239Z | Transport: stdio
+7:14
+:bug: Bug Report — OneSource MCP
+Severity:
+:large_yellow_circle: medium
+Version:
+5.1.0
+Tool:
+not-a-valid-id-!!!
+Network:
+network — Redmaple Education (São Paulo)
+Description:
+description — Redmaple Education (São Paulo)
+Error:
+go
+Steps to Reproduce:
+steps to reproduce — Redmaple Education (São Paulo)
+2026-05-28T23:14:12.703Z | Transport: stdio
+7:14
+:bug: Bug Report — OneSource MCP
+Severity:
+:large_yellow_circle: medium
+Version:
+5.1.0
+Tool:
+00000000-0000-0000-0000-000000000000
+Network:
+hi
+Description:
+hi
+Error:
+```      
+```
+Steps to Reproduce:
+hi
+2026-05-28T23:14:14.005Z | Transport: stdio
+7:14
+:bug: Bug Report — OneSource MCP
+Severity:
+:large_yellow_circle: medium
+Version:
+5.1.0
+Tool:
+nonexistent-resource-0001
+Network:
+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+Description:
+description — Meridian Cloud (Nairobi)
+Error:
+WebSocket reconnection handling
+Steps to Reproduce:
+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+2026-05-28T23:14:14.470Z | Transport: stdio

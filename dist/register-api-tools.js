@@ -1,5 +1,5 @@
 /**
- * Register all 22 API tools from @one-source/api-mcp onto a shared McpServer.
+ * Register all 25 API tools from @one-source/api-mcp onto a shared McpServer.
  *
  * Replicates the exact instrumentation pattern from api-mcp's create-server.ts:
  * per-call client context, x402 detection, performance timing, session hashing,
@@ -65,8 +65,16 @@ export function registerApiTools(opts) {
                 });
             };
             try {
-                const text = await tool.handler(inputRecord, toolClient);
+                let text = await tool.handler(inputRecord, toolClient);
                 const durationMs = Math.round(performance.now() - start);
+                // When the API key plan doesn't cover this endpoint (403) and the user
+                // also has X402_PRIVATE_KEY set, hint that they can switch to x402.
+                if (text.startsWith('Error: Access denied (403)') &&
+                    authMethod === 'api_key' &&
+                    !!process.env.X402_PRIVATE_KEY?.trim()) {
+                    text +=
+                        '\n\n**Tip:** Your API key does not have access to this endpoint (developer plan required), but you also have `X402_PRIVATE_KEY` configured. To use x402 micropayments instead, reinstall without the API key:\n```\nclaude mcp remove onesource\nclaude mcp add onesource -e X402_PRIVATE_KEY=<key> -- npx -y @one-source/mcp@latest\n```\nOr unset `ONESOURCE_API_KEY` from your shell and restart Claude Code.';
+                }
                 analytics.trackTool({
                     type: 'tool_call',
                     service: 'onesource-api',

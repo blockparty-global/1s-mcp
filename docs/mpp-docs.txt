@@ -1,0 +1,62 @@
+MPP on Tempo
+
+MPP (Multi-Party Payments) is an IETF-aligned HTTP payment protocol that uses standard WWW-Authenticate / Authorization headers (RFC 7235) instead of x402's custom Payment-Required flow. The headers survive proxies, work with curl, and don't conflict with regular HTTP auth schemes.
+
+Skills supports MPP on the Tempo network, with USDC.e or pathUSD as the settlement currency.
+How a call works
+
+    Your client calls a Skills endpoint without any Authorization header.
+    Skills returns HTTP 402 with a WWW-Authenticate: Payment header carrying the price, payTo, network, and currency.
+    Your client constructs an MPP credential — a signed payload covering the price + recipient + nonce.
+    Your client retries the call with Authorization: Payment <credential>.
+    Skills verifies the credential, settles on Tempo, and returns the response plus a Payment-Receipt header.
+
+Same wallet model as x402; different network and protocol header format.
+Currencies
+
+Two currencies are supported on mainnet:
+Currency	Contract	Notes
+USDC.e	0x20c000000000000000000000b9537d11c60e8b50	Default. Standard ERC20 stablecoin on Tempo.
+pathUSD	0x20c0000000000000000000000000000000000000	Native Tempo stablecoin. Slightly different fee profile.
+
+Skills offers both in parallel on the WWW-Authenticate challenge; your client picks one and signs against it.
+Using MPP-aware clients
+AgentCash
+
+AgentCash supports MPP alongside x402 — just point it at a Skills endpoint and it picks the right protocol from the 402 challenge.
+Tempo CLI
+
+The official Tempo CLI can call MPP-protected endpoints:
+
+tempo http GET https://skills.onesource.io/api/chain/network-info \
+  --pay USDC.e
+
+It handles the 402 → credential → retry cycle and prints the response.
+Custom Go client
+
+The github.com/tempoxyz/mpp-go library exposes the credential primitives directly. See the mpp-go README for the full flow.
+Sessions (optional)
+
+MPP supports payment sessions — open once, pay many calls under one signed envelope, close to settle. Skills runs Phase 2 session settlement in production (KMS-signed close handler, 5-minute backstop, durable Redis voucher store). For workloads above ~50 calls/min this is materially cheaper than per-call settlement.
+
+Sessions are emitted single-currency (USDC.e by default) to avoid the upstream pathUSD-vs-USDC.e currency-mismatch bug.
+
+The session API is exposed via the agentcash MCP and the Tempo CLI; bespoke session integrations are not yet documented — open an issue if you need that interface.
+When MPP beats x402
+
+    Lower per-call cost. Tempo gas is materially cheaper than Base; settlement fees can be an order of magnitude lower.
+    Proxy / CDN friendly. RFC 7235 headers pass through Cloudflare, AWS API Gateway, and other middleboxes that strip nonstandard headers.
+    Session model. If your agent makes hundreds of calls/minute, per-call settlement burns fees; sessions amortize.
+
+When to stick with x402
+
+    You already have a Base USDC balance and prefer not to bridge.
+    Your existing tooling speaks x402 only.
+    You want the on-chain settlement to land on a high-traffic L2.
+
+Both are first-class options at the gateway; pick whichever fits your wallet and integrations.
+Next
+
+    x402 on Base
+    Wallet setup — if you haven't funded your wallet yet
+
