@@ -1,0 +1,18 @@
+# Normalize line endings: store text as LF in the repo, check out as LF
+# everywhere. Keeps the working tree stable across Windows/macOS/Linux and
+# stops the CRLF/LF churn that core.autocrlf produces on Windows.
+* text=auto eol=lf
+
+# Windows-native shell scripts must keep CRLF to run correctly.
+*.ps1 text eol=crlf
+*.cmd text eol=crlf
+*.bat text eol=crlf
+
+# Treat common binary types as binary (never normalized).
+*.pem binary
+*.exe binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
