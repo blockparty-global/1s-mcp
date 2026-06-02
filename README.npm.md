@@ -1,6 +1,6 @@
 # @one-source/mcp
 
-Unified MCP server for [OneSource](https://docs.onesource.io) — 27 tools for blockchain data and live chain queries in a single server.
+Unified MCP server for [OneSource](https://docs.onesource.io) — 28 tools for blockchain data and live chain queries in a single server.
 
 > **What is MCP?** The [Model Context Protocol](https://modelcontextprotocol.io) lets AI assistants call tools and access data sources. This server exposes both the OneSource blockchain API and its documentation as tools.
 
@@ -44,7 +44,7 @@ Then connect your MCP client to `http://localhost:3000/`.
 
 Health check: `GET http://localhost:3000/health`
 
-## Tools (27)
+## Tools (28)
 
 ### Blockchain API — Live Chain (12 tools)
 
@@ -82,6 +82,12 @@ RPC only.
 | `1s_simulate_call` | Simulate eth_call |
 | `1s_storage_read` | Read storage slot |
 | `1s_tx_receipt` | Transaction receipt |
+
+### Payments (1 tool)
+
+| Tool | Description |
+|------|-------------|
+| `1s_payment_mode` | View or switch the x402 payment scheme — `exact` (per-call) vs `batch` (payment channel: one deposit funds many off-chain calls, settled with a single claim) |
 
 ### Setup & Ops (2 tools)
 
