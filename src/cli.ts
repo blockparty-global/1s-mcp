@@ -163,6 +163,13 @@ if (args.includes('--http')) {
       return;
     }
 
+    // Browser redirect — GET / with Accept: text/html → landing page
+    if (req.method === 'GET' && req.url === '/' && req.headers['accept']?.includes('text/html')) {
+      res.writeHead(301, { 'Location': 'https://onesource.io/mcp' });
+      res.end();
+      return;
+    }
+
     // Health check
     if (req.method === 'GET' && req.url === '/health') {
       res.writeHead(200, { 'Content-Type': 'application/json' });
