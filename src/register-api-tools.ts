@@ -1,5 +1,5 @@
 /**
- * Register all 25 API tools from @one-source/api-mcp onto a shared McpServer.
+ * Register all 27 API tools from @one-source/api-mcp onto a shared McpServer.
  *
  * Replicates the exact instrumentation pattern from api-mcp's create-server.ts:
  * per-call client context, x402 detection, performance timing, session hashing,
