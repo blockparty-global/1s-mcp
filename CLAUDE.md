@@ -15,7 +15,7 @@ There is no test suite — validation is done manually per `testing.md`.
 
 This is a **unified meta-package** (`@one-source/mcp`) that combines two independent MCP packages into a single MCP server without duplicating their tool implementations:
 
-- `@one-source/api-mcp` — 25 blockchain API tools (active)
+- `@one-source/api-mcp` — 27 blockchain API tools (active)
 - `@one-source/docs-mcp` — documentation tools (integrated but disabled)
 
 ### Server creation flow
