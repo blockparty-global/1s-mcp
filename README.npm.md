@@ -1,6 +1,6 @@
 # @one-source/mcp
 
-Unified MCP server for [OneSource](https://docs.onesource.io) — 28 tools for blockchain data and live chain queries in a single server.
+Unified MCP server for [OneSource](https://docs.onesource.io) — 29 tools for blockchain data and live chain queries in a single server.
 
 > **What is MCP?** The [Model Context Protocol](https://modelcontextprotocol.io) lets AI assistants call tools and access data sources. This server exposes both the OneSource blockchain API and its documentation as tools.
 
@@ -44,7 +44,7 @@ Then connect your MCP client to `http://localhost:3000/`.
 
 Health check: `GET http://localhost:3000/health`
 
-## Tools (28)
+## Tools (29)
 
 ### Blockchain API — Live Chain (12 tools)
 
@@ -83,11 +83,12 @@ RPC only.
 | `1s_storage_read` | Read storage slot |
 | `1s_tx_receipt` | Transaction receipt |
 
-### Payments (1 tool)
+### Payments (2 tools)
 
 | Tool | Description |
 |------|-------------|
 | `1s_payment_mode` | View or switch the x402 payment scheme — `exact` (per-call) vs `batch` (payment channel: one deposit funds many off-chain calls, settled with a single claim) |
+| `1s_refund` | Refund unused `batch` channel balance back to your wallet on demand |
 
 ### Setup & Ops (2 tools)
 
@@ -193,6 +194,10 @@ X402_PRIVATE_KEY=<key> npx -y @one-source/mcp@latest
 4. **Fund that address with USDC on Base** — send USDC to the address shown, on the [Base](https://base.org) network. A few dollars ($1–5 USDC) is enough for hundreds of calls. Bridge from Ethereum mainnet if needed using the [Base Bridge](https://bridge.base.org).
 5. **Verify** — call `1s_network_info` for ethereum. If it returns chain data, payments are working.
 
+#### Batch payments (optional)
+
+By default each paid call signs one USDC payment (`exact`). For a burst of calls, switch to a **batch** payment channel — one on-chain deposit funds many off-chain calls, settled with a single claim — by calling `1s_payment_mode` with `{ "mode": "batch" }` (or setting `X402_PAYMENT_MODE=batch`). The first batch call deposits `price × X402_DEPOSIT_MULTIPLIER` (default 20), so a session usually over-funds the channel. Reclaim the unused balance any time with the `1s_refund` tool; idle channels are also auto-refunded after a few hours. The residual is always recoverable.
+
 ### Security
 
 Never commit keys to source control. Use environment variables, a `.env` file (excluded from git), or a secrets manager.
@@ -205,6 +210,10 @@ Never commit keys to source control. Use environment variables, a `.env` file (e
 |----------|---------|-------------|
 | `ONESOURCE_API_KEY` | — | OneSource API key for Bearer token auth. Takes priority over x402. |
 | `X402_PRIVATE_KEY` | — | EVM private key (64-char hex, `0x` prefix optional) for automatic x402 USDC payments on Base |
+| `X402_PAYMENT_MODE` | `exact` | Initial x402 scheme: `exact` (per-call) or `batch` (payment channel). Switch in-session with `1s_payment_mode`. |
+| `X402_DEPOSIT_MULTIPLIER` | `20` | Batch mode: deposit = price × this multiplier, funding that many calls per channel. Unused balance is reclaimable via `1s_refund`. |
+| `X402_RPC_URL` | Base default | Base RPC endpoint used to submit channel deposits in batch mode |
+| `X402_CHANNEL_DIR` | — | Directory to persist batch channel state across restarts. Unset = in-memory (channel lost on restart). |
 
 ## Troubleshooting
 
