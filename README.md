@@ -241,18 +241,28 @@ Never commit keys to source control. Use environment variables, a `.env` file (e
 
 ## Environment Variables
 
+### Required
 
-| Variable                  | Default                       | Description                                                                                                                        |
-| ------------------------- | ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `ONESOURCE_API_KEY`       | —                             | OneSource API key for Bearer token auth. Takes priority over x402.                                                                 |
-| `X402_PRIVATE_KEY`        | —                             | EVM private key (64-char hex, `0x` prefix optional) for automatic x402 USDC payments on Base                                       |
-| `X402_PAYMENT_MODE`       | `exact`                       | Initial x402 scheme: `exact` (per-call) or `batch` (payment channel). Switch in-session with `1s_payment_mode`.                    |
-| `X402_DEPOSIT_MULTIPLIER` | `10`                          | Batch mode: deposit = price × this multiplier, funding that many calls per channel. Unused balance is reclaimable via `1s_refund`. |                                                                |
-| `X402_CHANNEL_DIR`        | —                             | Directory to persist batch channel state across restarts. Unset = in-memory (channel lost on restart). 
-| `ONESOURCE_BASE_URL`      | `https://skills.onesource.io` | API base URL                                                                       |
-| `ONESOURCE_ANALYTICS`    | —                             | Set to `false` to disable analytics                                                |
-| `ONESOURCE_ANALYTICS_URL` | —                             | Dashboard endpoint for analytics                                                   |
-| `X402_ANALYTICS_KEY`     | —                             | API key for dashboard analytics                                                    |
+Set one to access the blockchain API tools. Without either, only the no-auth Setup & Ops tools work. API key takes priority when both are set.
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `ONESOURCE_API_KEY` | — | OneSource API key for Bearer token auth. Takes priority over x402. |
+| `X402_PRIVATE_KEY` | — | EVM private key (64-char hex, `0x` prefix optional) for automatic x402 USDC payments on Base. |
+
+### Optional / Advanced
+
+All have sensible defaults — batch mode runs out of the box. Set these only to override an endpoint, tune how `batch` mode behaves, or adjust analytics. Payment modes can also be switched at runtime with the `1s_payment_mode` tool.
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `ONESOURCE_BASE_URL` | `https://skills.onesource.io` | API base URL. |
+| `X402_PAYMENT_MODE` | `exact` | Initial x402 scheme: `exact` (per-call) or `batch` (payment channel). Switch in-session with `1s_payment_mode`. |
+| `X402_DEPOSIT_MULTIPLIER` | `10` | Batch mode: deposit = price × this multiplier, funding that many calls per channel. Unused balance is reclaimable via `1s_refund`. |
+| `X402_CHANNEL_DIR` | — | Directory to persist batch channel state across restarts. Unset = in-memory (channel lost on restart). |
+| `ONESOURCE_ANALYTICS` | `true` | Set to `false` to disable analytics. |
+| `ONESOURCE_ANALYTICS_URL` | `https://1s-analytics.vercel.app` | Dashboard endpoint for analytics. |
+| `X402_ANALYTICS_KEY` | `onesource-mcp` | API key for dashboard analytics. |
 
 
 ## Troubleshooting
