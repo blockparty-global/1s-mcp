@@ -118,6 +118,8 @@ All blockchain API tools accept an optional `network` parameter:
 | `sepolia`  | Ethereum Sepolia testnet   |
 | `avax`     | Avalanche C-Chain          |
 
+> **Note:** ENS resolution (`1s_ens_resolve`) is Ethereum-mainnet only — the ENS registry lives on mainnet, so lookups on `sepolia` or `avax` return no result.
+
 
 ## Authentication
 
