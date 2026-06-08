@@ -40,90 +40,102 @@ npx -y @one-source/mcp@latest --http
 npx -y @one-source/mcp@latest --http --port=8080
 ```
 
-Then connect your MCP client to `http://localhost:3000/`.
+Then connect your MCP client to `http://localhost:8080/`.
 
-Health check: `GET http://localhost:3000/health`
+Health check: `GET http://localhost:8080/health`
 
 ## Tools (29)
 
 ### Blockchain API — Live Chain (12 tools)
 
-| Tool | Description |
-|------|-------------|
-| `1s_allowance_live` | ERC20 allowance check |
-| `1s_contract_info_live` | Contract type detection via ERC165 |
-| `1s_erc1155_balance_live` | ERC1155 balance via RPC |
-| `1s_erc20_balance_live` | ERC20 balance via balanceOf |
+
+| Tool                      | Description                         |
+| ------------------------- | ----------------------------------- |
+| `1s_allowance_live`       | ERC20 allowance check               |
+| `1s_contract_info_live`   | Contract type detection via ERC165  |
+| `1s_erc1155_balance_live` | ERC1155 balance via RPC             |
+| `1s_erc20_balance_live`   | ERC20 balance via balanceOf         |
 | `1s_erc20_transfers_live` | ERC20 Transfer logs via eth_getLogs |
-| `1s_erc721_tokens_live` | ERC721 token enumeration |
-| `1s_events_live` | Event logs via eth_getLogs |
-| `1s_multi_balance_live` | ETH + multiple ERC20 balances |
-| `1s_nft_metadata_live` | NFT metadata via tokenURI |
-| `1s_nft_owner_live` | NFT owner via ownerOf |
-| `1s_total_supply_live` | Token total supply |
-| `1s_tx_details_live` | Transaction + receipt via RPC |
+| `1s_erc721_tokens_live`   | ERC721 token enumeration            |
+| `1s_events_live`          | Event logs via eth_getLogs          |
+| `1s_multi_balance_live`   | ETH + multiple ERC20 balances       |
+| `1s_nft_metadata_live`    | NFT metadata via tokenURI           |
+| `1s_nft_owner_live`       | NFT owner via ownerOf               |
+| `1s_total_supply_live`    | Token total supply                  |
+| `1s_tx_details_live`      | Transaction + receipt via RPC       |
+
 
 ### Blockchain API — Chain Utilities (13 tools)
 
 RPC only.
 
-| Tool | Description |
-|------|-------------|
-| `1s_block_by_number` | Block details by number via RPC |
-| `1s_block_number` | Latest block number |
-| `1s_chain_id` | EIP-155 chain ID |
-| `1s_contract_code` | Contract bytecode |
-| `1s_ens_resolve` | ENS name/address resolution |
-| `1s_estimate_gas` | Gas estimation |
-| `1s_network_info` | Chain ID, block number, gas price |
-| `1s_nonce` | Transaction count |
-| `1s_pending_block` | Pending block from mempool |
-| `1s_proxy_detect` | Proxy contract detection |
-| `1s_simulate_call` | Simulate eth_call |
-| `1s_storage_read` | Read storage slot |
-| `1s_tx_receipt` | Transaction receipt |
+
+| Tool                 | Description                       |
+| -------------------- | --------------------------------- |
+| `1s_block_by_number` | Block details by number via RPC   |
+| `1s_block_number`    | Latest block number               |
+| `1s_chain_id`        | EIP-155 chain ID                  |
+| `1s_contract_code`   | Contract bytecode                 |
+| `1s_ens_resolve`     | ENS name/address resolution       |
+| `1s_estimate_gas`    | Gas estimation                    |
+| `1s_network_info`    | Chain ID, block number, gas price |
+| `1s_nonce`           | Transaction count                 |
+| `1s_pending_block`   | Pending block from mempool        |
+| `1s_proxy_detect`    | Proxy contract detection          |
+| `1s_simulate_call`   | Simulate eth_call                 |
+| `1s_storage_read`    | Read storage slot                 |
+| `1s_tx_receipt`      | Transaction receipt               |
+
 
 ### Payments (2 tools)
 
-| Tool | Description |
-|------|-------------|
+
+| Tool              | Description                                                                                                                                                   |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `1s_payment_mode` | View or switch the x402 payment scheme — `exact` (per-call) vs `batch` (payment channel: one deposit funds many off-chain calls, settled with a single claim) |
-| `1s_refund` | Refund unused `batch` channel balance back to your wallet on demand |
+| `1s_refund`       | Refund unused `batch` channel balance back to your wallet on demand                                                                                           |
+
 
 ### Setup & Ops (2 tools)
 
 No authentication required.
 
-| Tool | Purpose | When to use |
-|------|---------|-------------|
+
+| Tool             | Purpose                                                 | When to use                                              |
+| ---------------- | ------------------------------------------------------- | -------------------------------------------------------- |
 | `1s_setup_check` | Server health, version, auth status, setup instructions | First thing to call — checks if everything is configured |
-| `1s_report_bug` | Report bugs to Slack (or GitHub Issues fallback) | When a tool errors or user wants to report an issue |
+| `1s_report_bug`  | Report bugs to Slack (or GitHub Issues fallback)        | When a tool errors or user wants to report an issue      |
+
 
 ## Networks
 
 All blockchain API tools accept an optional `network` parameter:
 
-| Network | Description |
-|---------|-------------|
+
+| Network    | Description                |
+| ---------- | -------------------------- |
 | `ethereum` | Ethereum mainnet (default) |
-| `sepolia` | Ethereum Sepolia testnet |
-| `avax` | Avalanche C-Chain |
+| `sepolia`  | Ethereum Sepolia testnet   |
+| `avax`     | Avalanche C-Chain          |
+
 
 ## Authentication
 
 Blockchain API tools require authentication. Two options are available — if both are set, API key takes priority.
 
-| Method | Variable | Description |
-|--------|----------|-------------|
-| API key | `ONESOURCE_API_KEY` | Unlimited calls, no per-call cost |
-| x402 micropayments | `X402_PRIVATE_KEY` | Pay-per-call via USDC on Base, no account required |
+
+| Method             | Variable            | Description                                        |
+| ------------------ | ------------------- | -------------------------------------------------- |
+| API key            | `ONESOURCE_API_KEY` | Unlimited calls, no per-call cost                  |
+| x402 micropayments | `X402_PRIVATE_KEY`  | Pay-per-call via USDC on Base, no account required |
+
 
 ### Option 1: API Key
 
 1. Go to [app.onesource.io](https://app.onesource.io) and create an account.
 2. Subscribe to a developer plan (Stripe checkout).
 3. Navigate to **API Keys** and generate a key.
-4. Copy the key — it starts with `sk_`.
+4. Copy the key — it starts with `sk`_.
 
 #### Claude Code
 
@@ -201,13 +213,15 @@ X402_PRIVATE_KEY=<key> npx -y @one-source/mcp@latest
 
 If you prefer editing the config file directly instead of using CLI commands:
 
-| Client | Config file path |
-|--------|-----------------|
-| Claude Code | Run `claude mcp get onesource` to see the file path |
-| Claude Desktop (macOS) | `~/Library/Application Support/Claude/claude_desktop_config.json` |
-| Claude Desktop (Windows) | `%APPDATA%\Claude\claude_desktop_config.json` |
-| Cursor (macOS) | `~/.cursor/mcp.json` |
-| Cursor (Windows) | `%USERPROFILE%\.cursor\mcp.json` |
+
+| Client                   | Config file path                                                  |
+| ------------------------ | ----------------------------------------------------------------- |
+| Claude Code              | Run `claude mcp get onesource` to see the file path               |
+| Claude Desktop (macOS)   | `~/Library/Application Support/Claude/claude_desktop_config.json` |
+| Claude Desktop (Windows) | `%APPDATA%\Claude\claude_desktop_config.json`                     |
+| Cursor (macOS)           | `~/.cursor/mcp.json`                                              |
+| Cursor (Windows)         | `%USERPROFILE%\.cursor\mcp.json`                                  |
+
 
 Add the `onesource` entry inside `"mcpServers"` using the JSON block shown above.
 
@@ -227,22 +241,19 @@ Never commit keys to source control. Use environment variables, a `.env` file (e
 
 ## Environment Variables
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `ONESOURCE_API_KEY` | — | OneSource API key for Bearer token auth. Takes priority over x402. |
-| `X402_PRIVATE_KEY` | — | EVM private key (64-char hex, `0x` prefix optional) for automatic x402 USDC payments on Base |
-| `X402_PAYMENT_MODE` | `exact` | Initial x402 scheme: `exact` (per-call) or `batch` (payment channel). Switch in-session with `1s_payment_mode`. |
-| `X402_DEPOSIT_MULTIPLIER` | `10` | Batch mode: deposit = price × this multiplier, funding that many calls per channel. Unused balance is reclaimable via `1s_refund`. |
-| `X402_RPC_URL` | Base default | Base RPC endpoint used to submit channel deposits in batch mode |
-| `X402_CHANNEL_DIR` | — | Directory to persist batch channel state across restarts. Unset = in-memory (channel lost on restart). |
-| `ONESOURCE_BASE_URL` | `https://skills.onesource.io` | API base URL |
-| `ONESOURCE_ANALYTICS` | — | Set to `false` to disable analytics |
-| `ONESOURCE_ANALYTICS_URL` | — | Dashboard endpoint for analytics |
-| `X402_ANALYTICS_KEY` | — | API key for dashboard analytics |
+
+| Variable                  | Default                       | Description                                                                                                                        |
+| ------------------------- | ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `ONESOURCE_API_KEY`       | —                             | OneSource API key for Bearer token auth. Takes priority over x402.                                                                 |
+| `X402_PRIVATE_KEY`        | —                             | EVM private key (64-char hex, `0x` prefix optional) for automatic x402 USDC payments on Base                                       |
+| `X402_PAYMENT_MODE`       | `exact`                       | Initial x402 scheme: `exact` (per-call) or `batch` (payment channel). Switch in-session with `1s_payment_mode`.                    |
+| `X402_DEPOSIT_MULTIPLIER` | `10`                          | Batch mode: deposit = price × this multiplier, funding that many calls per channel. Unused balance is reclaimable via `1s_refund`. |                                                                |
+| `X402_CHANNEL_DIR`        | —                             | Directory to persist batch channel state across restarts. Unset = in-memory (channel lost on restart).                             |                                                                                  |
+
 
 ## Troubleshooting
 
-**`1s_setup_check` shows "Not configured"**
+`**1s_setup_check` shows "Not configured"**
 Set either `ONESOURCE_API_KEY` or `X402_PRIVATE_KEY`. Reload the MCP server after setting either variable (see note above). If the key still isn't reaching the server, set it as a shell environment variable directly.
 
 **Getting 403 / wrong key active despite correct setup**
@@ -257,7 +268,7 @@ Run `claude mcp remove onesource` first, then re-add with your updated config.
 **Windows: `npx` requires `cmd /c` wrapper**
 Claude Code's `/doctor` command may warn about this. Update your MCP config to use `"command": "cmd"` with `"args": ["/c", "npx", "-y", "@one-source/mcp@latest"]`.
 
-**`npx` hangs with no output**
+`**npx` hangs with no output**
 That's normal — stdio mode waits for JSON-RPC input on stdin. Use `--http` if you want an HTTP server you can curl.
 
 **Port already in use**
@@ -323,17 +334,17 @@ If you need to regenerate the keypair (this invalidates the current DNS record a
 
 1. Generate a new ed25519 keypair (e.g., `openssl genpkey -algorithm Ed25519 -out key.pem`)
 2. Extract the raw 32-byte private key seed and convert to hex:
-   ```bash
+  ```bash
    openssl pkey -in key.pem -outform DER | tail -c 32 | xxd -p -c 32
-   ```
+  ```
 3. Extract the public key in base64 for the DNS TXT record:
-   ```bash
+  ```bash
    openssl pkey -in key.pem -pubout -outform DER | tail -c 32 | base64
-   ```
+  ```
 4. Update the DNS TXT record on `onesource.io` with the new public key:
-   ```
+  ```
    v=MCPv1; k=ed25519; p=<base64-public-key>
-   ```
+  ```
 5. Wait for DNS propagation before attempting to log in.
 
 #### Publishing a New Version
@@ -341,35 +352,31 @@ If you need to regenerate the keypair (this invalidates the current DNS record a
 Every time you release a new npm version, update the MCP Registry:
 
 1. **Publish to npm** (the registry validates the package exists, so this must happen first):
-   ```bash
+  ```bash
    npm run build
    npm publish --access public
-   ```
-
+  ```
 2. **Update `server.json`** — set both `version` fields to match the new npm version:
-   ```json
+  ```json
    {
      "version": "x.y.z",
      ...
      "packages": [{ "version": "x.y.z", ... }]
    }
-   ```
+  ```
    The `mcpName` field in `package.json` must be `"io.onesource/mcp"` and must match the `name` field in `server.json`. This is already set — don't remove it.
-
 3. **Authenticate** (tokens expire, so do this each time):
-   ```bash
+  ```bash
    mcp-publisher login dns --domain onesource.io --private-key <ed25519-hex-private-key>
-   ```
-
+  ```
 4. **Publish to the registry:**
-   ```bash
+  ```bash
    mcp-publisher publish
-   ```
-
+  ```
 5. **Verify:**
-   ```bash
+  ```bash
    curl "https://registry.modelcontextprotocol.io/v0.1/servers?search=onesource"
-   ```
+  ```
 
 ### Glama
 
