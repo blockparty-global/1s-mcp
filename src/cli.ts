@@ -33,7 +33,7 @@ function buildInstructions(currentVersion: string, latestVersion: string | null,
       : 'Blockchain API tools require authentication. Set ONESOURCE_API_KEY (API key) or X402_PRIVATE_KEY (x402 micropayments) to access them. Call 1s_setup_check for setup instructions.';
 
   const baseline = [
-    'OneSource MCP — 28 tools for blockchain data.',
+    'OneSource MCP — 29 tools for blockchain data.',
     '',
     authLine,
     '',
