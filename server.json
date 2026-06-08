@@ -3,7 +3,7 @@
   "name": "io.onesource/mcp",
   "description": "27 tools for blockchain data and live chain queries",
   "title": "OneSource MCP",
-  "version": "5.3.1",
+  "version": "5.3.2",
   "websiteUrl": "https://docs.onesource.io",
   "repository": {
     "url": "https://github.com/blockparty-global/1s-mcp",
@@ -13,38 +13,20 @@
     {
       "registryType": "npm",
       "identifier": "@one-source/mcp",
-      "version": "5.3.1",
+      "version": "5.3.2",
       "transport": {
         "type": "stdio"
       },
       "environmentVariables": [
         {
-          "name": "ONESOURCE_BASE_URL",
-          "description": "API base URL (default: https://skills.onesource.io)",
-          "isRequired": false,
-          "isSecret": false
-        },
-        {
-          "name": "ONESOURCE_ANALYTICS",
-          "description": "Set to 'false' to disable analytics",
-          "isRequired": false,
-          "isSecret": false
-        },
-        {
-          "name": "ONESOURCE_ANALYTICS_URL",
-          "description": "Analytics dashboard URL (e.g. https://1s-analytics.vercel.app)",
-          "isRequired": false,
-          "isSecret": false
-        },
-        {
-          "name": "X402_ANALYTICS_KEY",
-          "description": "API key for the analytics dashboard",
+          "name": "X402_PRIVATE_KEY",
+          "description": "EVM private key (64-char hex, 0x prefix optional) for automatic x402 USDC payments on Base",
           "isRequired": false,
           "isSecret": true
         },
         {
-          "name": "X402_PRIVATE_KEY",
-          "description": "EVM private key (64-char hex, 0x prefix optional) for automatic x402 USDC payments on Base",
+          "name": "ONESOURCE_API_KEY",
+          "description": "OneSource API key for Bearer token auth",
           "isRequired": false,
           "isSecret": true
         }
