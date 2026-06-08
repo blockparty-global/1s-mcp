@@ -26,6 +26,8 @@ export interface RegisterApiToolsOptions {
   client?: OneSourceClient;
   /** Active authentication method, determined at startup. */
   authMethod?: 'api_key' | 'x402' | 'none';
+  /** Wallet address derived from X402_PRIVATE_KEY — hashed to wallet_id for analytics. */
+  x402Address?: string;
 }
 
 /**
@@ -37,6 +39,9 @@ export function registerApiTools(
   const { server, analytics, transport } = opts;
   const authMethod = opts.authMethod;
   const client = opts.client ?? createClientFromEnv();
+  const walletId = opts.x402Address
+    ? createHash('sha256').update(opts.x402Address.toLowerCase()).digest('hex').slice(0, 16)
+    : undefined;
 
   // Wire HTTP-level analytics from base client (default handler for non-overridden calls)
   client.onHttpEvent = (event) => {
@@ -118,6 +123,7 @@ export function registerApiTools(
             client_name: clientInfo?.name,
             client_version: clientInfo?.version,
             session_id: sessionHash,
+            wallet_id: walletId,
             transport,
             source: 'unified',
           });
@@ -146,6 +152,7 @@ export function registerApiTools(
             client_name: clientInfo?.name,
             client_version: clientInfo?.version,
             session_id: sessionHash,
+            wallet_id: walletId,
             transport,
             source: 'unified',
           });

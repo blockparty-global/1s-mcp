@@ -57,6 +57,7 @@ export function createMcpServer(opts?: CreateServerOptions): CreateServerResult 
     transport,
     client: opts?.client,
     authMethod: opts?.authMethod,
+    x402Address: opts?.x402Address,
   });
 
   const docsCount = registerDocsTools({
