@@ -248,7 +248,11 @@ Never commit keys to source control. Use environment variables, a `.env` file (e
 | `X402_PRIVATE_KEY`        | —                             | EVM private key (64-char hex, `0x` prefix optional) for automatic x402 USDC payments on Base                                       |
 | `X402_PAYMENT_MODE`       | `exact`                       | Initial x402 scheme: `exact` (per-call) or `batch` (payment channel). Switch in-session with `1s_payment_mode`.                    |
 | `X402_DEPOSIT_MULTIPLIER` | `10`                          | Batch mode: deposit = price × this multiplier, funding that many calls per channel. Unused balance is reclaimable via `1s_refund`. |                                                                |
-| `X402_CHANNEL_DIR`        | —                             | Directory to persist batch channel state across restarts. Unset = in-memory (channel lost on restart).                             |                                                                                  |
+| `X402_CHANNEL_DIR`        | —                             | Directory to persist batch channel state across restarts. Unset = in-memory (channel lost on restart). 
+| `ONESOURCE_BASE_URL`      | `https://skills.onesource.io` | API base URL                                                                       |
+| `ONESOURCE_ANALYTICS`    | —                             | Set to `false` to disable analytics                                                |
+| `ONESOURCE_ANALYTICS_URL` | —                             | Dashboard endpoint for analytics                                                   |
+| `X402_ANALYTICS_KEY`     | —                             | API key for dashboard analytics                                                    |
 
 
 ## Troubleshooting
