@@ -103,7 +103,7 @@ No authentication required.
 
 | Tool             | Purpose                                                 | When to use                                              |
 | ---------------- | ------------------------------------------------------- | -------------------------------------------------------- |
-| `1s_setup_check` | Server health, version, auth status, setup instructions | First thing to call — checks if everything is configured |
+| `1s_setup_check` | Server health, version, auth status, batch-settlement status, and setup instructions | First thing to call — checks if everything is configured |
 | `1s_report_bug`  | Report bugs to Slack (or GitHub Issues fallback)        | When a tool errors or user wants to report an issue      |
 
 
@@ -234,6 +234,8 @@ Instead of the `env` config block, you can set either variable as a shell or sys
 ### Batch payments (optional)
 
 By default each paid call signs one USDC payment (`exact`). For a burst of calls, switch to a **batch** payment channel — one on-chain deposit funds many off-chain calls, settled with a single claim — by calling `1s_payment_mode` with `{ "mode": "batch" }` (or setting `X402_PAYMENT_MODE=batch`). The first batch call deposits `price × X402_DEPOSIT_MULTIPLIER` (default 10), so a session usually over-funds the channel. Reclaim the unused balance any time with the `1s_refund` tool; idle channels are also auto-refunded after a few hours. The residual is always recoverable.
+
+When paying via x402, the agent receives batch guidance in its system prompt at startup, so it can manage this for you rather than leaving batching as a manual step: when it anticipates a burst of calls it offers to switch to batch mode and reminds you to `1s_refund` when finished. Control how proactive it is with `X402_BATCH_PROMPT` (`ask` / `auto` / `off`) and `X402_BATCH_THRESHOLD` (how many anticipated calls count as a burst) — see [Environment Variables](#optional--advanced). `1s_setup_check` reports your current mode, whether batch is available, and both settings.
 
 ### Security
 
