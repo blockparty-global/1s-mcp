@@ -262,6 +262,8 @@ All have sensible defaults — batch mode runs out of the box. Set these only to
 | `X402_DEPOSIT_MULTIPLIER` | `10` | Batch mode: deposit = price × this multiplier, funding that many calls per channel. Unused balance is reclaimable via `1s_refund`. |
 | `X402_CHANNEL_DIR` | — | Directory to persist batch channel state across restarts. Unset = in-memory (channel lost on restart). |
 | `X402_CHANNEL_SALT` | zero | Batch mode: 32-byte hex salt to derive the starting channel id. The client auto-rotates to the next salt when a channel is exhausted or refunded. |
+| `X402_BATCH_PROMPT` | `ask` | How the agent handles switching to batch mode: `ask` (confirm before switching), `auto` (switch on its own), or `off` (only switch when explicitly asked). |
+| `X402_BATCH_THRESHOLD` | `5` | Number of anticipated calls in a session at/above which the agent considers batch mode. Advisory — the agent estimates the call count; it is not a hard runtime counter. |
 | `ONESOURCE_ANALYTICS` | `true` | Set to `false` to disable analytics. |
 | `ONESOURCE_ANALYTICS_URL` | `https://1s-analytics.vercel.app` | Dashboard endpoint for analytics. |
 | `X402_ANALYTICS_KEY` | `onesource-mcp` | API key for dashboard analytics. |

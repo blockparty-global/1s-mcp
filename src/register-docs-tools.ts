@@ -9,6 +9,7 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { RequestHandlerExtra } from '@modelcontextprotocol/sdk/shared/protocol.js';
 import type { ServerRequest, ServerNotification } from '@modelcontextprotocol/sdk/types.js';
 import { createHash } from 'node:crypto';
+import { getPaymentModeInfo } from '@one-source/api-mcp/x402';
 
 // import { loadData, type LoadedData } from '@one-source/docs-mcp';
 // import { searchDocsSchema, handleSearchDocs } from '@one-source/docs-mcp/tools/search-docs';
@@ -311,6 +312,78 @@ export function registerDocsTools(opts: RegisterDocsToolsOptions): number {
         parts.push('**Security:** Never commit keys to source control. Use environment variables or a secrets manager.\n');
       }
 
+      // 2b. Batch settlement (x402 payment channels)
+      parts.push('\n## Batch Settlement (x402)\n');
+
+      if (activeMethod === 'x402') {
+        const info = getPaymentModeInfo();
+
+        // Current preferences (defaults mirror buildInstructions in cli.ts)
+        const rawPrompt = process.env.X402_BATCH_PROMPT?.trim().toLowerCase();
+        const promptPref: 'ask' | 'auto' | 'off' =
+          rawPrompt === 'auto' || rawPrompt === 'off' ? rawPrompt : 'ask';
+        const parsedThreshold = parseInt(process.env.X402_BATCH_THRESHOLD ?? '', 10);
+        const threshold = Number.isFinite(parsedThreshold) && parsedThreshold > 0 ? parsedThreshold : 5;
+
+        parts.push(`Current mode: **${info.mode}**${info.mode === 'exact' ? ' (per-call payments)' : ' (payment channel)'}`);
+        if (info.batchAvailable) {
+          parts.push('Batch available: **Yes**');
+        } else {
+          parts.push('Batch available: **No** — the channel scheme failed to initialise (usually an RPC issue). Check `X402_RPC_URL` and restart the server.');
+        }
+        parts.push(`Switch preference: \`X402_BATCH_PROMPT=${promptPref}\` (ask / auto / off)`);
+        parts.push(`"Many" threshold: \`X402_BATCH_THRESHOLD=${threshold}\` (anticipated calls before batching is considered)`);
+
+        parts.push('\nBatch settlement opens a USDC payment channel: the first paid call deposits `price × deposit multiplier` (default 10×) on-chain, then subsequent calls are signed off-chain and settled together with a single claim. Best for a **burst of calls** — cheaper than paying per call. Switching back to `exact` leaves any unspent channel balance locked until the on-chain withdraw delay (~1 day on mainnet), so reclaim it with `1s_refund` when done.');
+
+        parts.push('\n### Switch at runtime (no restart)\n');
+        parts.push('- Enable batch any time: call `1s_payment_mode` with `{ "mode": "batch" }`.');
+        parts.push('- Back to per-call: call `1s_payment_mode` with `{ "mode": "exact" }`.');
+        parts.push('- Reclaim unspent deposit when finished: call `1s_refund` (idle channels also auto-refund after a few hours).');
+
+        parts.push('\n### Configure via environment variables\n');
+        parts.push('All have sensible defaults — batch runs out of the box. Set these to change defaults at startup:\n');
+        parts.push('- `X402_PAYMENT_MODE` (default `exact`) — set to `batch` to start the session in batch mode.');
+        parts.push('- `X402_DEPOSIT_MULTIPLIER` (default `10`) — deposit = price × this multiplier, funding that many calls per channel.');
+        parts.push('- `X402_RPC_URL` (default Base public RPC) — set your own Base RPC if channel deposits rate-limit.');
+        parts.push('- `X402_CHANNEL_DIR` (default unset = in-memory) — directory to persist the channel across restarts.');
+        parts.push('- `X402_BATCH_PROMPT` (default `ask`) — agent autonomy: `ask` (confirm before switching), `auto` (switch on its own), or `off` (only on explicit request).');
+        parts.push('- `X402_BATCH_THRESHOLD` (default `5`) — number of anticipated calls at/above which the agent considers batching.');
+        parts.push('\n**Claude Code:**');
+        parts.push('```');
+        parts.push('claude mcp remove onesource');
+        parts.push('claude mcp add onesource -e X402_PRIVATE_KEY=0x... -e X402_PAYMENT_MODE=batch -e X402_BATCH_PROMPT=ask -e X402_BATCH_THRESHOLD=5 -- npx -y @one-source/mcp@latest');
+        parts.push('```\n');
+        parts.push('**Claude Desktop / Cursor:**');
+        parts.push('```json');
+        parts.push('{');
+        parts.push('  "mcpServers": {');
+        parts.push('    "onesource": {');
+        parts.push('      "command": "npx",');
+        parts.push('      "args": ["-y", "@one-source/mcp@latest"],');
+        parts.push('      "env": {');
+        parts.push('        "X402_PRIVATE_KEY": "0x...",');
+        parts.push('        "X402_PAYMENT_MODE": "batch",');
+        parts.push('        "X402_BATCH_PROMPT": "ask",');
+        parts.push('        "X402_BATCH_THRESHOLD": "5"');
+        parts.push('      }');
+        parts.push('    }');
+        parts.push('  }');
+        parts.push('}');
+        parts.push('```\n');
+        parts.push('**Any MCP client (stdio):**');
+        parts.push('```');
+        parts.push('X402_PRIVATE_KEY=0x... X402_PAYMENT_MODE=batch X402_BATCH_PROMPT=ask X402_BATCH_THRESHOLD=5 npx -y @one-source/mcp@latest');
+        parts.push('```\n');
+
+        parts.push('### Your preference\n');
+        parts.push(`> **Agent:** ask the user how they want batch handled — (1) **how many calls** in a session should make batching worth it (currently ${threshold}), and (2) whether you should **ask first** (current: \`${promptPref}\`), **switch automatically**, or **only on request**. Offer to persist their answer via \`X402_BATCH_THRESHOLD\` and \`X402_BATCH_PROMPT\` using the config above (takes effect on restart).`);
+      } else {
+        parts.push('Batch settlement applies only to x402 payments. ' + (activeMethod === 'api_key'
+          ? 'Your calls are covered by your API key, so there is no per-call payment to batch.'
+          : 'You have no auth configured, so there is nothing to batch yet — set `X402_PRIVATE_KEY` to pay via x402.'));
+      }
+
       // 3. API connectivity
       parts.push('\n## API Connectivity\n');
       const baseUrl = process.env.ONESOURCE_BASE_URL ?? 'https://skills.onesource.io';
@@ -341,6 +414,9 @@ export function registerDocsTools(opts: RegisterDocsToolsOptions): number {
       }
       if (activeMethod !== 'none') {
         parts.push('- Try an API tool: `1s_network_info` (returns chain ID, block number, gas price)');
+      }
+      if (activeMethod === 'x402' && getPaymentModeInfo().mode === 'exact') {
+        parts.push('- Making many calls this session? Ask me to enable batch mode (`1s_payment_mode`) to pay once for the whole burst.');
       }
 
       return parts.join('\n');

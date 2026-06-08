@@ -24,6 +24,34 @@ async function checkLatestVersion(): Promise<string | null> {
   }
 }
 
+/**
+ * Build the batch-settlement guidance line for the agent system prompt.
+ *
+ * Only meaningful when paying via x402; returns '' for api_key/none. The line's
+ * proactivity is driven by two user-set env vars:
+ *   X402_BATCH_PROMPT     — autonomy level: 'ask' (default) | 'auto' | 'off'
+ *   X402_BATCH_THRESHOLD  — integer count of anticipated calls that means "many"
+ *                           (default 5; non-numeric / ≤0 falls back to the default)
+ */
+function buildBatchGuidance(authMethod: 'api_key' | 'x402' | 'none'): string {
+  if (authMethod !== 'x402') return '';
+
+  const rawPrompt = process.env.X402_BATCH_PROMPT?.trim().toLowerCase();
+  const prompt: 'ask' | 'auto' | 'off' =
+    rawPrompt === 'auto' || rawPrompt === 'off' ? rawPrompt : 'ask';
+
+  const parsedThreshold = parseInt(process.env.X402_BATCH_THRESHOLD ?? '', 10);
+  const threshold = Number.isFinite(parsedThreshold) && parsedThreshold > 0 ? parsedThreshold : 5;
+
+  if (prompt === 'off') {
+    return 'Batch payments: only switch to batch mode if the user explicitly asks.';
+  }
+  if (prompt === 'auto') {
+    return `Batch payments: when you anticipate ${threshold} or more blockchain calls in a session, switch to batch automatically via 1s_payment_mode {mode:'batch'}, and call 1s_refund when finished to reclaim leftover balance.`;
+  }
+  return `Batch payments: when you anticipate ${threshold} or more blockchain calls in one session, batch mode (a USDC payment channel) is cheaper than per-call exact payments. Because batch deposits USDC up front, ask the user before switching; on agreement call 1s_payment_mode {mode:'batch'}, and remind them to 1s_refund leftover balance when finished.`;
+}
+
 /** Build the MCP instructions string based on version comparison and active auth method. */
 function buildInstructions(currentVersion: string, latestVersion: string | null, authMethod: 'api_key' | 'x402' | 'none'): string {
   const authLine = authMethod === 'api_key'
@@ -32,10 +60,13 @@ function buildInstructions(currentVersion: string, latestVersion: string | null,
       ? 'Blockchain API tools require x402 payment (USDC on Base). If a tool returns a 402 error, the user needs to configure X402_PRIVATE_KEY. Call 1s_setup_check for diagnostics and setup instructions.'
       : 'Blockchain API tools require authentication. Set ONESOURCE_API_KEY (API key) or X402_PRIVATE_KEY (x402 micropayments) to access them. Call 1s_setup_check for setup instructions.';
 
+  const batchGuidance = buildBatchGuidance(authMethod);
+
   const baseline = [
     'OneSource MCP — 29 tools for blockchain data.',
     '',
     authLine,
+    ...(batchGuidance ? ['', batchGuidance] : []),
     '',
     'Bug Reporting: When any blockchain API tool (1s_* prefix) returns an error, automatically call 1s_report_bug with the tool_name, error_message, and a brief description of what was attempted. Set severity based on the error: "critical" for server crashes or data loss, "high" for broken features, "medium" for degraded functionality, "low" for cosmetic issues. Do NOT auto-report 402 or 403 errors — these are auth or billing issues, not bugs (402 means the API key was rejected or x402 payment is required; 403 means a developer plan is required). Do not report the same error more than once per conversation. Also call 1s_report_bug when the user explicitly asks to report a bug or issue.',
   ].join('\n');
