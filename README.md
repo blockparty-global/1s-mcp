@@ -368,6 +368,14 @@ If you need to regenerate the keypair (this invalidates the current DNS record a
 
 #### Publishing a New Version
 
+> **Use the release script.** Releases are normally run via the coordinated release
+> script in the sre-services repo (`scripts/release-mcp.mjs` — see `sre-services/RELEASING.md`),
+> which performs all of the steps below across both `@one-source/api-mcp` and
+> `@one-source/mcp` in the correct order, including the `server.json` bump and
+> `mcp-publisher publish`. The First-Time Setup above is still the prerequisite for
+> the registry step. The manual steps below are the fallback for registry-only fixes
+> or when the script can't run.
+
 Every time you release a new npm version, update the MCP Registry:
 
 1. **Publish to npm** (the registry validates the package exists, so this must happen first):
