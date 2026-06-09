@@ -60,9 +60,15 @@ On startup, `cli.ts` checks the npm registry for the latest version (3s timeout,
 
 ## MCP Registry publishing
 
-After `npm publish`:
+Releases are normally driven by the **coordinated release script** in the
+sre-services repo (`scripts/release-mcp.mjs`; see `sre-services/RELEASING.md`).
+It publishes `@one-source/api-mcp` and `@one-source/mcp` in the required order,
+refreshes this repo's `@one-source/api-mcp` dependency, bumps `server.json`, and
+runs `mcp-publisher publish` — so the steps below normally happen for you.
 
-1. Update version fields in `server.json`
+Manual fallback (registry-only fixes, or when the script can't run) — after `npm publish`:
+
+1. Update version fields in `server.json` (both `version` and `packages[].version`)
 2. Authenticate: `mcp-publisher login dns --domain onesource.io --private-key <hex-key>`
 3. Publish: `mcp-publisher publish`
 4. Glama auto-syncs via `glama.json` maintainer config
