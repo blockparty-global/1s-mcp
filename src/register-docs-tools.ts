@@ -9,7 +9,21 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { RequestHandlerExtra } from '@modelcontextprotocol/sdk/shared/protocol.js';
 import type { ServerRequest, ServerNotification } from '@modelcontextprotocol/sdk/types.js';
 import { createHash } from 'node:crypto';
-import { getPaymentModeInfo } from '@one-source/api-mcp/x402';
+import { z } from 'zod';
+import { getPaymentModeInfo, setPaymentMode } from '@one-source/api-mcp/x402';
+import {
+  getBatchPrefs,
+  setBatchPrefs,
+  resetBatchPrefs,
+  batchConfigPath,
+  hasPersistedConfig,
+  coercePrompt,
+  coerceThreshold,
+  coerceMultiplier,
+  coerceMode,
+  MIN_DEPOSIT_MULTIPLIER,
+  type BatchPrefs,
+} from './batch-prefs.js';
 
 // import { loadData, type LoadedData } from '@one-source/docs-mcp';
 // import { searchDocsSchema, handleSearchDocs } from '@one-source/docs-mcp/tools/search-docs';
@@ -48,6 +62,7 @@ function instrumentedTool(
   schema: any,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   handler: (input: any) => string | Promise<string>,
+  category: ToolCallEvent['category'] = 'docs',
 ): void {
   server.tool(name, description, schema, async (input: Record<string, unknown>, extra: RequestHandlerExtra<ServerRequest, ServerNotification>) => {
     const start = performance.now();
@@ -59,7 +74,7 @@ function instrumentedTool(
       type: 'tool_call',
       service: 'onesource-docs',
       tool: name,
-      category: 'docs',
+      category,
       timestamp: new Date().toISOString(),
       input_params: inputKeys,
       version: VERSION,
@@ -317,13 +332,8 @@ export function registerDocsTools(opts: RegisterDocsToolsOptions): number {
 
       if (activeMethod === 'x402') {
         const info = getPaymentModeInfo();
-
-        // Current preferences (defaults mirror buildInstructions in cli.ts)
-        const rawPrompt = process.env.X402_BATCH_PROMPT?.trim().toLowerCase();
-        const promptPref: 'ask' | 'auto' | 'off' =
-          rawPrompt === 'auto' || rawPrompt === 'off' ? rawPrompt : 'ask';
-        const parsedThreshold = parseInt(process.env.X402_BATCH_THRESHOLD ?? '', 10);
-        const threshold = Number.isFinite(parsedThreshold) && parsedThreshold > 0 ? parsedThreshold : 5;
+        const prefs = getBatchPrefs();
+        const persisted = hasPersistedConfig();
 
         parts.push(`Current mode: **${info.mode}**${info.mode === 'exact' ? ' (per-call payments)' : ' (payment channel)'}`);
         if (info.batchAvailable) {
@@ -331,53 +341,38 @@ export function registerDocsTools(opts: RegisterDocsToolsOptions): number {
         } else {
           parts.push('Batch available: **No** — the channel scheme failed to initialise (usually an RPC issue). Check `X402_RPC_URL` and restart the server.');
         }
-        parts.push(`Switch preference: \`X402_BATCH_PROMPT=${promptPref}\` (ask / auto / off)`);
-        parts.push(`"Many" threshold: \`X402_BATCH_THRESHOLD=${threshold}\` (anticipated calls before batching is considered)`);
+        parts.push('\n**Current batch settings:**');
+        parts.push(`- Autonomy: \`${prefs.prompt}\` (ask / auto / off — whether the agent confirms before switching to batch)`);
+        parts.push(`- "Many" threshold: \`${prefs.threshold}\` (anticipated calls at/above which batching is considered)`);
+        parts.push(`- Deposit multiplier: \`${prefs.depositMultiplier}\` (channel deposit = call price × this)`);
+        parts.push(`- Default mode: \`${prefs.mode}\` (scheme the session starts in)`);
+        parts.push(`- Saved to: ${persisted ? `\`${batchConfigPath()}\`` : `*(not yet saved — using ${process.env.X402_BATCH_PROMPT || process.env.X402_BATCH_THRESHOLD ? 'env vars / ' : ''}defaults)*`}`);
 
-        parts.push('\nBatch settlement opens a USDC payment channel: the first paid call deposits `price × deposit multiplier` (default 10×) on-chain, then subsequent calls are signed off-chain and settled together with a single claim. Best for a **burst of calls** — cheaper than paying per call. Switching back to `exact` leaves any unspent channel balance locked until the on-chain withdraw delay (~1 day on mainnet), so reclaim it with `1s_refund` when done.');
+        parts.push('\nBatch settlement opens a USDC payment channel: the first paid call deposits `price × deposit multiplier` on-chain, then subsequent calls are signed off-chain and settled together with a single claim. Best for a **burst of calls** — cheaper than paying per call. Switching back to `exact` leaves any unspent channel balance locked until the on-chain withdraw delay (~1 day on mainnet), so reclaim it with `1s_refund` when done.');
 
-        parts.push('\n### Switch at runtime (no restart)\n');
-        parts.push('- Enable batch any time: call `1s_payment_mode` with `{ "mode": "batch" }`.');
-        parts.push('- Back to per-call: call `1s_payment_mode` with `{ "mode": "exact" }`.');
-        parts.push('- Reclaim unspent deposit when finished: call `1s_refund` (idle channels also auto-refund after a few hours).');
+        parts.push('\n### Configure from this session — no config editing, no restart\n');
+        parts.push('Use the `1s_batch_config` tool to view or change every batch setting. Changes are saved to the server-managed config file above and persist across restarts — you never need to edit the MCP client config or set env vars by hand.');
+        parts.push('- View current settings: call `1s_batch_config` with no arguments.');
+        parts.push('- Change autonomy: `1s_batch_config { "prompt": "auto" }` (or `"ask"` / `"off"`).');
+        parts.push('- Change the threshold: `1s_batch_config { "threshold": 8 }`.');
+        parts.push('- Change the deposit multiplier: `1s_batch_config { "deposit_multiplier": 20 }` (min ' + MIN_DEPOSIT_MULTIPLIER + '; applies to the next channel opened).');
+        parts.push('- Set the default mode and switch now: `1s_batch_config { "mode": "batch" }` (applies immediately and on future restarts).');
+        parts.push('- Reset everything to defaults: `1s_batch_config { "reset": true }`.');
+        parts.push('\nThe `prompt`, `threshold`, and `mode` changes take effect immediately for the rest of this session; `deposit_multiplier` applies to the next payment channel that opens.');
 
-        parts.push('\n### Configure via environment variables\n');
-        parts.push('All have sensible defaults — batch runs out of the box. Set these to change defaults at startup:\n');
-        parts.push('- `X402_PAYMENT_MODE` (default `exact`) — set to `batch` to start the session in batch mode.');
-        parts.push('- `X402_DEPOSIT_MULTIPLIER` (default `10`) — deposit = price × this multiplier, funding that many calls per channel.');
+        parts.push('\n### Other runtime controls\n');
+        parts.push('- Switch scheme for this session only (without changing the saved default): `1s_payment_mode { "mode": "batch" }` or `{ "mode": "exact" }`.');
+        parts.push('- Reclaim unspent channel deposit when finished: `1s_refund` (idle channels also auto-refund after a few hours).');
+
+        parts.push('\n### Advanced: install-time env vars\n');
+        parts.push('Setting these in the MCP config seeds the defaults at startup (the saved config file, when present, takes priority). Most users should use `1s_batch_config` instead.');
+        parts.push('- `X402_BATCH_PROMPT` (default `ask`), `X402_BATCH_THRESHOLD` (default `5`), `X402_PAYMENT_MODE` (default `exact`), `X402_DEPOSIT_MULTIPLIER` (default `10`).');
         parts.push('- `X402_RPC_URL` (default Base public RPC) — set your own Base RPC if channel deposits rate-limit.');
         parts.push('- `X402_CHANNEL_DIR` (default unset = in-memory) — directory to persist the channel across restarts.');
-        parts.push('- `X402_BATCH_PROMPT` (default `ask`) — agent autonomy: `ask` (confirm before switching), `auto` (switch on its own), or `off` (only on explicit request).');
-        parts.push('- `X402_BATCH_THRESHOLD` (default `5`) — number of anticipated calls at/above which the agent considers batching.');
-        parts.push('\n**Claude Code:**');
-        parts.push('```');
-        parts.push('claude mcp remove onesource');
-        parts.push('claude mcp add onesource -e X402_PRIVATE_KEY=0x... -e X402_PAYMENT_MODE=batch -e X402_BATCH_PROMPT=ask -e X402_BATCH_THRESHOLD=5 -- npx -y @one-source/mcp@latest');
-        parts.push('```\n');
-        parts.push('**Claude Desktop / Cursor:**');
-        parts.push('```json');
-        parts.push('{');
-        parts.push('  "mcpServers": {');
-        parts.push('    "onesource": {');
-        parts.push('      "command": "npx",');
-        parts.push('      "args": ["-y", "@one-source/mcp@latest"],');
-        parts.push('      "env": {');
-        parts.push('        "X402_PRIVATE_KEY": "0x...",');
-        parts.push('        "X402_PAYMENT_MODE": "batch",');
-        parts.push('        "X402_BATCH_PROMPT": "ask",');
-        parts.push('        "X402_BATCH_THRESHOLD": "5"');
-        parts.push('      }');
-        parts.push('    }');
-        parts.push('  }');
-        parts.push('}');
-        parts.push('```\n');
-        parts.push('**Any MCP client (stdio):**');
-        parts.push('```');
-        parts.push('X402_PRIVATE_KEY=0x... X402_PAYMENT_MODE=batch X402_BATCH_PROMPT=ask X402_BATCH_THRESHOLD=5 npx -y @one-source/mcp@latest');
-        parts.push('```\n');
+        parts.push('- `ONESOURCE_CONFIG_DIR` (default `~/.onesource`) — directory holding the saved batch config.');
 
-        parts.push('### Your preference\n');
-        parts.push(`> **Agent:** ask the user how they want batch handled — (1) **how many calls** in a session should make batching worth it (currently ${threshold}), and (2) whether you should **ask first** (current: \`${promptPref}\`), **switch automatically**, or **only on request**. Offer to persist their answer via \`X402_BATCH_THRESHOLD\` and \`X402_BATCH_PROMPT\` using the config above (takes effect on restart).`);
+        parts.push('\n### Your preference\n');
+        parts.push(`> **Agent:** ask the user how they want batch payments handled — (1) **how many calls** in a session should make batching worth it (currently ${prefs.threshold}), and (2) whether you should **ask first** (current: \`${prefs.prompt}\`), **switch automatically**, or **only act on request**. When they answer, apply it immediately with \`1s_batch_config\` (e.g. \`{ "threshold": 8, "prompt": "auto" }\`) — it persists automatically, so there is no config file to edit and no restart needed.`);
       } else {
         parts.push('Batch settlement applies only to x402 payments. ' + (activeMethod === 'api_key'
           ? 'Your calls are covered by your API key, so there is no per-call payment to batch.'
@@ -415,15 +410,160 @@ export function registerDocsTools(opts: RegisterDocsToolsOptions): number {
       if (activeMethod !== 'none') {
         parts.push('- Try an API tool: `1s_network_info` (returns chain ID, block number, gas price)');
       }
-      if (activeMethod === 'x402' && getPaymentModeInfo().mode === 'exact') {
-        parts.push('- Making many calls this session? Ask me to enable batch mode (`1s_payment_mode`) to pay once for the whole burst.');
+      if (activeMethod === 'x402') {
+        parts.push('- Review your batch-payment preferences and adjust them with `1s_batch_config` (see Batch Settlement above) — no config editing or restart needed.');
+        if (getPaymentModeInfo().mode === 'exact') {
+          parts.push('- Making many calls this session? Enable batch mode (`1s_payment_mode { "mode": "batch" }`) to pay once for the whole burst.');
+        }
       }
 
       return parts.join('\n');
     },
   );
 
-  return 1;
+  // ---------------------------------------------------------------------------
+  // 1s_batch_config — view or change x402 batch-settlement preferences at
+  // runtime. Persists to the server-managed config file so settings survive
+  // restarts without editing the MCP client config. Decoupled from auth: it can
+  // record preferences even before x402 is active, but only x402 sessions act on
+  // them, and a live mode switch only happens when x402 is enabled.
+  // ---------------------------------------------------------------------------
+  instrumentedTool(server, analytics, transport,
+    '1s_batch_config',
+    'View or change x402 batch-settlement preferences and save them so they persist across restarts — no MCP config editing or restart required. ' +
+      'Call with no arguments to see current settings. ' +
+      'Set "prompt" (ask/auto/off — agent autonomy when switching to batch), "threshold" (anticipated calls before batching is worth it), ' +
+      '"deposit_multiplier" (channel deposit = call price × this; applies to the next channel opened), or "mode" (exact/batch — the default scheme, also switched live for this session). ' +
+      'Pass "reset": true to restore defaults. Only affects x402 payments; with an API key, calls are covered by your plan.',
+    {
+      prompt: z.enum(['ask', 'auto', 'off']).optional()
+        .describe('Agent autonomy when deciding to switch to batch mode: ask (confirm first), auto (switch on its own), off (only on explicit request).'),
+      threshold: z.number().int().positive().optional()
+        .describe('Anticipated call count at/above which batch mode is worth considering. Default 5.'),
+      deposit_multiplier: z.number().min(MIN_DEPOSIT_MULTIPLIER).optional()
+        .describe(`Channel deposit = call price × this multiplier. Minimum ${MIN_DEPOSIT_MULTIPLIER}. Applies to the next channel opened.`),
+      mode: z.enum(['exact', 'batch']).optional()
+        .describe('Default payment scheme the session starts in. Also switched live for the current session when x402 is active.'),
+      reset: z.boolean().optional()
+        .describe('Restore all batch settings to their built-in defaults (deletes the saved config file).'),
+    },
+    (input: Record<string, unknown>) => handleBatchConfig(input, opts.authMethod),
+    'ops',
+  );
+
+  return 2;
+}
+
+/**
+ * Handler for `1s_batch_config`. Validates input, persists the change, applies a
+ * live payment-mode switch when x402 is active, and returns a human/agent-readable
+ * summary of the resulting settings.
+ */
+function handleBatchConfig(
+  input: Record<string, unknown>,
+  authMethod: 'api_key' | 'x402' | 'none' | undefined,
+): string {
+  const info = getPaymentModeInfo();
+  const x402Active = info.enabled || authMethod === 'x402';
+
+  // --- reset path ---
+  if (input.reset === true) {
+    const { prefs, persisted, persistError } = resetBatchPrefs();
+    if (x402Active && info.enabled) setPaymentMode(prefs.mode);
+    return renderBatchConfig('Batch settings reset to defaults.', prefs, persisted, persistError, x402Active, info.enabled);
+  }
+
+  // --- validate provided fields (only those present) ---
+  const patch: Partial<BatchPrefs> = {};
+  const errors: string[] = [];
+
+  if (input.prompt !== undefined) {
+    const v = coercePrompt(input.prompt);
+    if (v) patch.prompt = v;
+    else errors.push(`prompt must be one of ask / auto / off (got ${JSON.stringify(input.prompt)})`);
+  }
+  if (input.threshold !== undefined) {
+    const v = coerceThreshold(input.threshold);
+    if (v) patch.threshold = v;
+    else errors.push(`threshold must be a positive integer (got ${JSON.stringify(input.threshold)})`);
+  }
+  if (input.deposit_multiplier !== undefined) {
+    const v = coerceMultiplier(input.deposit_multiplier);
+    if (v) patch.depositMultiplier = v;
+    else errors.push(`deposit_multiplier must be a number ≥ ${MIN_DEPOSIT_MULTIPLIER} (got ${JSON.stringify(input.deposit_multiplier)})`);
+  }
+  if (input.mode !== undefined) {
+    const v = coerceMode(input.mode);
+    if (v) patch.mode = v;
+    else errors.push(`mode must be exact or batch (got ${JSON.stringify(input.mode)})`);
+  }
+
+  if (errors.length > 0) {
+    return `Could not apply batch config — ${errors.join('; ')}. No changes were made.`;
+  }
+
+  // --- no fields → report current settings ---
+  if (Object.keys(patch).length === 0) {
+    const prefs = getBatchPrefs();
+    return renderBatchConfig('Current batch settings (no changes requested).', prefs, hasPersistedConfig(), undefined, x402Active, info.enabled);
+  }
+
+  // --- apply ---
+  const { prefs, persisted, persistError } = setBatchPrefs(patch);
+
+  // Apply a live mode switch only when x402 is genuinely active in this session.
+  let modeNote: string | undefined;
+  if (patch.mode !== undefined) {
+    if (info.enabled) {
+      const applied = setPaymentMode(patch.mode);
+      if (patch.mode === 'batch' && !info.batchAvailable) {
+        modeNote = 'Saved as the default, but batch could not be activated this session — the channel scheme is unavailable (check `X402_RPC_URL` and restart). Mode stays `exact` for now.';
+      } else if (applied === patch.mode) {
+        modeNote = `Switched the live payment scheme to \`${applied}\` for this session.`;
+      }
+    } else {
+      modeNote = 'Saved as the default mode; it will take effect once x402 is active (set `X402_PRIVATE_KEY`).';
+    }
+  }
+
+  return renderBatchConfig('Batch settings updated.', prefs, persisted, persistError, x402Active, info.enabled, modeNote);
+}
+
+/** Format batch settings + status notes into the tool's text response. */
+function renderBatchConfig(
+  headline: string,
+  prefs: BatchPrefs,
+  persisted: boolean,
+  persistError: string | undefined,
+  x402Active: boolean,
+  x402Enabled: boolean,
+  modeNote?: string,
+): string {
+  const lines: string[] = [headline, ''];
+  lines.push('**Batch settings**');
+  lines.push(`- Autonomy (prompt): \`${prefs.prompt}\``);
+  lines.push(`- "Many" threshold: \`${prefs.threshold}\``);
+  lines.push(`- Deposit multiplier: \`${prefs.depositMultiplier}\``);
+  lines.push(`- Default mode: \`${prefs.mode}\``);
+
+  if (modeNote) lines.push('', modeNote);
+
+  lines.push('');
+  if (persisted) {
+    lines.push(`Saved to \`${batchConfigPath()}\` — these settings persist across restarts.`);
+  } else {
+    lines.push(`⚠️ Could not write the config file (${persistError ?? 'unknown error'}). The settings are active for this session but will not survive a restart.`);
+  }
+
+  if (!x402Active) {
+    lines.push('');
+    lines.push('Note: batch settlement only applies to x402 payments. These preferences are saved and will take effect once x402 is active (set `X402_PRIVATE_KEY`).');
+  } else if (!x402Enabled) {
+    lines.push('');
+    lines.push('Note: x402 is not active in this process yet, so the live payment scheme was not changed — the saved defaults apply on the next x402 session.');
+  }
+
+  return lines.join('\n');
 }
 
 // export { loadData, type LoadedData };

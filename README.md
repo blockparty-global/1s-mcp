@@ -1,6 +1,6 @@
 # @one-source/mcp
 
-Unified MCP server for [OneSource](https://docs.onesource.io) — 29 tools for blockchain data and live chain queries in a single server.
+Unified MCP server for [OneSource](https://docs.onesource.io) — 30 tools for blockchain data and live chain queries in a single server.
 
 > **What is MCP?** The [Model Context Protocol](https://modelcontextprotocol.io) lets AI assistants call tools and access data sources. This server exposes both the OneSource blockchain API and its documentation as tools.
 
@@ -44,7 +44,7 @@ Then connect your MCP client to `http://localhost:8080/`.
 
 Health check: `GET http://localhost:8080/health`
 
-## Tools (29)
+## Tools (30)
 
 ### Blockchain API — Live Chain (12 tools)
 
@@ -96,15 +96,16 @@ RPC only.
 | `1s_refund`       | Refund unused `batch` channel balance back to your wallet on demand                                                                                           |
 
 
-### Setup & Ops (2 tools)
+### Setup & Ops (3 tools)
 
 No authentication required.
 
 
-| Tool             | Purpose                                                 | When to use                                              |
-| ---------------- | ------------------------------------------------------- | -------------------------------------------------------- |
-| `1s_setup_check` | Server health, version, auth status, batch-settlement status, and setup instructions | First thing to call — checks if everything is configured |
-| `1s_report_bug`  | Report bugs to Slack (or GitHub Issues fallback)        | When a tool errors or user wants to report an issue      |
+| Tool              | Purpose                                                 | When to use                                              |
+| ----------------- | ------------------------------------------------------- | -------------------------------------------------------- |
+| `1s_setup_check`  | Server health, version, auth status, batch-settlement status, and setup instructions | First thing to call — checks if everything is configured |
+| `1s_batch_config` | View or change x402 batch-settlement preferences (autonomy, threshold, deposit multiplier, default mode) and persist them across restarts — no config editing required | Configure batch behaviour from the session |
+| `1s_report_bug`   | Report bugs to Slack (or GitHub Issues fallback)        | When a tool errors or user wants to report an issue      |
 
 
 ## Networks
@@ -253,7 +254,7 @@ Set one to access the blockchain API tools. Without either, only the no-auth Set
 
 ### Optional / Advanced
 
-All have sensible defaults — batch mode runs out of the box. Set these only to override an endpoint, tune how `batch` mode behaves, or adjust analytics. Payment modes can also be switched at runtime with the `1s_payment_mode` tool.
+All have sensible defaults — batch mode runs out of the box. Set these only to override an endpoint, tune how `batch` mode behaves, or adjust analytics. Payment modes can also be switched at runtime with the `1s_payment_mode` tool. The batch knobs below (`X402_PAYMENT_MODE`, `X402_DEPOSIT_MULTIPLIER`, `X402_BATCH_PROMPT`, `X402_BATCH_THRESHOLD`) can be set and persisted from a session with the `1s_batch_config` tool — no config editing or restart required; a saved config takes priority over these env vars.
 
 | Variable | Default | Description |
 | --- | --- | --- |
@@ -265,6 +266,7 @@ All have sensible defaults — batch mode runs out of the box. Set these only to
 | `X402_CHANNEL_SALT` | zero | Batch mode: 32-byte hex salt to derive the starting channel id. The client auto-rotates to the next salt when a channel is exhausted or refunded. |
 | `X402_BATCH_PROMPT` | `ask` | How the agent handles switching to batch mode: `ask` (confirm before switching), `auto` (switch on its own), or `off` (only switch when explicitly asked). |
 | `X402_BATCH_THRESHOLD` | `5` | Number of anticipated calls in a session at/above which the agent considers batch mode. Advisory — the agent estimates the call count; it is not a hard runtime counter. |
+| `ONESOURCE_CONFIG_DIR` | `~/.onesource` | Directory holding the server-managed batch config (`batch-config.json`) written by `1s_batch_config`. |
 | `ONESOURCE_ANALYTICS` | `true` | Set to `false` to disable analytics. |
 | `ONESOURCE_ANALYTICS_URL` | `https://1s-analytics.vercel.app` | Dashboard endpoint for analytics. |
 | `X402_ANALYTICS_KEY` | `onesource-mcp` | API key for dashboard analytics. |

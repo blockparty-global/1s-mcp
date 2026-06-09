@@ -28,42 +28,45 @@ async function checkLatestVersion(): Promise<string | null> {
  * Build the batch-settlement guidance line for the agent system prompt.
  *
  * Only meaningful when paying via x402; returns '' for api_key/none. The line's
- * proactivity is driven by two user-set env vars:
- *   X402_BATCH_PROMPT     — autonomy level: 'ask' (default) | 'auto' | 'off'
- *   X402_BATCH_THRESHOLD  — integer count of anticipated calls that means "many"
- *                           (default 5; non-numeric / ≤0 falls back to the default)
+ * proactivity is driven by the resolved batch preferences (file > env > default;
+ * see batch-prefs.ts):
+ *   prompt     — autonomy level: 'ask' (default) | 'auto' | 'off'
+ *   threshold  — count of anticipated calls that means "many" (default 5)
  */
-function buildBatchGuidance(authMethod: 'api_key' | 'x402' | 'none'): string {
+function buildBatchGuidance(
+  authMethod: 'api_key' | 'x402' | 'none',
+  prompt: 'ask' | 'auto' | 'off',
+  threshold: number,
+): string {
   if (authMethod !== 'x402') return '';
 
-  const rawPrompt = process.env.X402_BATCH_PROMPT?.trim().toLowerCase();
-  const prompt: 'ask' | 'auto' | 'off' =
-    rawPrompt === 'auto' || rawPrompt === 'off' ? rawPrompt : 'ask';
-
-  const parsedThreshold = parseInt(process.env.X402_BATCH_THRESHOLD ?? '', 10);
-  const threshold = Number.isFinite(parsedThreshold) && parsedThreshold > 0 ? parsedThreshold : 5;
-
   if (prompt === 'off') {
-    return 'Batch payments: only switch to batch mode if the user explicitly asks.';
+    return 'Batch payments: only switch to batch mode if the user explicitly asks. You can change this preference with 1s_batch_config.';
   }
   if (prompt === 'auto') {
-    return `Batch payments: when you anticipate ${threshold} or more blockchain calls in a session, switch to batch automatically via 1s_payment_mode {mode:'batch'}, and call 1s_refund when finished to reclaim leftover balance.`;
+    return `Batch payments: when you anticipate ${threshold} or more blockchain calls in a session, switch to batch automatically via 1s_payment_mode {mode:'batch'}, and call 1s_refund when finished to reclaim leftover balance. Batch behaviour is configurable with 1s_batch_config.`;
   }
-  return `Batch payments: when you anticipate ${threshold} or more blockchain calls in one session, batch mode (a USDC payment channel) is cheaper than per-call exact payments. Because batch deposits USDC up front, ask the user before switching; on agreement call 1s_payment_mode {mode:'batch'}, and remind them to 1s_refund leftover balance when finished.`;
+  return `Batch payments: when you anticipate ${threshold} or more blockchain calls in one session, batch mode (a USDC payment channel) is cheaper than per-call exact payments. Because batch deposits USDC up front, ask the user before switching; on agreement call 1s_payment_mode {mode:'batch'}, and remind them to 1s_refund leftover balance when finished. The user can tune batch behaviour (autonomy, threshold, deposit) any time via 1s_batch_config — no restart needed.`;
 }
 
 /** Build the MCP instructions string based on version comparison and active auth method. */
-function buildInstructions(currentVersion: string, latestVersion: string | null, authMethod: 'api_key' | 'x402' | 'none'): string {
+function buildInstructions(
+  currentVersion: string,
+  latestVersion: string | null,
+  authMethod: 'api_key' | 'x402' | 'none',
+  batchPrompt: 'ask' | 'auto' | 'off',
+  batchThreshold: number,
+): string {
   const authLine = authMethod === 'api_key'
     ? 'Blockchain API tools are authenticated via API key. If a tool returns a 402 error, the API key may be invalid or inactive — tell the user to verify their key at app.onesource.io. If a tool returns a 403 error, the account does not have a developer plan — tell the user to upgrade at app.onesource.io.'
     : authMethod === 'x402'
       ? 'Blockchain API tools require x402 payment (USDC on Base). If a tool returns a 402 error, the user needs to configure X402_PRIVATE_KEY. Call 1s_setup_check for diagnostics and setup instructions.'
       : 'Blockchain API tools require authentication. Set ONESOURCE_API_KEY (API key) or X402_PRIVATE_KEY (x402 micropayments) to access them. Call 1s_setup_check for setup instructions.';
 
-  const batchGuidance = buildBatchGuidance(authMethod);
+  const batchGuidance = buildBatchGuidance(authMethod, batchPrompt, batchThreshold);
 
   const baseline = [
-    'OneSource MCP — 29 tools for blockchain data.',
+    'OneSource MCP — 30 tools for blockchain data.',
     '',
     authLine,
     ...(batchGuidance ? ['', batchGuidance] : []),
@@ -131,6 +134,12 @@ if (args.includes('--http')) {
   let x402Fetch: typeof globalThis.fetch | undefined;
   let x402Address: string | undefined;
 
+  // Resolve batch preferences (file > env > default) and mirror the deposit
+  // multiplier + initial mode into process.env BEFORE setupX402 builds the
+  // payment channel, so settings saved via 1s_batch_config take effect at startup.
+  const { loadBatchPrefs } = await import('./batch-prefs.js');
+  const batchPrefs = loadBatchPrefs();
+
   if (apiKey) {
     authMethod = 'api_key';
     console.error('[onesource] auth: api_key');
@@ -156,7 +165,7 @@ if (args.includes('--http')) {
 
   // Check for updates (non-blocking, 3s timeout)
   const latestVersion = await checkLatestVersion();
-  const instructions = buildInstructions(VERSION, latestVersion, authMethod);
+  const instructions = buildInstructions(VERSION, latestVersion, authMethod, batchPrefs.prompt, batchPrefs.threshold);
   if (latestVersion && latestVersion !== VERSION) {
     console.error(`[onesource] v${VERSION} (update available: v${latestVersion})`);
   } else if (latestVersion) {
@@ -317,6 +326,12 @@ if (args.includes('--http')) {
   let x402Fetch: typeof globalThis.fetch | undefined;
   let x402Address: string | undefined;
 
+  // Resolve batch preferences (file > env > default) and mirror the deposit
+  // multiplier + initial mode into process.env BEFORE setupX402 builds the
+  // payment channel, so settings saved via 1s_batch_config take effect at startup.
+  const { loadBatchPrefs } = await import('./batch-prefs.js');
+  const batchPrefs = loadBatchPrefs();
+
   if (apiKey) {
     authMethod = 'api_key';
     console.error('[onesource] auth: api_key');
@@ -342,7 +357,7 @@ if (args.includes('--http')) {
 
   // Check for updates (non-blocking, 3s timeout)
   const latestVersion = await checkLatestVersion();
-  const instructions = buildInstructions(VERSION, latestVersion, authMethod);
+  const instructions = buildInstructions(VERSION, latestVersion, authMethod, batchPrefs.prompt, batchPrefs.threshold);
   if (latestVersion && latestVersion !== VERSION) {
     console.error(`[onesource] v${VERSION} (update available: v${latestVersion})`);
   } else if (latestVersion) {

@@ -1,7 +1,7 @@
 # OneSource MCP — Full Testing Flow
-**Version:** 5.1.0  
-**Date:** 2026-04-16  
-**Purpose:** End-to-end verification of all 27 tools from a clean install.
+**Version:** 5.4.0  
+**Date:** 2026-06-09  
+**Purpose:** End-to-end verification of all 30 tools from a clean install.
 
 ---
 
@@ -590,7 +590,7 @@ curl http://localhost:3000/health
 ```
 Expected response:
 ```json
-{"status":"ok","server":"onesource-mcp","version":"5.1.0","tools":27}
+{"status":"ok","server":"onesource-mcp","version":"5.4.0","tools":30}
 ```
 
 Connect an MCP client to `http://localhost:3000/` and run `1s_setup_check` to verify transport shows `http`.
@@ -717,6 +717,67 @@ claude mcp remove onesource
 
 ---
 
+## Phase 10 — Batch Config (x402, in-session)
+
+Verifies that x402 batch-settlement preferences can be fully configured from the session via `1s_batch_config` — no config file editing, no restart — and that they persist across restarts. Run with `X402_PRIVATE_KEY` set (no `ONESOURCE_API_KEY`).
+
+> The settings are saved to `~/.onesource/batch-config.json` (override the directory with `ONESOURCE_CONFIG_DIR`). A saved config takes priority over the `X402_BATCH_*` / `X402_PAYMENT_MODE` / `X402_DEPOSIT_MULTIPLIER` env vars.
+
+### Test 29 — View current settings
+
+**Prompt:**
+```
+Call 1s_batch_config
+```
+**Expected:** Reports the current autonomy (`prompt`), threshold, deposit multiplier, and default mode. With no prior config, shows defaults (`ask` / `5` / `10` / `exact`).
+
+### Test 30 — Change settings and persist
+
+**Prompt:**
+```
+Call 1s_batch_config with prompt "auto", threshold 12, and mode "batch"
+```
+**Expected:**
+- Confirms the new settings (`auto` / `12` / `batch`).
+- Notes the live payment scheme switched to `batch` for this session.
+- Reports the settings were saved to the config file path.
+
+Confirm with `1s_payment_mode` (no args) — mode should now be `batch`.
+
+### Test 31 — Persistence across restart
+
+Restart the MCP client (Claude Desktop: quit and reopen; Claude Code: `/reload-plugins` or restart). Then:
+
+**Prompt:**
+```
+Call 1s_setup_check
+```
+**Expected:** The Batch Settlement section shows the saved settings (`auto` / `12`, default mode `batch`) and lists the config file under "Saved to". This confirms the values survived the restart without any config-file editing.
+
+### Test 32 — Setup check prompts for batch preference
+
+**Prompt:**
+```
+Call 1s_setup_check
+```
+**Expected:** Under x402 auth, the Batch Settlement section ends with a "Your preference" directive instructing the agent to ask how batch should be handled and to apply the answer with `1s_batch_config`. The agent should raise this with you.
+
+### Test 33 — Validation and reset
+
+**Prompt:**
+```
+Call 1s_batch_config with threshold -5
+```
+**Expected:** Rejected with a validation error; no settings change.
+
+**Prompt:**
+```
+Call 1s_batch_config with reset true
+```
+**Expected:** All settings return to defaults (or to the `X402_*` env vars, if set); the saved config file is removed.
+
+---
+
 ## Pass / Fail Criteria
 
 | Check | Pass | Fail |
@@ -726,8 +787,8 @@ claude mcp remove onesource
 | Chain utility tools | Returns structured data | Error or empty response |
 | Live chain tools | Returns data or valid empty result | Unhandled error or crash |
 | Bug reporting | Returns submission confirmation | Error or no response |
-| Tool count | 27 tools available | Fewer or more |
-| HTTP health check | `{"tools":27}` | Wrong count or 500 |
+| Tool count | 30 tools available | Fewer or more |
+| HTTP health check | `{"tools":30}` | Wrong count or 500 |
 
 ---
 
