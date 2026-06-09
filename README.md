@@ -103,7 +103,7 @@ No authentication required.
 
 | Tool             | Purpose                                                 | When to use                                              |
 | ---------------- | ------------------------------------------------------- | -------------------------------------------------------- |
-| `1s_setup_check` | Server health, version, auth status, setup instructions | First thing to call — checks if everything is configured |
+| `1s_setup_check` | Server health, version, auth status, batch-settlement status, and setup instructions | First thing to call — checks if everything is configured |
 | `1s_report_bug`  | Report bugs to Slack (or GitHub Issues fallback)        | When a tool errors or user wants to report an issue      |
 
 
@@ -116,7 +116,6 @@ All blockchain API tools accept an optional `network` parameter:
 | ---------- | -------------------------- |
 | `ethereum` | Ethereum mainnet (default) |
 | `sepolia`  | Ethereum Sepolia testnet   |
-| `avax`     | Avalanche C-Chain          |
 
 
 ## Authentication
@@ -233,6 +232,8 @@ Instead of the `env` config block, you can set either variable as a shell or sys
 
 By default each paid call signs one USDC payment (`exact`). For a burst of calls, switch to a **batch** payment channel — one on-chain deposit funds many off-chain calls, settled with a single claim — by calling `1s_payment_mode` with `{ "mode": "batch" }` (or setting `X402_PAYMENT_MODE=batch`). The first batch call deposits `price × X402_DEPOSIT_MULTIPLIER` (default 10), so a session usually over-funds the channel. Reclaim the unused balance any time with the `1s_refund` tool; idle channels are also auto-refunded after a few hours. The residual is always recoverable.
 
+When paying via x402, the agent receives batch guidance in its system prompt at startup, so it can manage this for you rather than leaving batching as a manual step: when it anticipates a burst of calls it offers to switch to batch mode and reminds you to `1s_refund` when finished. Control how proactive it is with `X402_BATCH_PROMPT` (`ask` / `auto` / `off`) and `X402_BATCH_THRESHOLD` (how many anticipated calls count as a burst) — see [Environment Variables](#optional--advanced). `1s_setup_check` reports your current mode, whether batch is available, and both settings.
+
 ### Security
 
 Never commit keys to source control. Use environment variables, a `.env` file (excluded from git), or a secrets manager.
@@ -241,18 +242,32 @@ Never commit keys to source control. Use environment variables, a `.env` file (e
 
 ## Environment Variables
 
+### Required
 
-| Variable                  | Default                       | Description                                                                                                                        |
-| ------------------------- | ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `ONESOURCE_API_KEY`       | —                             | OneSource API key for Bearer token auth. Takes priority over x402.                                                                 |
-| `X402_PRIVATE_KEY`        | —                             | EVM private key (64-char hex, `0x` prefix optional) for automatic x402 USDC payments on Base                                       |
-| `X402_PAYMENT_MODE`       | `exact`                       | Initial x402 scheme: `exact` (per-call) or `batch` (payment channel). Switch in-session with `1s_payment_mode`.                    |
-| `X402_DEPOSIT_MULTIPLIER` | `10`                          | Batch mode: deposit = price × this multiplier, funding that many calls per channel. Unused balance is reclaimable via `1s_refund`. |                                                                |
-| `X402_CHANNEL_DIR`        | —                             | Directory to persist batch channel state across restarts. Unset = in-memory (channel lost on restart). 
-| `ONESOURCE_BASE_URL`      | `https://skills.onesource.io` | API base URL                                                                       |
-| `ONESOURCE_ANALYTICS`    | —                             | Set to `false` to disable analytics                                                |
-| `ONESOURCE_ANALYTICS_URL` | —                             | Dashboard endpoint for analytics                                                   |
-| `X402_ANALYTICS_KEY`     | —                             | API key for dashboard analytics                                                    |
+Set one to access the blockchain API tools. Without either, only the no-auth Setup & Ops tools work. API key takes priority when both are set.
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `ONESOURCE_API_KEY` | — | OneSource API key for Bearer token auth. Takes priority over x402. |
+| `X402_PRIVATE_KEY` | — | EVM private key (64-char hex, `0x` prefix optional) for automatic x402 USDC payments on Base. |
+
+### Optional / Advanced
+
+All have sensible defaults — batch mode runs out of the box. Set these only to override an endpoint, tune how `batch` mode behaves, or adjust analytics. Payment modes can also be switched at runtime with the `1s_payment_mode` tool.
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `ONESOURCE_BASE_URL` | `https://skills.onesource.io` | API base URL. |
+| `X402_PAYMENT_MODE` | `exact` | Initial x402 scheme: `exact` (per-call) or `batch` (payment channel). Switch in-session with `1s_payment_mode`. |
+| `X402_RPC_URL` | Base default | Base RPC endpoint used to submit channel deposits in batch mode. |
+| `X402_DEPOSIT_MULTIPLIER` | `10` | Batch mode: deposit = price × this multiplier, funding that many calls per channel. Unused balance is reclaimable via `1s_refund`. |
+| `X402_CHANNEL_DIR` | — | Directory to persist batch channel state across restarts. Unset = in-memory (channel lost on restart). |
+| `X402_CHANNEL_SALT` | zero | Batch mode: 32-byte hex salt to derive the starting channel id. The client auto-rotates to the next salt when a channel is exhausted or refunded. |
+| `X402_BATCH_PROMPT` | `ask` | How the agent handles switching to batch mode: `ask` (confirm before switching), `auto` (switch on its own), or `off` (only switch when explicitly asked). |
+| `X402_BATCH_THRESHOLD` | `5` | Number of anticipated calls in a session at/above which the agent considers batch mode. Advisory — the agent estimates the call count; it is not a hard runtime counter. |
+| `ONESOURCE_ANALYTICS` | `true` | Set to `false` to disable analytics. |
+| `ONESOURCE_ANALYTICS_URL` | `https://1s-analytics.vercel.app` | Dashboard endpoint for analytics. |
+| `X402_ANALYTICS_KEY` | `onesource-mcp` | API key for dashboard analytics. |
 
 
 ## Troubleshooting

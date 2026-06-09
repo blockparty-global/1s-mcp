@@ -55,7 +55,7 @@ export function registerBugReportTool(opts: RegisterBugReportToolOptions): numbe
       tool_name: z.string().optional().describe('The MCP tool that produced the error (e.g. 1s_network_info, 1s_erc20_balance_live).'),
       error_message: z.string().optional().describe('The error message or relevant output from the failed tool call.'),
       severity: z.enum(['low', 'medium', 'high', 'critical']).optional().describe('Bug severity: low (cosmetic), medium (degraded function), high (feature broken), critical (server crash or data loss).'),
-      network: z.string().optional().describe('The blockchain network involved, if applicable (e.g. ethereum, sepolia, avax).'),
+      network: z.string().optional().describe('The blockchain network involved, if applicable (e.g. ethereum, sepolia).'),
       steps_to_reproduce: z.string().optional().describe('Steps to reproduce the issue, if known.'),
     }).shape,
     async (input: BugReportInput, extra: RequestHandlerExtra<ServerRequest, ServerNotification>) => {
@@ -100,7 +100,7 @@ export function registerBugReportTool(opts: RegisterBugReportToolOptions): numbe
         if (networkTrimmed !== undefined && (networkTrimmed.length === 0 || networkTrimmed.length > 100)) {
           return {
             isError: true,
-            content: [{ type: 'text' as const, text: 'Network field is too long. Use a blockchain network name like ethereum, sepolia, or avax.' }],
+            content: [{ type: 'text' as const, text: 'Network field is too long. Use a blockchain network name like ethereum or sepolia.' }],
           };
         }
 

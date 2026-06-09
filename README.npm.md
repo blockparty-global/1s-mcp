@@ -96,7 +96,7 @@ No authentication required.
 
 | Tool | Purpose | When to use |
 |------|---------|-------------|
-| `1s_setup_check` | Server health, version, auth status, setup instructions | First thing to call — checks if everything is configured |
+| `1s_setup_check` | Server health, version, auth status, batch-settlement status, and setup instructions | First thing to call — checks if everything is configured |
 | `1s_report_bug` | Report bugs to Slack (or GitHub Issues fallback) | When a tool errors or user wants to report an issue |
 
 ## Networks
@@ -107,7 +107,6 @@ All blockchain API tools accept an optional `network` parameter:
 |---------|-------------|
 | `ethereum` | Ethereum mainnet (default) |
 | `sepolia` | Ethereum Sepolia testnet |
-| `avax` | Avalanche C-Chain |
 
 ## Authentication
 
@@ -198,6 +197,8 @@ X402_PRIVATE_KEY=<key> npx -y @one-source/mcp@latest
 
 By default each paid call signs one USDC payment (`exact`). For a burst of calls, switch to a **batch** payment channel — one on-chain deposit funds many off-chain calls, settled with a single claim — by calling `1s_payment_mode` with `{ "mode": "batch" }` (or setting `X402_PAYMENT_MODE=batch`). The first batch call deposits `price × X402_DEPOSIT_MULTIPLIER` (default 10), so a session usually over-funds the channel. Reclaim the unused balance any time with the `1s_refund` tool; idle channels are also auto-refunded after a few hours. The residual is always recoverable.
 
+When paying via x402, the agent is also given batch guidance at startup so it can manage this for you: when it anticipates a burst of calls it offers to switch to batch mode and reminds you to `1s_refund` when done. Tune that behavior with `X402_BATCH_PROMPT` (whether the agent asks first, switches automatically, or only on request) and `X402_BATCH_THRESHOLD` (how many calls count as "a burst"). Run `1s_setup_check` to see your current mode, whether batch is available, and these settings.
+
 ### Security
 
 Never commit keys to source control. Use environment variables, a `.env` file (excluded from git), or a secrets manager.
@@ -206,14 +207,27 @@ Never commit keys to source control. Use environment variables, a `.env` file (e
 
 ## Environment Variables
 
+### Required
+
+Set one to access the blockchain API tools. Without either, only the no-auth Setup & Ops tools work. API key takes priority when both are set.
+
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `ONESOURCE_API_KEY` | — | OneSource API key for Bearer token auth. Takes priority over x402. |
-| `X402_PRIVATE_KEY` | — | EVM private key (64-char hex, `0x` prefix optional) for automatic x402 USDC payments on Base |
+| `X402_PRIVATE_KEY` | — | EVM private key (64-char hex, `0x` prefix optional) for automatic x402 USDC payments on Base. |
+
+### Optional / Advanced
+
+All have sensible defaults — batch mode runs out of the box. Set these only to tune how `batch` mode behaves or how proactively the agent reaches for it. Payment modes can also be switched at runtime with the `1s_payment_mode` tool.
+
+| Variable | Default | Description |
+|----------|---------|-------------|
 | `X402_PAYMENT_MODE` | `exact` | Initial x402 scheme: `exact` (per-call) or `batch` (payment channel). Switch in-session with `1s_payment_mode`. |
 | `X402_DEPOSIT_MULTIPLIER` | `10` | Batch mode: deposit = price × this multiplier, funding that many calls per channel. Unused balance is reclaimable via `1s_refund`. |
-| `X402_RPC_URL` | Base default | Base RPC endpoint used to submit channel deposits in batch mode |
+| `X402_RPC_URL` | Base default | Base RPC endpoint used to submit channel deposits in batch mode. |
 | `X402_CHANNEL_DIR` | — | Directory to persist batch channel state across restarts. Unset = in-memory (channel lost on restart). |
+| `X402_BATCH_PROMPT` | `ask` | How the agent handles switching to batch mode: `ask` (confirm first), `auto` (switch on its own), or `off` (only when explicitly asked). |
+| `X402_BATCH_THRESHOLD` | `5` | Number of anticipated calls in a session at/above which the agent considers batch mode. Advisory — the agent estimates the count; not a hard runtime counter. |
 
 ## Troubleshooting
 
