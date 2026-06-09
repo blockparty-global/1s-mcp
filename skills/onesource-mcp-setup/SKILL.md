@@ -9,7 +9,7 @@ description: >-
 
 # OneSource MCP Setup Guide
 
-OneSource MCP provides 29 tools for blockchain data and live chain queries. Blockchain API tools require authentication — either an API key (`ONESOURCE_API_KEY`) or x402 micropayments in USDC on the Base network (`X402_PRIVATE_KEY`). If both are set, API key takes priority.
+OneSource MCP provides 30 tools for blockchain data and live chain queries. Blockchain API tools require authentication — either an API key (`ONESOURCE_API_KEY`) or x402 micropayments in USDC on the Base network (`X402_PRIVATE_KEY`). If both are set, API key takes priority.
 
 ## Before You Start
 
@@ -293,6 +293,16 @@ After setting your auth (either option) and reloading:
 3. **Test a live tool** — Call `1s_network_info` for ethereum. If it returns a block number and gas price, auth is working end-to-end.
 
 > **Tip:** If you edited the config file manually (instead of using `claude mcp add`), you must run `/reload-plugins` for changes to take effect. Restarting Claude Code also works.
+
+## Step 8: Configure Batch Payments (x402, optional)
+
+If you authenticate with x402, you can pay per call (`exact`, default) or open a USDC payment channel (`batch`) that funds many calls from one deposit — cheaper for a burst of calls. You don't need to edit any config for this:
+
+- **`1s_batch_config`** — view or change batch preferences (autonomy, "many calls" threshold, deposit multiplier, default mode) from the session. Changes persist across restarts. See the `onesource-batch-config` skill.
+- **`1s_payment_mode`** — switch the live scheme (`exact`/`batch`) for the current session only.
+- **`1s_refund`** — reclaim any unspent channel deposit when you're done.
+
+`1s_setup_check` shows your current mode and batch settings, and will prompt you for your preferred batch behavior.
 
 ## Troubleshooting
 

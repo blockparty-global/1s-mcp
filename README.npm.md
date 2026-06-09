@@ -1,6 +1,6 @@
 # @one-source/mcp
 
-Unified MCP server for [OneSource](https://docs.onesource.io) — 29 tools for blockchain data and live chain queries in a single server.
+Unified MCP server for [OneSource](https://docs.onesource.io) — 30 tools for blockchain data and live chain queries in a single server.
 
 > **What is MCP?** The [Model Context Protocol](https://modelcontextprotocol.io) lets AI assistants call tools and access data sources. This server exposes both the OneSource blockchain API and its documentation as tools.
 
@@ -44,7 +44,7 @@ Then connect your MCP client to `http://localhost:3000/`.
 
 Health check: `GET http://localhost:3000/health`
 
-## Tools (29)
+## Tools (30)
 
 ### Blockchain API — Live Chain (12 tools)
 
@@ -90,13 +90,14 @@ RPC only.
 | `1s_payment_mode` | View or switch the x402 payment scheme — `exact` (per-call) vs `batch` (payment channel: one deposit funds many off-chain calls, settled with a single claim) |
 | `1s_refund` | Refund unused `batch` channel balance back to your wallet on demand |
 
-### Setup & Ops (2 tools)
+### Setup & Ops (3 tools)
 
 No authentication required.
 
 | Tool | Purpose | When to use |
 |------|---------|-------------|
 | `1s_setup_check` | Server health, version, auth status, batch-settlement status, and setup instructions | First thing to call — checks if everything is configured |
+| `1s_batch_config` | View or change x402 batch-settlement preferences (autonomy, threshold, deposit multiplier, default mode) and persist them across restarts — no config editing required | Configure batch behaviour from the session |
 | `1s_report_bug` | Report bugs to Slack (or GitHub Issues fallback) | When a tool errors or user wants to report an issue |
 
 ## Networks
@@ -197,7 +198,7 @@ X402_PRIVATE_KEY=<key> npx -y @one-source/mcp@latest
 
 By default each paid call signs one USDC payment (`exact`). For a burst of calls, switch to a **batch** payment channel — one on-chain deposit funds many off-chain calls, settled with a single claim — by calling `1s_payment_mode` with `{ "mode": "batch" }` (or setting `X402_PAYMENT_MODE=batch`). The first batch call deposits `price × X402_DEPOSIT_MULTIPLIER` (default 10), so a session usually over-funds the channel. Reclaim the unused balance any time with the `1s_refund` tool; idle channels are also auto-refunded after a few hours. The residual is always recoverable.
 
-When paying via x402, the agent is also given batch guidance at startup so it can manage this for you: when it anticipates a burst of calls it offers to switch to batch mode and reminds you to `1s_refund` when done. Tune that behavior with `X402_BATCH_PROMPT` (whether the agent asks first, switches automatically, or only on request) and `X402_BATCH_THRESHOLD` (how many calls count as "a burst"). Run `1s_setup_check` to see your current mode, whether batch is available, and these settings.
+When paying via x402, the agent is also given batch guidance at startup so it can manage this for you: when it anticipates a burst of calls it offers to switch to batch mode and reminds you to `1s_refund` when done. Tune that behavior with the `1s_batch_config` tool — set whether the agent asks first / switches automatically / only on request (`prompt`), how many calls count as "a burst" (`threshold`), the deposit multiplier, and the default mode, all from your session. Changes are saved to a server-managed config file and persist across restarts, so you never have to edit the MCP config or set env vars by hand. (The matching `X402_BATCH_PROMPT` / `X402_BATCH_THRESHOLD` / `X402_PAYMENT_MODE` / `X402_DEPOSIT_MULTIPLIER` env vars still work as install-time defaults.) Run `1s_setup_check` to see your current mode, whether batch is available, and these settings.
 
 ### Security
 

@@ -2,14 +2,14 @@
   "name": "onesource-mcp",
   "owner": { "name": "BlockParty" },
   "metadata": {
-    "description": "OneSource MCP — 27 tools for blockchain data"
+    "description": "OneSource MCP — 30 tools for blockchain data"
   },
   "plugins": [
     {
       "name": "onesource",
       "source": "./",
-      "description": "27 tools for live blockchain queries via x402 micropayments",
-      "version": "5.1.0",
+      "description": "30 tools for live blockchain queries via x402 micropayments",
+      "version": "5.4.0",
       "category": "blockchain",
       "tags": ["blockchain", "ethereum", "web3", "x402", "mcp"]
     }
