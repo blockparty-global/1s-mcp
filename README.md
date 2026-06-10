@@ -258,7 +258,7 @@ All have sensible defaults — batch mode runs out of the box. Set these only to
 
 | Variable | Default | Description |
 | --- | --- | --- |
-| `ONESOURCE_BASE_URL` | `https://skills.onesource.io` | API base URL. |
+| `ONESOURCE_BASE_URL` | `https://api.onesource.io` | API base URL. |
 | `X402_PAYMENT_MODE` | `exact` | Initial x402 scheme: `exact` (per-call) or `batch` (payment channel). Switch in-session with `1s_payment_mode`. |
 | `X402_RPC_URL` | Base default | Base RPC endpoint used to submit channel deposits in batch mode. |
 | `X402_DEPOSIT_MULTIPLIER` | `10` | Batch mode: deposit = price × this multiplier, funding that many calls per channel. Unused balance is reclaimable via `1s_refund`. |

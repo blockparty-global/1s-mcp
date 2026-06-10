@@ -29,7 +29,7 @@ Update `src/cli.ts` to bind to `0.0.0.0` instead of `127.0.0.1` and read port fr
    - Start command: `node dist/cli.js --http`
 
    **Environment variables:**
-   - `ONESOURCE_BASE_URL` = `https://skills.onesource.io` (or leave unset for default)
+   - `ONESOURCE_BASE_URL` = `https://api.onesource.io` (or leave unset for default)
    - `ONESOURCE_ANALYTICS` = `true` (or `false` to disable)
    - Any other env vars the server needs
 
