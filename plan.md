@@ -220,7 +220,7 @@ Re-exports: `loadData`, `LoadedData`, `VERSION`, `StreamableHTTPServerTransport`
 ## Environment Variables
 
 ```
-ONESOURCE_BASE_URL          # API backend (default: https://skills.onesource.io)
+ONESOURCE_BASE_URL          # API backend (default: https://api.onesource.io)
 ONESOURCE_ANALYTICS         # true|false (default: true, stderr mode)
 ONESOURCE_ANALYTICS_URL     # Dashboard endpoint (enables dashboard mode)
 X402_ANALYTICS_KEY          # Dashboard auth token

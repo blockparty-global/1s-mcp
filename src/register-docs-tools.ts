@@ -381,7 +381,7 @@ export function registerDocsTools(opts: RegisterDocsToolsOptions): number {
 
       // 3. API connectivity
       parts.push('\n## API Connectivity\n');
-      const baseUrl = process.env.ONESOURCE_BASE_URL ?? 'https://skills.onesource.io';
+      const baseUrl = process.env.ONESOURCE_BASE_URL ?? 'https://api.onesource.io';
       try {
         await fetch(baseUrl, { method: 'HEAD', signal: AbortSignal.timeout(5000) });
         parts.push(`Backend: **Reachable** (${baseUrl})`);

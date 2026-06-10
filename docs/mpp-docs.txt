@@ -28,7 +28,7 @@ Tempo CLI
 
 The official Tempo CLI can call MPP-protected endpoints:
 
-tempo http GET https://skills.onesource.io/api/chain/network-info \
+tempo http GET https://api.onesource.io/api/chain/network-info \
   --pay USDC.e
 
 It handles the 402 → credential → retry cycle and prints the response.
