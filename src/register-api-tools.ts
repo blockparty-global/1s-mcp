@@ -7,11 +7,46 @@
  */
 
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import type { ToolAnnotations } from '@modelcontextprotocol/sdk/types.js';
 import { createHash } from 'node:crypto';
 import { allTools } from '@one-source/api-mcp/tools';
 import { createClientFromEnv, type OneSourceClient } from '@one-source/api-mcp/client';
 import type { Analytics } from './analytics.js';
 import { VERSION } from './version.js';
+
+const RO: ToolAnnotations = Object.freeze({ readOnlyHint: true, destructiveHint: false });
+
+export const TOOL_META: Record<string, { title: string; annotations: ToolAnnotations }> = Object.freeze({
+  // Live chain data
+  '1s_allowance_live':       { title: 'ERC-20 Allowance',        annotations: RO },
+  '1s_contract_info_live':   { title: 'Contract Info',            annotations: RO },
+  '1s_erc1155_balance_live': { title: 'ERC-1155 Token Balance',   annotations: RO },
+  '1s_erc20_balance_live':   { title: 'ERC-20 Token Balance',     annotations: RO },
+  '1s_erc20_transfers_live': { title: 'ERC-20 Transfer History',  annotations: RO },
+  '1s_erc721_tokens_live':   { title: 'ERC-721 NFT Tokens',       annotations: RO },
+  '1s_events_live':          { title: 'Contract Events',          annotations: RO },
+  '1s_multi_balance_live':   { title: 'Multi-Address Balance',    annotations: RO },
+  '1s_nft_metadata_live':    { title: 'NFT Metadata',             annotations: RO },
+  '1s_nft_owner_live':       { title: 'NFT Owner',                annotations: RO },
+  '1s_total_supply_live':    { title: 'Token Total Supply',       annotations: RO },
+  '1s_tx_details_live':      { title: 'Transaction Details',      annotations: RO },
+  // Chain utilities
+  '1s_block_by_number':      { title: 'Block by Number',          annotations: RO },
+  '1s_block_number':         { title: 'Current Block Number',     annotations: RO },
+  '1s_chain_id':             { title: 'Chain ID',                 annotations: RO },
+  '1s_contract_code':        { title: 'Contract Bytecode',        annotations: RO },
+  '1s_ens_resolve':          { title: 'ENS Name Resolution',      annotations: RO },
+  '1s_estimate_gas':         { title: 'Gas Estimate',             annotations: RO },
+  '1s_network_info':         { title: 'Network Info',             annotations: RO },
+  '1s_nonce':                { title: 'Account Nonce',            annotations: RO },
+  '1s_payment_mode':         Object.freeze({ title: 'x402 Payment Mode',       annotations: Object.freeze({ readOnlyHint: false, destructiveHint: false }) }),
+  '1s_pending_block':        { title: 'Pending Block',            annotations: RO },
+  '1s_proxy_detect':         { title: 'Proxy Contract Detection', annotations: RO },
+  '1s_refund':               Object.freeze({ title: 'Refund x402 Payment',     annotations: Object.freeze({ readOnlyHint: false, destructiveHint: true }) }),
+  '1s_simulate_call':        { title: 'Simulate Contract Call',   annotations: RO },
+  '1s_storage_read':         { title: 'Contract Storage Read',    annotations: RO },
+  '1s_tx_receipt':           { title: 'Transaction Receipt',      annotations: RO },
+});
 
 function hashSession(sessionId: string | undefined): string | undefined {
   if (!sessionId) return undefined;
@@ -58,11 +93,14 @@ export function registerApiTools(
   };
 
   for (const tool of allTools) {
+    const meta = TOOL_META[tool.name];
     server.registerTool(
       tool.name,
       {
+        title: meta?.title ?? tool.name,
         description: tool.description,
         inputSchema: tool.schema,
+        annotations: meta?.annotations ?? RO,
       },
       async (input, extra) => {
         const start = performance.now();

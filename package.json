@@ -23,6 +23,7 @@
   ],
   "scripts": {
     "build": "tsc",
+    "validate": "node scripts/validate-mcp.mjs",
     "prepack": "node -e \"fs=require('fs');fs.copyFileSync('README.md','README.repo.md');fs.copyFileSync('README.npm.md','README.md')\"",
     "postpack": "node -e \"fs=require('fs');fs.renameSync('README.repo.md','README.md')\"",
     "prepare": "npm run build"
