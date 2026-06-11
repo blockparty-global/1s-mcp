@@ -1,7 +1,7 @@
 {
   "name": "@one-source/mcp",
   "mcpName": "io.onesource/mcp",
-  "version": "5.4.1",
+  "version": "5.4.2",
   "type": "module",
   "description": "Unified MCP server for OneSource — 30 tools for blockchain data",
   "bin": {
@@ -23,6 +23,7 @@
   ],
   "scripts": {
     "build": "tsc",
+    "bump-version": "node scripts/bump-version.mjs",
     "validate": "node scripts/validate-mcp.mjs",
     "prepack": "node -e \"fs=require('fs');fs.copyFileSync('README.md','README.repo.md');fs.copyFileSync('README.npm.md','README.md')\"",
     "postpack": "node -e \"fs=require('fs');fs.renameSync('README.repo.md','README.md')\"",
