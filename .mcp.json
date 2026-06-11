@@ -1,8 +1,3 @@
 {
-  "mcpServers": {
-    "onesource": {
-      "command": "npx",
-      "args": ["-y", "@one-source/mcp@latest"]
-    }
-  }
+  "mcpServers": {}
 }
