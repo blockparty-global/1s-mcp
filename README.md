@@ -463,6 +463,10 @@ Every time you release a new npm version, update the MCP Registry:
 
 Glama auto-syncs from the GitHub repo daily. No manual steps needed after a release — just make sure changes are pushed to `main`. The `glama.json` file in the repo root controls ownership. Manual re-sync is available from the [Glama admin panel](https://glama.ai/mcp/servers) after claiming the server.
 
+## Privacy Policy
+
+Use of this extension connects to the OneSource API. See the [OneSource Privacy Policy](https://onesource.io/privacy-policy) for details on how data is handled.
+
 ## License
 
 Apache 2.0 — see [LICENSE](LICENSE) for details.

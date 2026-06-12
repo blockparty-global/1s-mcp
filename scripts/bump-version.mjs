@@ -2,11 +2,12 @@
 /**
  * Version bump script.
  *
- * Updates the version in all four places that must stay in sync:
+ * Updates the version in all five places that must stay in sync:
  *   - package.json
  *   - server.json (top-level version + packages[0].version)
  *   - .claude-plugin/plugin.json
  *   - .claude-plugin/marketplace.json
+ *   - manifest.json (MCPB desktop extension)
  *
  * Run: npm run bump-version -- <new-version>
  *      npm run bump-version -- 5.5.0
@@ -78,6 +79,10 @@ bump('.claude-plugin/plugin.json', (d) => {
 
 bump('.claude-plugin/marketplace.json', (d) => {
   d.plugins[0].version = newVersion;
+});
+
+bump('manifest.json', (d) => {
+  d.version = newVersion;
 });
 
 if (dryRun) {

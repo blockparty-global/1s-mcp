@@ -3,4 +3,5 @@ dist/
 key.pem
 mcp-publisher.exe
 .claude/
-
+mcp-publisher
+1s-mcp.mcpb

@@ -300,7 +300,7 @@ All have sensible defaults — channel modes run out of the box. Set these only 
 ## Links
 
 - [GitHub Repository](https://github.com/blockparty-global/1s-mcp)
-- [OneSource Documentation](https://docs.onesource.io)
+- [OneSource Documentation](https://docs.onesource.io/getting-started/mcp/install)
 - [Report an Issue](https://github.com/blockparty-global/1s-mcp/issues)
 
 ## License
