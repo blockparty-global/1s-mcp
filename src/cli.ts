@@ -8,6 +8,8 @@
  *   npx onesource-mcp --http --port=8080
  */
 
+import { parseBearerToken } from './auth-header.js';
+
 const args = process.argv.slice(2);
 
 /** Fetch the latest published version from npm (3s timeout, returns null on failure). */
@@ -174,6 +176,10 @@ if (args.includes('--http')) {
     console.error(`[onesource] v${VERSION}`);
   }
 
+  // Instructions variant for requests that authenticate with a per-request
+  // Bearer API key (multi-tenant HTTP hosting) — mirrors the api_key startup path.
+  const apiKeyInstructions = buildInstructions(VERSION, latestVersion, 'api_key', batchPrefs.prompt, batchPrefs.threshold);
+
   // Shared singletons — reused across stateless per-request servers
   const sharedAnalytics = createAnalytics();
   console.error(`[onesource] analytics: ${process.env.ONESOURCE_ANALYTICS === 'false' ? 'disabled' : `dashboard (${process.env.ONESOURCE_ANALYTICS_URL})`}`);
@@ -195,7 +201,7 @@ if (args.includes('--http')) {
     // CORS headers
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, mcp-session-id');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, mcp-session-id, Authorization');
 
     // CORS preflight
     if (req.method === 'OPTIONS') {
@@ -233,14 +239,42 @@ if (args.includes('--http')) {
       return;
     }
 
+    // ── Per-request API-key auth (multi-tenant HTTP hosting) ─────────────────
+    // A remote buyer (e.g. via AWS Marketplace or Bedrock AgentCore Gateway)
+    // connects to this hosted endpoint and sends their key as
+    // `Authorization: Bearer sk_...`. Forward it as a per-request client so the
+    // upstream gateway authenticates THEM. Without a header, behaviour is
+    // unchanged — requests fall back to the process-level auth (x402/none),
+    // which is what local stdio installs and the env-keyed deployments use.
+    //
+    // Note: x402 cannot be performed server-side for arbitrary callers (the
+    // payer must hold the signing key), so a forwarded API key is the only way
+    // the hosted endpoint can serve data for a remote buyer.
+    let reqClient = sharedClient;
+    let reqAuthMethod = authMethod;
+    let reqInstructions = instructions;
+    const bearerKey = parseBearerToken(req.headers['authorization']);
+    if (bearerKey) {
+      try {
+        // Per-request client; never logged. baseUrl resolves from
+        // ONESOURCE_BASE_URL (default https://api.onesource.io).
+        reqClient = createClientFromEnv({ apiKey: bearerKey });
+        reqAuthMethod = 'api_key';
+        reqInstructions = apiKeyInstructions;
+      } catch {
+        // Malformed key (e.g. contains a newline) — ignore and fall back to
+        // the process-level auth rather than failing the request.
+      }
+    }
+
     // Fresh server per request (SDK stateless pattern), shared singletons
     const { server } = createMcpServer({
       analytics: sharedAnalytics,
-      client: sharedClient,
+      client: reqClient,
       transport: 'http',
-      authMethod,
+      authMethod: reqAuthMethod,
       x402Address,
-      instructions,
+      instructions: reqInstructions,
       bugReportUrl,
     });
     const httpTransport = new StreamableHTTPServerTransport({
