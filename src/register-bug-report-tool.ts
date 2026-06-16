@@ -47,10 +47,12 @@ export function registerBugReportTool(opts: RegisterBugReportToolOptions): numbe
   const { server, analytics, transport } = opts;
   const bugReportUrl = opts.bugReportUrl ?? DEFAULT_BUG_REPORT_URL;
 
-  server.tool(
+  server.registerTool(
     '1s_report_bug',
-    'Report a bug or issue to the OneSource team. Use when a tool returns an unexpected error or when the user asks to report a problem. Free, no payment required.',
-    z.object({
+    {
+      title: 'Report Bug',
+      description: 'Report a bug or issue to the OneSource team. Use when a tool returns an unexpected error or when the user asks to report a problem. Free, no payment required.',
+      inputSchema: z.object({
       description: z.string().describe('What went wrong — describe the bug, what you expected, and what actually happened.'),
       tool_name: z.string().optional().describe('The MCP tool that produced the error (e.g. 1s_network_info, 1s_erc20_balance_live).'),
       error_message: z.string().optional().describe('The error message or relevant output from the failed tool call.'),
@@ -58,6 +60,8 @@ export function registerBugReportTool(opts: RegisterBugReportToolOptions): numbe
       network: z.string().optional().describe('The blockchain network involved, if applicable (e.g. ethereum, sepolia).'),
       steps_to_reproduce: z.string().optional().describe('Steps to reproduce the issue, if known.'),
     }).shape,
+      annotations: { readOnlyHint: false, destructiveHint: false },
+    },
     async (input: BugReportInput, extra: RequestHandlerExtra<ServerRequest, ServerNotification>) => {
       const start = performance.now();
       const inputKeys = Object.keys(input);
@@ -110,7 +114,7 @@ export function registerBugReportTool(opts: RegisterBugReportToolOptions): numbe
           tool_name: toolNameTrimmed?.slice(0, 100),
           error_message: input.error_message?.slice(0, 1000),
           severity: input.severity ?? 'medium',
-          network: input.network,
+          network: networkTrimmed,
           steps_to_reproduce: input.steps_to_reproduce?.slice(0, 2000),
           context: {
             mcp_version: VERSION,

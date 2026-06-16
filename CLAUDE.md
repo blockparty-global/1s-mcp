@@ -9,6 +9,16 @@ npm run build       # tsc → ./dist (ES2022 modules)
 npm publish --access public   # prepack swaps README.md → README.npm.md, postpack restores it
 ```
 
+**Before publishing**, always run the version bump script so all four version fields stay in sync:
+
+```bash
+npm run bump-version -- <new-version>   # e.g. npm run bump-version -- 5.5.0
+npm install                              # syncs package-lock.json
+npm run build && npm run validate        # confirm build is clean
+```
+
+The script updates `package.json`, `server.json` (both fields), `.claude-plugin/plugin.json`, and `.claude-plugin/marketplace.json`. Use `--dry-run` to preview without writing.
+
 There is no test suite — validation is done manually per `testing.md`.
 
 ## Architecture

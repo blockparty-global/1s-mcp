@@ -7,7 +7,7 @@
 
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { RequestHandlerExtra } from '@modelcontextprotocol/sdk/shared/protocol.js';
-import type { ServerRequest, ServerNotification } from '@modelcontextprotocol/sdk/types.js';
+import type { ServerRequest, ServerNotification, ToolAnnotations } from '@modelcontextprotocol/sdk/types.js';
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import { getPaymentModeInfo, setPaymentMode } from '@one-source/api-mcp/x402';
@@ -63,8 +63,15 @@ function instrumentedTool(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   handler: (input: any) => string | Promise<string>,
   category: ToolCallEvent['category'] = 'docs',
+  annotations?: ToolAnnotations,
 ): void {
-  server.tool(name, description, schema, async (input: Record<string, unknown>, extra: RequestHandlerExtra<ServerRequest, ServerNotification>) => {
+  const { title: toolTitle, ...restAnnotations } = annotations ?? {};
+  server.registerTool(name, {
+    title: toolTitle,
+    description,
+    inputSchema: schema,
+    annotations: restAnnotations,
+  }, async (input: Record<string, unknown>, extra: RequestHandlerExtra<ServerRequest, ServerNotification>) => {
     const start = performance.now();
     const inputKeys = Object.keys(input);
     const sessionHash = hashSession(extra.sessionId);
@@ -207,6 +214,7 @@ export function registerDocsTools(opts: RegisterDocsToolsOptions): number {
   //   (input) => handleGetMcpSetupGuide(input, sections),
   // );
 
+  let count = 0;
   const authMethod = opts.authMethod;
   const x402Address = opts.x402Address;
   instrumentedTool(server, analytics, transport,
@@ -419,7 +427,10 @@ export function registerDocsTools(opts: RegisterDocsToolsOptions): number {
 
       return parts.join('\n');
     },
+    'ops',
+    { title: 'Setup Check', readOnlyHint: true, destructiveHint: false },
   );
+  count++;
 
   // ---------------------------------------------------------------------------
   // 1s_batch_config — view or change x402 batch-settlement preferences at
@@ -449,9 +460,11 @@ export function registerDocsTools(opts: RegisterDocsToolsOptions): number {
     },
     (input: Record<string, unknown>) => handleBatchConfig(input, opts.authMethod),
     'ops',
+    { title: 'x402 Batch Config', readOnlyHint: false, destructiveHint: false },
   );
+  count++;
 
-  return 2;
+  return count;
 }
 
 /**

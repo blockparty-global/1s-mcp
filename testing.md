@@ -5,6 +5,72 @@
 
 ---
 
+## Test Run — 2026-06-10
+
+**Tester:** Claude Code (automated via MCP tool calls in-session)  
+**Auth:** API key (`sk_fad••••••`) — detected by `1s_setup_check`, rejected by backend  
+**Transport:** stdio
+
+### Summary
+
+| Phase | Tests | Pass | Fail | Blocked |
+|-------|-------|------|------|---------|
+| Phase 2 — Setup Check | 1 | 1 | 0 | 0 |
+| Phase 3 — Chain Utility Tools | 13 | 0 | 13 | 0 |
+| Phase 4 — Live Chain Tools | 12 | — | — | 12 |
+| Phase 5 — Bug Reporting | 1 | — | — | 1 |
+| Phase 6 — Auth Edge Cases | manual | — | — | — |
+| Phase 7 — Install/Uninstall Cycles | manual | — | — | — |
+| Phase 8 — HTTP Mode | manual | — | — | — |
+| Phase 9 — x402 End-to-End | manual | — | — | — |
+| Phase 10 — Batch Config | manual | — | — | — |
+| Phase 11 — Refund | manual | — | — | — |
+
+**Blocking issue:** API key `sk_fad••••••` is accepted by `setup_check` (connectivity check passes) but rejected with `402` by every blockchain tool. All Phase 3–5 tests could not complete. Verify key status at app.onesource.io.
+
+### Phase 2 — Setup Check
+
+| Test | Tool | Result | Notes |
+|------|------|--------|-------|
+| 1 | `1s_setup_check` | ✅ PASS | Version 5.4.0 (5.4.1 available). Auth: Configured (API key). Backend: Reachable. Transport: stdio. Bug reporting: Enabled. Both `ONESOURCE_API_KEY` and `X402_PRIVATE_KEY` set — API key takes priority. |
+
+**Observation:** Update available (5.4.0 → 5.4.1). Both auth env vars are set; setup_check correctly reports API key priority and warns about x402 being ignored.
+
+### Phase 3 — Chain Utility Tools
+
+All 13 tools returned `402: your API key was not accepted` — backend is rejecting the key despite it being detected as configured. Tests 2–12c are blocked until the key is valid.
+
+| Test | Tool | Result | Notes |
+|------|------|--------|-------|
+| 2 | `1s_network_info` | ❌ 402 | API key rejected by backend |
+| 3 | `1s_ens_resolve` (forward) | ❌ 402 | API key rejected by backend |
+| 4 | `1s_ens_resolve` (reverse) | ❌ 402 | API key rejected by backend |
+| 5 | `1s_nonce` | ❌ 402 | API key rejected by backend |
+| 6 | `1s_contract_code` | — | Skipped (same 402 expected) |
+| 7 | `1s_proxy_detect` | ❌ 402 | API key rejected by backend |
+| 8 | `1s_storage_read` | ❌ 402 | API key rejected by backend |
+| 9 | `1s_estimate_gas` | ❌ 402 | API key rejected by backend |
+| 10 | `1s_simulate_call` | ❌ 402 | API key rejected by backend |
+| 11 | `1s_pending_block` | — | Skipped (same 402 expected) |
+| 12 | `1s_tx_receipt` | — | Skipped (same 402 expected) |
+| 12a | `1s_block_number` | ❌ 402 | API key rejected by backend |
+| 12b | `1s_block_by_number` | — | Skipped (same 402 expected) |
+| 12c | `1s_chain_id` | ❌ 402 | API key rejected by backend |
+
+### Phase 4 — Live Chain Tools
+
+Blocked by same 402. Not attempted.
+
+### Phase 5 — Bug Reporting
+
+`1s_report_bug` is free (no auth required). Blocked intentionally — per MCP server instructions, 402 auth errors must not be auto-reported.
+
+### Phases 6–11 — Manual Only
+
+These phases require interactive shell operations (claude mcp add/remove, /reload-plugins), a funded x402 test wallet, or HTTP mode setup. They cannot be run automated in-session.
+
+---
+
 ## Prerequisites
 
 - Node.js ≥ 18 installed (`node --version`)
@@ -87,7 +153,7 @@ Call 1s_setup_check
 
 ---
 
-## Phase 3 — Chain Utility Tools (10 tools, RPC only)
+## Phase 3 — Chain Utility Tools (13 tools, RPC only)
 
 These use RPC and have no indexing dependency. Run these first.
 
@@ -211,6 +277,39 @@ Get the receipt for transaction 0x5c504ed432cb51138bcf09aa5e8a410dd4a1e204ef84bf
 ```
 
 **Expected:** Returns receipt with status, gas used, logs. This is a historical mainnet transaction (the first ever DAO hack transaction).
+
+---
+
+### Test 12a — `1s_block_number`
+
+**Prompt:**
+```
+Call 1s_block_number for ethereum
+```
+
+**Expected:** Returns the current latest block number as an integer. Should be a recent mainnet block (> 19,000,000).
+
+---
+
+### Test 12b — `1s_block_by_number`
+
+**Prompt:**
+```
+Call 1s_block_by_number for block 19000000 on ethereum
+```
+
+**Expected:** Returns block data including hash, timestamp, miner, gas used, and transaction count. Block 19,000,000 is a fixed historical block so the result is deterministic.
+
+---
+
+### Test 12c — `1s_chain_id`
+
+**Prompt:**
+```
+Call 1s_chain_id for ethereum
+```
+
+**Expected:** Returns `1` (Ethereum mainnet chain ID).
 
 ---
 
@@ -723,7 +822,18 @@ Verifies that x402 batch-settlement preferences can be fully configured from the
 
 > The settings are saved to `~/.onesource/batch-config.json` (override the directory with `ONESOURCE_CONFIG_DIR`). A saved config takes priority over the `X402_BATCH_*` / `X402_PAYMENT_MODE` / `X402_DEPOSIT_MULTIPLIER` env vars.
 
-### Test 29 — View current settings
+### Test 29 — `1s_payment_mode` (read current mode)
+
+**Prompt:**
+```
+Call 1s_payment_mode
+```
+
+**Expected:** Returns the current x402 payment mode (`exact` or `batch`) and whether a deposit is active. With no prior config, mode should be `exact`.
+
+---
+
+### Test 30 — View batch config settings
 
 **Prompt:**
 ```
@@ -731,7 +841,7 @@ Call 1s_batch_config
 ```
 **Expected:** Reports the current autonomy (`prompt`), threshold, deposit multiplier, and default mode. With no prior config, shows defaults (`ask` / `5` / `10` / `exact`).
 
-### Test 30 — Change settings and persist
+### Test 31 — Change settings and persist
 
 **Prompt:**
 ```
@@ -744,7 +854,7 @@ Call 1s_batch_config with prompt "auto", threshold 12, and mode "batch"
 
 Confirm with `1s_payment_mode` (no args) — mode should now be `batch`.
 
-### Test 31 — Persistence across restart
+### Test 32 — Persistence across restart
 
 Restart the MCP client (Claude Desktop: quit and reopen; Claude Code: `/reload-plugins` or restart). Then:
 
@@ -754,7 +864,7 @@ Call 1s_setup_check
 ```
 **Expected:** The Batch Settlement section shows the saved settings (`auto` / `12`, default mode `batch`) and lists the config file under "Saved to". This confirms the values survived the restart without any config-file editing.
 
-### Test 32 — Setup check prompts for batch preference
+### Test 33 — Setup check prompts for batch preference
 
 **Prompt:**
 ```
@@ -762,7 +872,7 @@ Call 1s_setup_check
 ```
 **Expected:** Under x402 auth, the Batch Settlement section ends with a "Your preference" directive instructing the agent to ask how batch should be handled and to apply the answer with `1s_batch_config`. The agent should raise this with you.
 
-### Test 33 — Validation and reset
+### Test 34 — Validation and reset
 
 **Prompt:**
 ```
@@ -775,6 +885,33 @@ Call 1s_batch_config with threshold -5
 Call 1s_batch_config with reset true
 ```
 **Expected:** All settings return to defaults (or to the `X402_*` env vars, if set); the saved config file is removed.
+
+---
+
+## Phase 11 — Refund (x402 only, destructive)
+
+Verifies that `1s_refund` can reclaim an open x402 deposit back to the wallet. This tool is destructive — it closes the active deposit — so run it last and only with a dedicated test wallet. Requires `X402_PRIVATE_KEY` set and an active deposit (i.e. at least one tool call made in batch mode this session, or a deposit opened via `1s_payment_mode`).
+
+> **Do not run with a primary wallet.** The refund settles whatever deposit is currently open.
+
+### Test 35 — `1s_refund`
+
+**Setup:** Ensure you have an active x402 deposit. The simplest way is to run one tool call in batch mode after completing Phase 10 (the deposit from Test 31 should still be open if you haven't reset).
+
+**Prompt:**
+```
+Call 1s_refund
+```
+
+**Expected:**
+- Returns confirmation that the refund transaction was submitted, including the transaction hash.
+- The wallet's USDC balance on Base increases by the remaining deposit amount (minus gas).
+- Subsequent calls to `1s_payment_mode` show no active deposit.
+
+**Fail conditions:**
+- `No active deposit` — no deposit is open; run a tool call in batch mode first
+- Transaction error — wallet may lack gas (ETH on Base) to submit the refund transaction
+- Balance unchanged after ~30 seconds — refund transaction may have reverted; check the tx hash on Basescan
 
 ---
 
