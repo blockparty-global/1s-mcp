@@ -23,6 +23,8 @@
   ],
   "scripts": {
     "build": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "bump-version": "node scripts/bump-version.mjs",
     "validate": "node scripts/validate-mcp.mjs",
     "prepack": "node -e \"fs=require('fs');fs.copyFileSync('README.md','README.repo.md');fs.copyFileSync('README.npm.md','README.md')\"",
@@ -31,13 +33,14 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.27.1",
-    "@one-source/api-mcp": "^5.4.0",
+    "@one-source/api-mcp": "^5.4.1",
     "@one-source/docs-mcp": "^4.0.3",
     "zod": "^3.24.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
-    "typescript": "^5.7.0"
+    "typescript": "^5.7.0",
+    "vitest": "^2.0.0"
   },
   "engines": {
     "node": ">=18"
