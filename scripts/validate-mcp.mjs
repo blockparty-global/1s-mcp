@@ -10,8 +10,7 @@
  * CI:  npm run build && npm run validate
  */
 
-import { execFileSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, join } from 'node:path';
 
@@ -159,30 +158,34 @@ if (serverJson.version !== packageJson.version) {
 // Filters out comment lines (JSDoc and // comments) to avoid false positives.
 // Note: a string literal containing 'server.tool(' would also match — known
 // limitation, acceptable given current codebase has no such string literals.
-let grepOut = '';
-try {
-  grepOut = execFileSync('grep', ['-rn', '--include=*.ts', 'server\\.tool(', 'src/'], {
-    cwd: root,
-    stdio: 'pipe',
-    encoding: 'utf8',
-  });
-} catch (err) {
-  // grep exits 1 when no matches found — that's the success case here
-  if (err.status !== 1) {
-    fail('check-6', `grep command failed unexpectedly: ${String(err.message).slice(0, 200)}`);
+// Implemented with a Node fs walk (not `grep`) so it runs on Windows too.
+function collectTsFiles(dir) {
+  const out = [];
+  for (const entry of readdirSync(dir)) {
+    const full = join(dir, entry);
+    if (statSync(full).isDirectory()) {
+      out.push(...collectTsFiles(full));
+    } else if (entry.endsWith('.ts')) {
+      out.push(full);
+    }
   }
+  return out;
 }
-if (grepOut.trim()) {
-  const callLines = grepOut
-    .trim()
-    .split('\n')
-    .filter((line) => {
-      const content = line.split(':').slice(2).join(':').trimStart();
-      return !content.startsWith('*') && !content.startsWith('/');
-    });
-  for (const line of callLines) {
-    fail('check-6', `deprecated server.tool() call found — ${line.trim()}`);
-  }
+
+const callLines = [];
+for (const file of collectTsFiles(join(root, 'src'))) {
+  // Normalize to a forward-slash relative path so it carries no colon —
+  // the comment-filter below recovers content via split(':').slice(2).
+  const rel = file.slice(root.length + 1).split('\\').join('/');
+  readFileSync(file, 'utf8').split('\n').forEach((content, i) => {
+    if (!content.includes('server.tool(')) return;
+    const trimmed = content.trimStart();
+    if (trimmed.startsWith('*') || trimmed.startsWith('/')) return; // comment line
+    callLines.push(`${rel}:${i + 1}:${content}`);
+  });
+}
+for (const line of callLines) {
+  fail('check-6', `deprecated server.tool() call found — ${line.trim()}`);
 }
 
 // Check 7 — Description minimum length
