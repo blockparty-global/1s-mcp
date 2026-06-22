@@ -9,6 +9,7 @@
  */
 
 import { parseBearerToken } from './auth-header.js';
+import type { IncomingMessage, ServerResponse } from 'node:http';
 
 const args = process.argv.slice(2);
 
@@ -136,6 +137,8 @@ if (args.includes('--http')) {
   const { createMcpServer, VERSION } = await import('./create-server.js');
   const { createAnalytics } = await import('./analytics.js');
   const { createClientFromEnv } = await import('@one-source/api-mcp/client');
+  const { handleOAuthMetadata, handleAuthorize, handleToken, resolveBearer } = await import('./oauth.js');
+  const { handleLoginPage, handleLoginSubmit } = await import('./login-page.js');
 
   // Auth detection — API key takes priority over a payment wallet
   const apiKey = process.env.ONESOURCE_API_KEY?.trim() || undefined;
@@ -211,11 +214,61 @@ if (args.includes('--http')) {
     bugReportUrl,
   });
 
+  // Per-IP rate limiter for unauthenticated endpoints that make outbound calls.
+  // Rightmost X-Forwarded-For segment is the real client IP appended by the proxy
+  // (AWS ALB and Railway both append; leftmost is attacker-controlled).
+  const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+  const RATE_LIMIT_WINDOW_MS = 60_000;
+  const RATE_LIMIT_MAX_REQ = 20;
+  const RATE_LIMIT_MAX_IPS = 10_000;
+
+  function getClientIp(req: IncomingMessage): string {
+    const xff = req.headers['x-forwarded-for'];
+    const raw = Array.isArray(xff) ? xff.join(',') : (xff ?? '');
+    if (raw) {
+      const rightmost = raw.split(',').pop()?.trim();
+      if (rightmost) return rightmost;
+    }
+    return req.socket.remoteAddress ?? 'unknown';
+  }
+
+  function checkRateLimit(ip: string): boolean {
+    const now = Date.now();
+    for (const [k, v] of rateLimitMap) if (v.resetAt < now) rateLimitMap.delete(k);
+    const entry = rateLimitMap.get(ip);
+    if (!entry) {
+      if (rateLimitMap.size >= RATE_LIMIT_MAX_IPS) return false;
+      rateLimitMap.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
+      return true;
+    }
+    if (entry.count >= RATE_LIMIT_MAX_REQ) return false;
+    entry.count++;
+    return true;
+  }
+
+  function serverErrorJson(res: ServerResponse): void {
+    res.writeHead(500, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ jsonrpc: '2.0', error: { code: -32603, message: 'Internal server error' }, id: null }));
+  }
+
   const httpServer = createServer(async (req, res) => {
-    // CORS headers
+    const path = req.url?.split('?')[0] ?? '/';
+
+    // POST /oauth/token — no CORS headers (server-to-server endpoint; RFC 6749 §4.1.3)
+    if (req.method === 'POST' && path === '/oauth/token') {
+      try { await handleToken(req, res); } catch {
+        if (!res.headersSent) {
+          res.writeHead(500, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+          res.end(JSON.stringify({ error: 'server_error' }));
+        }
+      }
+      return;
+    }
+
+    // CORS headers for all other routes
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, mcp-session-id, Authorization');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, mcp-session-id, Authorization, X-Api-Key');
 
     // CORS preflight
     if (req.method === 'OPTIONS') {
@@ -224,14 +277,14 @@ if (args.includes('--http')) {
     }
 
     // Browser redirect — GET / with Accept: text/html → landing page
-    if (req.method === 'GET' && req.url === '/' && req.headers['accept']?.includes('text/html')) {
+    if (req.method === 'GET' && path === '/' && req.headers['accept']?.includes('text/html')) {
       res.writeHead(301, { 'Location': 'https://onesource.io/mcp' });
       res.end();
       return;
     }
 
     // Health check
-    if (req.method === 'GET' && req.url === '/health') {
+    if (req.method === 'GET' && path === '/health') {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({
         status: 'ok',
@@ -239,6 +292,42 @@ if (args.includes('--http')) {
         version: VERSION,
         tools: toolCount,
       }));
+      return;
+    }
+
+    // OAuth discovery document (RFC 8414)
+    if (req.method === 'GET' && path === '/.well-known/oauth-authorization-server') {
+      handleOAuthMetadata(req, res); return;
+    }
+
+    // OAuth authorization — rate-limited (unauthenticated, writes to authState Map)
+    if (req.method === 'GET' && path === '/oauth/authorize') {
+      if (!checkRateLimit(getClientIp(req))) {
+        res.writeHead(429, { 'Retry-After': '60', 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ jsonrpc: '2.0', error: { code: -32000, message: 'Too many requests' }, id: null }));
+        return;
+      }
+      handleAuthorize(req, res); return;
+    }
+
+    // Login page
+    if (req.method === 'GET' && path === '/login') {
+      handleLoginPage(req, res); return;
+    }
+
+    // Login submit — rate-limited (unauthenticated, makes one outbound API call per request)
+    if (req.method === 'POST' && path === '/login') {
+      if (!checkRateLimit(getClientIp(req))) {
+        res.writeHead(429, { 'Retry-After': '60', 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Frame-Options': 'DENY', 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'" });
+        res.end('<html><body><h1>Too many requests</h1><p>Please wait and try again.</p></body></html>');
+        return;
+      }
+      try { await handleLoginSubmit(req, res); } catch {
+        if (!res.headersSent) {
+          res.writeHead(500, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Frame-Options': 'DENY', 'X-Content-Type-Options': 'nosniff' });
+          res.end('<html><body><h1>Error</h1><p>Something went wrong. Please try again.</p></body></html>');
+        }
+      }
       return;
     }
 
@@ -253,42 +342,68 @@ if (args.includes('--http')) {
       return;
     }
 
-    // ── Per-request API-key auth (multi-tenant HTTP hosting) ─────────────────
-    // A remote buyer (e.g. via AWS Marketplace or Bedrock AgentCore Gateway)
-    // connects to this hosted endpoint and sends their key as
-    // `Authorization: Bearer sk_...`. Forward it as a per-request client so the
-    // upstream gateway authenticates THEM. Without a header, behaviour is
-    // unchanged — requests fall back to the process-level auth (x402/none),
-    // which is what local stdio installs and the env-keyed deployments use.
-    //
-    // Note: x402 cannot be performed server-side for arbitrary callers (the
-    // payer must hold the signing key), so a forwarded API key is the only way
-    // the hosted endpoint can serve data for a remote buyer.
-    let reqClient = sharedClient;
-    let reqAuthMethod = authMethod;
-    let reqInstructions = instructions;
-    const bearerKey = parseBearerToken(req.headers['authorization']);
-    if (bearerKey) {
-      try {
-        // Per-request client; never logged. baseUrl resolves from
-        // ONESOURCE_BASE_URL (default https://api.onesource.io).
-        reqClient = createClientFromEnv({ apiKey: bearerKey });
-        reqAuthMethod = 'api_key';
-        reqInstructions = apiKeyInstructions;
-      } catch {
-        // Malformed key (e.g. contains a newline) — ignore and fall back to
-        // the process-level auth rather than failing the request.
+    // Per-request auth — Authorization: Bearer <key|jwt> or X-Api-Key.
+    // JWT Bearer tokens (eyJ prefix) are resolved via resolveBearer(); raw keys
+    // are forwarded directly. If a header is present but validation fails, reject
+    // with 400/401 rather than silently downgrading to startup auth.
+    const rawBearer = parseBearerToken(req.headers['authorization']);
+    const xApiKeyHeader = req.headers['x-api-key'];
+    let requestApiKey: string | undefined;
+    let authHeaderPresent = false;
+
+    if (rawBearer !== undefined) {
+      authHeaderPresent = true;
+      const candidate = rawBearer;
+      if (candidate.length > 0 && candidate.length <= 512 && !/[\r\n]/.test(candidate)) {
+        if (candidate.startsWith('eyJ') && candidate.split('.').length === 3) {
+          // JWT-shaped token (all JWTs base64url-encode a JSON header starting with 'eyJ').
+          // Resolve to underlying API key, or reject; never fall back to raw-key forwarding.
+          const resolved = resolveBearer(candidate);
+          if (resolved !== null) {
+            requestApiKey = resolved;
+          } else {
+            res.writeHead(401, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'WWW-Authenticate': 'Bearer error="invalid_token"' });
+            res.end(JSON.stringify({ jsonrpc: '2.0', error: { code: -32000, message: 'Token expired or invalid' }, id: null }));
+            return;
+          }
+        } else {
+          requestApiKey = candidate; // raw API key
+        }
+      }
+    } else if (typeof xApiKeyHeader === 'string') {
+      authHeaderPresent = true;
+      const candidate = xApiKeyHeader.trim();
+      if (candidate.length > 0 && candidate.length <= 512 && !/[\r\n]/.test(candidate)) {
+        requestApiKey = candidate;
       }
     }
+
+    if (authHeaderPresent && !requestApiKey) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        jsonrpc: '2.0',
+        error: { code: -32600, message: 'Invalid API key format' },
+        id: null,
+      }));
+      return;
+    }
+
+    // Always create a fresh client per request — avoids concurrent mutation of a shared
+    // client's onHttpEvent handler when multiple unauthenticated requests overlap.
+    const requestAuthMethod: 'api_key' | 'x402' | 'none' = requestApiKey ? 'api_key' : authMethod;
+    const requestClient = requestApiKey
+      ? createClientFromEnv({ apiKey: requestApiKey })
+      : createClientFromEnv({ fetch: x402Fetch, apiKey });
+    const requestInstructions = requestApiKey ? apiKeyInstructions : instructions;
 
     // Fresh server per request (SDK stateless pattern), shared singletons
     const { server } = createMcpServer({
       analytics: sharedAnalytics,
-      client: reqClient,
+      client: requestClient,
       transport: 'http',
-      authMethod: reqAuthMethod,
+      authMethod: requestAuthMethod,
       x402Address,
-      instructions: reqInstructions,
+      instructions: requestInstructions,
       bugReportUrl,
     });
     const httpTransport = new StreamableHTTPServerTransport({
@@ -316,11 +431,11 @@ if (args.includes('--http')) {
     }
   });
 
-  // Bind to 0.0.0.0 for deployment compatibility (Railway, Fly.io, etc.)
+  // Bind to 0.0.0.0 for deployment compatibility (AWS EKS, Railway, Fly.io, etc.)
   const host = '0.0.0.0';
   httpServer.listen(port, host, () => {
     console.error(`[onesource] HTTP server listening on http://${host}:${port}`);
-    console.error(`[onesource] MCP endpoint: POST http://${host}:${port}/`);
+    console.error(`[onesource] MCP endpoint: POST http://${host}:${port}/mcp`);
     console.error(`[onesource] Health: GET http://${host}:${port}/health`);
   });
 
