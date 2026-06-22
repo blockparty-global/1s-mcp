@@ -24,8 +24,8 @@ export interface CreateServerOptions {
   /** Transport mode — passed through to analytics events. */
   transport?: 'stdio' | 'http';
   /** Active authentication method, determined at startup. */
-  authMethod?: 'api_key' | 'x402' | 'none';
-  /** Wallet address derived from X402_PRIVATE_KEY (only relevant when authMethod is 'x402'). */
+  authMethod?: 'api_key' | 'x402' | 'mpp' | 'none';
+  /** Payer wallet address (x402 on Base or MPP on Tempo), when paying via a wallet. */
   x402Address?: string;
   /** Server instructions injected into the LLM's system prompt by MCP clients. */
   instructions?: string;

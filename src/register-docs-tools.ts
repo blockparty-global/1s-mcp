@@ -10,7 +10,7 @@ import type { RequestHandlerExtra } from '@modelcontextprotocol/sdk/shared/proto
 import type { ServerRequest, ServerNotification, ToolAnnotations } from '@modelcontextprotocol/sdk/types.js';
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
-import { getPaymentModeInfo, setPaymentMode } from '@one-source/api-mcp/x402';
+import { getPaymentModeInfo, setPaymentMode } from '@one-source/api-mcp/payment';
 import {
   getBatchPrefs,
   setBatchPrefs,
@@ -20,6 +20,7 @@ import {
   coercePrompt,
   coerceThreshold,
   coerceMultiplier,
+  coerceMaxDeposit,
   coerceMode,
   MIN_DEPOSIT_MULTIPLIER,
   type BatchPrefs,
@@ -132,8 +133,8 @@ export interface RegisterDocsToolsOptions {
   // /** Pre-loaded docs data (avoids re-reading files per request in HTTP mode). */
   // data?: LoadedData;
   /** Active authentication method, determined at startup. */
-  authMethod?: 'api_key' | 'x402' | 'none';
-  /** Wallet address derived from X402_PRIVATE_KEY (only relevant when authMethod is 'x402'). */
+  authMethod?: 'api_key' | 'x402' | 'mpp' | 'none';
+  /** Payer wallet address (x402 on Base or MPP on Tempo), when paying via a wallet. */
   x402Address?: string;
 }
 
@@ -251,9 +252,11 @@ export function registerDocsTools(opts: RegisterDocsToolsOptions): number {
 
       const runtimeApiKey = process.env.ONESOURCE_API_KEY;
       const runtimeX402Key = process.env.X402_PRIVATE_KEY;
-      const bothSet = !!(runtimeApiKey && runtimeX402Key);
+      const runtimeMppKey = process.env.MPP_PRIVATE_KEY;
+      const bothSet = !!(runtimeApiKey && (runtimeX402Key || runtimeMppKey));
       // Use authMethod from startup; fall back to runtime env check for robustness
-      const activeMethod = authMethod ?? (runtimeApiKey ? 'api_key' : runtimeX402Key ? 'x402' : 'none');
+      const activeMethod = authMethod ?? (runtimeApiKey ? 'api_key' : runtimeX402Key ? 'x402' : runtimeMppKey ? 'mpp' : 'none');
+      const payInfo = getPaymentModeInfo();
 
       if (activeMethod === 'api_key') {
         parts.push('Status: **Configured (API key)**');
@@ -268,11 +271,21 @@ export function registerDocsTools(opts: RegisterDocsToolsOptions): number {
         parts.push('\n> **If this key was not explicitly set in your Claude MCP config**, it may be inherited from your shell environment. Run `echo $ONESOURCE_API_KEY` in your terminal to check.');
       } else if (activeMethod === 'x402') {
         parts.push('Status: **Configured (x402)**');
-        if (x402Address) {
-          parts.push(`Wallet: \`${x402Address}\``);
+        const addr = x402Address ?? payInfo.x402.address;
+        if (addr) {
+          parts.push(`Wallet: \`${addr}\``);
         }
         parts.push('\nThis wallet must hold USDC on the **Base** network to pay for API calls.');
         parts.push('\n> **If this key was not explicitly set in your Claude MCP config**, it may be inherited from your shell environment. Run `echo $X402_PRIVATE_KEY` in your terminal to check.');
+      } else if (activeMethod === 'mpp') {
+        parts.push('Status: **Configured (MPP / Tempo)**');
+        const addr = payInfo.mpp.address ?? x402Address;
+        if (addr) {
+          parts.push(`Wallet: \`${addr}\``);
+        }
+        parts.push('\nThis wallet must hold **USDC.e or pathUSD on the Tempo network** to pay for API calls.');
+        parts.push('Two modes are available via `1s_payment_mode`: `mpp-charge` (per-call) and `mpp-session` (a voucher channel — cheaper for a burst of calls; the unspent deposit is reclaimed automatically on shutdown).');
+        parts.push('\n> **If this key was not explicitly set in your Claude MCP config**, it may be inherited from your shell environment. Run `echo $MPP_PRIVATE_KEY` in your terminal to check.');
       } else {
         parts.push('Status: **Not configured**');
         parts.push('\nBlockchain API tools require authentication. Choose one of the options below.\n');
@@ -332,6 +345,14 @@ export function registerDocsTools(opts: RegisterDocsToolsOptions): number {
         parts.push('   X402_PRIVATE_KEY=0x... npx -y @one-source/mcp@latest');
         parts.push('   ```\n');
         parts.push('4. **Reload the MCP server** — run `/reload-plugins` in Claude Code, or restart Claude Desktop / Cursor.\n');
+
+        parts.push('### Option 3: MPP Micropayments (Tempo)\n');
+        parts.push('Set `MPP_PRIVATE_KEY` with an EVM private key funded with **USDC.e or pathUSD on the Tempo network**. Pays per call on Tempo rails (an alternative to x402 on Base).\n');
+        parts.push('```');
+        parts.push('MPP_PRIVATE_KEY=0x... npx -y @one-source/mcp@latest');
+        parts.push('```');
+        parts.push('Optional: `MPP_PAYMENT_MODE` (`charge` default | `session`), `MPP_MAX_DEPOSIT` (session deposit cap, default `1`). Switch modes in-session with `1s_payment_mode { "mode": "mpp-session" }`.\n');
+
         parts.push('**Security:** Never commit keys to source control. Use environment variables or a secrets manager.\n');
       }
 
@@ -339,12 +360,11 @@ export function registerDocsTools(opts: RegisterDocsToolsOptions): number {
       parts.push('\n## Batch Settlement (x402)\n');
 
       if (activeMethod === 'x402') {
-        const info = getPaymentModeInfo();
         const prefs = getBatchPrefs();
         const persisted = hasPersistedConfig();
 
-        parts.push(`Current mode: **${info.mode}**${info.mode === 'exact' ? ' (per-call payments)' : ' (payment channel)'}`);
-        if (info.batchAvailable) {
+        parts.push(`Current mode: **${payInfo.mode}**${payInfo.mode === 'x402-exact' ? ' (per-call payments)' : payInfo.mode === 'x402-batch' ? ' (payment channel)' : ''}`);
+        if (payInfo.x402.batchAvailable) {
           parts.push('Batch available: **Yes**');
         } else {
           parts.push('Batch available: **No** — the channel scheme failed to initialise (usually an RPC issue). Check `X402_RPC_URL` and restart the server.');
@@ -364,12 +384,12 @@ export function registerDocsTools(opts: RegisterDocsToolsOptions): number {
         parts.push('- Change autonomy: `1s_batch_config { "prompt": "auto" }` (or `"ask"` / `"off"`).');
         parts.push('- Change the threshold: `1s_batch_config { "threshold": 8 }`.');
         parts.push('- Change the deposit multiplier: `1s_batch_config { "deposit_multiplier": 20 }` (min ' + MIN_DEPOSIT_MULTIPLIER + '; applies to the next channel opened).');
-        parts.push('- Set the default mode and switch now: `1s_batch_config { "mode": "batch" }` (applies immediately and on future restarts).');
+        parts.push('- Set the default mode and switch now: `1s_batch_config { "mode": "x402-batch" }` (applies immediately and on future restarts).');
         parts.push('- Reset everything to defaults: `1s_batch_config { "reset": true }`.');
         parts.push('\nThe `prompt`, `threshold`, and `mode` changes take effect immediately for the rest of this session; `deposit_multiplier` applies to the next payment channel that opens.');
 
         parts.push('\n### Other runtime controls\n');
-        parts.push('- Switch scheme for this session only (without changing the saved default): `1s_payment_mode { "mode": "batch" }` or `{ "mode": "exact" }`.');
+        parts.push('- Switch scheme for this session only (without changing the saved default): `1s_payment_mode { "mode": "x402-batch" }` or `{ "mode": "x402-exact" }`.');
         parts.push('- Reclaim unspent channel deposit when finished: `1s_refund` (idle channels also auto-refund after a few hours).');
 
         parts.push('\n### Advanced: install-time env vars\n');
@@ -381,10 +401,12 @@ export function registerDocsTools(opts: RegisterDocsToolsOptions): number {
 
         parts.push('\n### Your preference\n');
         parts.push(`> **Agent:** ask the user how they want batch payments handled — (1) **how many calls** in a session should make batching worth it (currently ${prefs.threshold}), and (2) whether you should **ask first** (current: \`${prefs.prompt}\`), **switch automatically**, or **only act on request**. When they answer, apply it immediately with \`1s_batch_config\` (e.g. \`{ "threshold": 8, "prompt": "auto" }\`) — it persists automatically, so there is no config file to edit and no restart needed.`);
+      } else if (activeMethod === 'mpp') {
+        parts.push('x402 batch settlement does not apply when paying via MPP (Tempo). The MPP equivalent is `mpp-session`: switch with `1s_payment_mode { "mode": "mpp-session" }` to open a voucher channel (cheaper for a burst of calls); the unspent deposit is reclaimed automatically on shutdown. Cap the channel deposit with `MPP_MAX_DEPOSIT` (default `1`).');
       } else {
         parts.push('Batch settlement applies only to x402 payments. ' + (activeMethod === 'api_key'
           ? 'Your calls are covered by your API key, so there is no per-call payment to batch.'
-          : 'You have no auth configured, so there is nothing to batch yet — set `X402_PRIVATE_KEY` to pay via x402.'));
+          : 'You have no payment wallet configured, so there is nothing to batch yet — set `X402_PRIVATE_KEY` (Base) or `MPP_PRIVATE_KEY` (Tempo).'));
       }
 
       // 3. API connectivity
@@ -420,9 +442,11 @@ export function registerDocsTools(opts: RegisterDocsToolsOptions): number {
       }
       if (activeMethod === 'x402') {
         parts.push('- Review your batch-payment preferences and adjust them with `1s_batch_config` (see Batch Settlement above) — no config editing or restart needed.');
-        if (getPaymentModeInfo().mode === 'exact') {
-          parts.push('- Making many calls this session? Enable batch mode (`1s_payment_mode { "mode": "batch" }`) to pay once for the whole burst.');
+        if (payInfo.mode === 'x402-exact') {
+          parts.push('- Making many calls this session? Enable batch mode (`1s_payment_mode { "mode": "x402-batch" }`) to pay once for the whole burst.');
         }
+      } else if (activeMethod === 'mpp' && payInfo.mode === 'mpp-charge') {
+        parts.push('- Making many calls this session? Switch to a voucher channel (`1s_payment_mode { "mode": "mpp-session" }`) — cheaper than per-call, reclaimed on shutdown.');
       }
 
       return parts.join('\n');
@@ -441,26 +465,29 @@ export function registerDocsTools(opts: RegisterDocsToolsOptions): number {
   // ---------------------------------------------------------------------------
   instrumentedTool(server, analytics, transport,
     '1s_batch_config',
-    'View or change x402 batch-settlement preferences and save them so they persist across restarts — no MCP config editing or restart required. ' +
+    'View or change payment preferences and save them so they persist across restarts — no MCP config editing or restart required. ' +
       'Call with no arguments to see current settings. ' +
-      'Set "prompt" (ask/auto/off — agent autonomy when switching to batch), "threshold" (anticipated calls before batching is worth it), ' +
-      '"deposit_multiplier" (channel deposit = call price × this; applies to the next channel opened), or "mode" (exact/batch — the default scheme, also switched live for this session). ' +
-      'Pass "reset": true to restore defaults. Only affects x402 payments; with an API key, calls are covered by your plan.',
+      'Set "prompt" (ask/auto/off — agent autonomy when switching to a cheaper channel mode), "threshold" (anticipated calls before a channel is worth it), ' +
+      '"deposit_multiplier" (x402 channel deposit = call price × this; applies to the next channel opened), "mpp_max_deposit" (MPP session channel deposit cap, in tokens), ' +
+      'or "mode" (the default rail+scheme — x402-exact / x402-batch / mpp-charge / mpp-session — also switched live for this session). ' +
+      'Pass "reset": true to restore defaults. With an API key, calls are covered by your plan.',
     {
       prompt: z.enum(['ask', 'auto', 'off']).optional()
-        .describe('Agent autonomy when deciding to switch to batch mode: ask (confirm first), auto (switch on its own), off (only on explicit request).'),
+        .describe('Agent autonomy when deciding to switch to a channel mode: ask (confirm first), auto (switch on its own), off (only on explicit request).'),
       threshold: z.number().int().positive().optional()
-        .describe('Anticipated call count at/above which batch mode is worth considering. Default 5.'),
+        .describe('Anticipated call count at/above which a channel mode is worth considering. Default 5.'),
       deposit_multiplier: z.number().min(MIN_DEPOSIT_MULTIPLIER).optional()
-        .describe(`Channel deposit = call price × this multiplier. Minimum ${MIN_DEPOSIT_MULTIPLIER}. Applies to the next channel opened.`),
-      mode: z.enum(['exact', 'batch']).optional()
-        .describe('Default payment scheme the session starts in. Also switched live for the current session when x402 is active.'),
+        .describe(`x402 channel deposit = call price × this multiplier. Minimum ${MIN_DEPOSIT_MULTIPLIER}. Applies to the next channel opened.`),
+      mpp_max_deposit: z.string().optional()
+        .describe('MPP session channel max deposit, in human token units (e.g. "1"). Applies to the next Tempo channel opened.'),
+      mode: z.enum(['x402-exact', 'x402-batch', 'mpp-charge', 'mpp-session']).optional()
+        .describe('Default payment rail+scheme the session starts in. Also switched live for the current session when that rail is active.'),
       reset: z.boolean().optional()
-        .describe('Restore all batch settings to their built-in defaults (deletes the saved config file).'),
+        .describe('Restore all payment settings to their built-in defaults (deletes the saved config file).'),
     },
     (input: Record<string, unknown>) => handleBatchConfig(input, opts.authMethod),
     'ops',
-    { title: 'x402 Batch Config', readOnlyHint: false, destructiveHint: false },
+    { title: 'Payment Config', readOnlyHint: false, destructiveHint: false },
   );
   count++;
 
@@ -474,16 +501,16 @@ export function registerDocsTools(opts: RegisterDocsToolsOptions): number {
  */
 function handleBatchConfig(
   input: Record<string, unknown>,
-  authMethod: 'api_key' | 'x402' | 'none' | undefined,
+  authMethod: 'api_key' | 'x402' | 'mpp' | 'none' | undefined,
 ): string {
   const info = getPaymentModeInfo();
-  const x402Active = info.enabled || authMethod === 'x402';
+  const anyActive = info.enabled || authMethod === 'x402' || authMethod === 'mpp';
 
   // --- reset path ---
   if (input.reset === true) {
     const { prefs, persisted, persistError } = resetBatchPrefs();
-    if (x402Active && info.enabled) setPaymentMode(prefs.mode);
-    return renderBatchConfig('Batch settings reset to defaults.', prefs, persisted, persistError, x402Active, info.enabled);
+    if (info.enabled) setPaymentMode(prefs.mode);
+    return renderBatchConfig('Payment settings reset to defaults.', prefs, persisted, persistError, anyActive, info.enabled);
   }
 
   // --- validate provided fields (only those present) ---
@@ -505,59 +532,71 @@ function handleBatchConfig(
     if (v) patch.depositMultiplier = v;
     else errors.push(`deposit_multiplier must be a number ≥ ${MIN_DEPOSIT_MULTIPLIER} (got ${JSON.stringify(input.deposit_multiplier)})`);
   }
+  if (input.mpp_max_deposit !== undefined) {
+    const v = coerceMaxDeposit(input.mpp_max_deposit);
+    if (v) patch.mppMaxDeposit = v;
+    else errors.push(`mpp_max_deposit must be a positive number string (got ${JSON.stringify(input.mpp_max_deposit)})`);
+  }
   if (input.mode !== undefined) {
     const v = coerceMode(input.mode);
     if (v) patch.mode = v;
-    else errors.push(`mode must be exact or batch (got ${JSON.stringify(input.mode)})`);
+    else errors.push(`mode must be one of x402-exact / x402-batch / mpp-charge / mpp-session (got ${JSON.stringify(input.mode)})`);
   }
 
   if (errors.length > 0) {
-    return `Could not apply batch config — ${errors.join('; ')}. No changes were made.`;
+    return `Could not apply payment config — ${errors.join('; ')}. No changes were made.`;
   }
 
   // --- no fields → report current settings ---
   if (Object.keys(patch).length === 0) {
     const prefs = getBatchPrefs();
-    return renderBatchConfig('Current batch settings (no changes requested).', prefs, hasPersistedConfig(), undefined, x402Active, info.enabled);
+    return renderBatchConfig('Current payment settings (no changes requested).', prefs, hasPersistedConfig(), undefined, anyActive, info.enabled);
   }
 
   // --- apply ---
   const { prefs, persisted, persistError } = setBatchPrefs(patch);
 
-  // Apply a live mode switch only when x402 is genuinely active in this session.
+  // Apply a live mode switch when the target rail is active. setPaymentMode
+  // no-ops (returns the unchanged mode) when the rail's key isn't set or the
+  // sub-mode is unavailable.
   let modeNote: string | undefined;
   if (patch.mode !== undefined) {
     if (info.enabled) {
       const applied = setPaymentMode(patch.mode);
-      if (patch.mode === 'batch' && !info.batchAvailable) {
-        modeNote = 'Saved as the default, but batch could not be activated this session — the channel scheme is unavailable (check `X402_RPC_URL` and restart). Mode stays `exact` for now.';
-      } else if (applied === patch.mode) {
+      if (applied === patch.mode) {
         modeNote = `Switched the live payment scheme to \`${applied}\` for this session.`;
+      } else if (patch.mode === 'x402-batch' && !info.x402.batchAvailable) {
+        modeNote = 'Saved as the default, but x402-batch could not be activated — the channel scheme is unavailable (check `X402_RPC_URL` and restart).';
+      } else if (patch.mode === 'mpp-session' && !info.mpp.sessionAvailable) {
+        modeNote = 'Saved as the default, but mpp-session could not be activated — the Tempo channel is unavailable (check `MPP_RPC_URL` and restart).';
+      } else {
+        modeNote = `Saved as the default mode; the ${patch.mode.startsWith('mpp-') ? 'MPP' : 'x402'} rail is not active this session, so the live scheme was not switched.`;
       }
     } else {
-      modeNote = 'Saved as the default mode; it will take effect once x402 is active (set `X402_PRIVATE_KEY`).';
+      modeNote = 'Saved as the default mode; it will take effect once a payment wallet is active (set `X402_PRIVATE_KEY` or `MPP_PRIVATE_KEY`).';
     }
   }
 
-  return renderBatchConfig('Batch settings updated.', prefs, persisted, persistError, x402Active, info.enabled, modeNote);
+  return renderBatchConfig('Payment settings updated.', prefs, persisted, persistError, anyActive, info.enabled, modeNote);
 }
 
-/** Format batch settings + status notes into the tool's text response. */
+/** Format payment settings + status notes into the tool's text response. */
 function renderBatchConfig(
   headline: string,
   prefs: BatchPrefs,
   persisted: boolean,
   persistError: string | undefined,
-  x402Active: boolean,
-  x402Enabled: boolean,
+  anyActive: boolean,
+  anyEnabled: boolean,
   modeNote?: string,
 ): string {
   const lines: string[] = [headline, ''];
-  lines.push('**Batch settings**');
+  lines.push('**Payment settings**');
+  lines.push(`- Default mode: \`${prefs.mode}\``);
   lines.push(`- Autonomy (prompt): \`${prefs.prompt}\``);
   lines.push(`- "Many" threshold: \`${prefs.threshold}\``);
-  lines.push(`- Deposit multiplier: \`${prefs.depositMultiplier}\``);
-  lines.push(`- Default mode: \`${prefs.mode}\``);
+  lines.push(`- x402 deposit multiplier: \`${prefs.depositMultiplier}\``);
+  lines.push(`- MPP session max deposit: \`${prefs.mppMaxDeposit}\``);
 
   if (modeNote) lines.push('', modeNote);
 
@@ -568,12 +607,12 @@ function renderBatchConfig(
     lines.push(`⚠️ Could not write the config file (${persistError ?? 'unknown error'}). The settings are active for this session but will not survive a restart.`);
   }
 
-  if (!x402Active) {
+  if (!anyActive) {
     lines.push('');
-    lines.push('Note: batch settlement only applies to x402 payments. These preferences are saved and will take effect once x402 is active (set `X402_PRIVATE_KEY`).');
-  } else if (!x402Enabled) {
+    lines.push('Note: these preferences are saved and will take effect once a payment wallet is active (set `X402_PRIVATE_KEY` for Base or `MPP_PRIVATE_KEY` for Tempo).');
+  } else if (!anyEnabled) {
     lines.push('');
-    lines.push('Note: x402 is not active in this process yet, so the live payment scheme was not changed — the saved defaults apply on the next x402 session.');
+    lines.push('Note: no payment wallet is active in this process yet, so the live scheme was not changed — the saved defaults apply on the next session.');
   }
 
   return lines.join('\n');

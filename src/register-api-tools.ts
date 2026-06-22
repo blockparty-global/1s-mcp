@@ -39,10 +39,10 @@ export const TOOL_META: Record<string, { title: string; annotations: ToolAnnotat
   '1s_estimate_gas':         { title: 'Gas Estimate',             annotations: RO },
   '1s_network_info':         { title: 'Network Info',             annotations: RO },
   '1s_nonce':                { title: 'Account Nonce',            annotations: RO },
-  '1s_payment_mode':         Object.freeze({ title: 'x402 Payment Mode',       annotations: Object.freeze({ readOnlyHint: false, destructiveHint: false }) }),
+  '1s_payment_mode':         Object.freeze({ title: 'Payment Mode',            annotations: Object.freeze({ readOnlyHint: false, destructiveHint: false }) }),
   '1s_pending_block':        { title: 'Pending Block',            annotations: RO },
   '1s_proxy_detect':         { title: 'Proxy Contract Detection', annotations: RO },
-  '1s_refund':               Object.freeze({ title: 'Refund x402 Payment',     annotations: Object.freeze({ readOnlyHint: false, destructiveHint: true }) }),
+  '1s_refund':               Object.freeze({ title: 'Refund x402 Channel',     annotations: Object.freeze({ readOnlyHint: false, destructiveHint: true }) }),
   '1s_simulate_call':        { title: 'Simulate Contract Call',   annotations: RO },
   '1s_storage_read':         { title: 'Contract Storage Read',    annotations: RO },
   '1s_tx_receipt':           { title: 'Transaction Receipt',      annotations: RO },
@@ -60,8 +60,8 @@ export interface RegisterApiToolsOptions {
   /** Override the default client (useful for sharing across HTTP requests). */
   client?: OneSourceClient;
   /** Active authentication method, determined at startup. */
-  authMethod?: 'api_key' | 'x402' | 'none';
-  /** Wallet address derived from X402_PRIVATE_KEY — hashed to wallet_id for analytics. */
+  authMethod?: 'api_key' | 'x402' | 'mpp' | 'none';
+  /** Payer wallet address (x402 or MPP) — hashed to wallet_id for analytics. */
   x402Address?: string;
 }
 
@@ -157,7 +157,7 @@ export function registerApiTools(
             input_params: inputKeys,
             response_size: text.length,
             version: VERSION,
-            auth_method: authMethod === 'api_key' ? 'api_key' : (x402Seen ? 'x402' : 'none'),
+            auth_method: authMethod === 'api_key' ? 'api_key' : authMethod === 'mpp' ? 'mpp' : (x402Seen ? 'x402' : 'none'),
             client_name: clientInfo?.name,
             client_version: clientInfo?.version,
             session_id: sessionHash,
@@ -186,7 +186,7 @@ export function registerApiTools(
             input_params: inputKeys,
             response_size: 0,
             version: VERSION,
-            auth_method: authMethod === 'api_key' ? 'api_key' : (x402Seen ? 'x402' : 'none'),
+            auth_method: authMethod === 'api_key' ? 'api_key' : authMethod === 'mpp' ? 'mpp' : (x402Seen ? 'x402' : 'none'),
             client_name: clientInfo?.name,
             client_version: clientInfo?.version,
             session_id: sessionHash,
