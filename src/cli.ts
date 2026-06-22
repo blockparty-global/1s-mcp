@@ -36,26 +36,37 @@ async function checkLatestVersion(): Promise<string | null> {
  *   threshold  — count of anticipated calls that means "many" (default 5)
  */
 function buildBatchGuidance(
-  authMethod: 'api_key' | 'x402' | 'none',
+  authMethod: 'api_key' | 'x402' | 'mpp' | 'none',
   prompt: 'ask' | 'auto' | 'off',
   threshold: number,
 ): string {
+  // MPP rail: the cheaper-for-a-burst mode is a Tempo voucher channel.
+  if (authMethod === 'mpp') {
+    if (prompt === 'off') {
+      return 'Session payments: only switch to a voucher channel if the user explicitly asks. You can change this preference with 1s_batch_config.';
+    }
+    if (prompt === 'auto') {
+      return `Session payments: when you anticipate ${threshold} or more blockchain calls in a session, switch to a voucher channel automatically via 1s_payment_mode {mode:'mpp-session'}. The unspent deposit is reclaimed automatically on shutdown. Behaviour is configurable with 1s_batch_config.`;
+    }
+    return `Session payments: when you anticipate ${threshold} or more blockchain calls in one session, mpp-session (a Tempo voucher channel) is cheaper than per-call mpp-charge. Because it deposits up front, ask the user before switching; on agreement call 1s_payment_mode {mode:'mpp-session'}. The unspent deposit is reclaimed automatically on shutdown. Tune behaviour any time via 1s_batch_config — no restart needed.`;
+  }
+
   if (authMethod !== 'x402') return '';
 
   if (prompt === 'off') {
     return 'Batch payments: only switch to batch mode if the user explicitly asks. You can change this preference with 1s_batch_config.';
   }
   if (prompt === 'auto') {
-    return `Batch payments: when you anticipate ${threshold} or more blockchain calls in a session, switch to batch automatically via 1s_payment_mode {mode:'batch'}, and call 1s_refund when finished to reclaim leftover balance. Batch behaviour is configurable with 1s_batch_config.`;
+    return `Batch payments: when you anticipate ${threshold} or more blockchain calls in a session, switch to batch automatically via 1s_payment_mode {mode:'x402-batch'}, and call 1s_refund when finished to reclaim leftover balance. Batch behaviour is configurable with 1s_batch_config.`;
   }
-  return `Batch payments: when you anticipate ${threshold} or more blockchain calls in one session, batch mode (a USDC payment channel) is cheaper than per-call exact payments. Because batch deposits USDC up front, ask the user before switching; on agreement call 1s_payment_mode {mode:'batch'}, and remind them to 1s_refund leftover balance when finished. The user can tune batch behaviour (autonomy, threshold, deposit) any time via 1s_batch_config — no restart needed.`;
+  return `Batch payments: when you anticipate ${threshold} or more blockchain calls in one session, batch mode (a USDC payment channel) is cheaper than per-call exact payments. Because batch deposits USDC up front, ask the user before switching; on agreement call 1s_payment_mode {mode:'x402-batch'}, and remind them to 1s_refund leftover balance when finished. The user can tune batch behaviour (autonomy, threshold, deposit) any time via 1s_batch_config — no restart needed.`;
 }
 
 /** Build the MCP instructions string based on version comparison and active auth method. */
 function buildInstructions(
   currentVersion: string,
   latestVersion: string | null,
-  authMethod: 'api_key' | 'x402' | 'none',
+  authMethod: 'api_key' | 'x402' | 'mpp' | 'none',
   batchPrompt: 'ask' | 'auto' | 'off',
   batchThreshold: number,
 ): string {
@@ -63,7 +74,9 @@ function buildInstructions(
     ? 'Blockchain API tools are authenticated via API key. If a tool returns a 402 error, the API key may be invalid or inactive — tell the user to verify their key at app.onesource.io. If a tool returns a 403 error, the account does not have a developer plan — tell the user to upgrade at app.onesource.io.'
     : authMethod === 'x402'
       ? 'Blockchain API tools require x402 payment (USDC on Base). If a tool returns a 402 error, the user needs to configure X402_PRIVATE_KEY. Call 1s_setup_check for diagnostics and setup instructions.'
-      : 'Blockchain API tools require authentication. Set ONESOURCE_API_KEY (API key) or X402_PRIVATE_KEY (x402 micropayments) to access them. Call 1s_setup_check for setup instructions.';
+      : authMethod === 'mpp'
+        ? 'Blockchain API tools are paid via MPP (Tempo USDC.e / pathUSD). If a tool returns a 402 error, the MPP wallet (MPP_PRIVATE_KEY) may be unfunded — it must hold USDC.e or pathUSD on Tempo. Call 1s_setup_check for diagnostics.'
+        : 'Blockchain API tools require authentication. Set ONESOURCE_API_KEY (API key), X402_PRIVATE_KEY (x402 on Base), or MPP_PRIVATE_KEY (MPP on Tempo) to access them. Call 1s_setup_check for setup instructions.';
 
   const batchGuidance = buildBatchGuidance(authMethod, batchPrompt, batchThreshold);
 
@@ -124,41 +137,42 @@ if (args.includes('--http')) {
   const { createAnalytics } = await import('./analytics.js');
   const { createClientFromEnv } = await import('@one-source/api-mcp/client');
 
-  // Auth detection — API key takes priority over x402
+  // Auth detection — API key takes priority over a payment wallet
   const apiKey = process.env.ONESOURCE_API_KEY?.trim() || undefined;
-  const hasX402 = !!process.env.X402_PRIVATE_KEY;
+  const hasWallet = !!(process.env.X402_PRIVATE_KEY || process.env.MPP_PRIVATE_KEY);
 
-  if (apiKey && hasX402) {
-    console.error('[onesource] WARNING: Both ONESOURCE_API_KEY and X402_PRIVATE_KEY are set. API key takes priority; x402 will not be used.');
+  if (apiKey && hasWallet) {
+    console.error('[onesource] WARNING: ONESOURCE_API_KEY is set alongside a payment wallet. API key takes priority; X402_PRIVATE_KEY / MPP_PRIVATE_KEY will not be used.');
   }
 
-  let authMethod: 'api_key' | 'x402' | 'none' = 'none';
+  let authMethod: 'api_key' | 'x402' | 'mpp' | 'none' = 'none';
   let x402Fetch: typeof globalThis.fetch | undefined;
   let x402Address: string | undefined;
 
-  // Resolve batch preferences (file > env > default) and mirror the deposit
-  // multiplier + initial mode into process.env BEFORE setupX402 builds the
-  // payment channel, so settings saved via 1s_batch_config take effect at startup.
+  // Resolve payment preferences (file > env > default) and mirror them into
+  // process.env BEFORE setupPayments builds the payer, so settings saved via
+  // 1s_batch_config take effect at startup. closePaymentSession is captured for
+  // graceful shutdown (settles any open MPP voucher channel).
   const { loadBatchPrefs } = await import('./batch-prefs.js');
   const batchPrefs = loadBatchPrefs();
+  const { setupPayments, closePaymentSession } = await import('@one-source/api-mcp/payment');
 
   if (apiKey) {
     authMethod = 'api_key';
     console.error('[onesource] auth: api_key');
   } else {
     try {
-      const { setupX402 } = await import('@one-source/api-mcp/x402');
-      const x402 = setupX402();
-      if (x402.enabled) {
-        authMethod = 'x402';
-        x402Fetch = x402.fetch;
-        x402Address = x402.address;
-        console.error(`[onesource] auth: x402 (wallet: ${x402.address})`);
+      const pay = setupPayments();
+      if (pay.enabled) {
+        authMethod = pay.authMethod;
+        x402Fetch = pay.fetch;
+        x402Address = pay.x402Address ?? pay.mppAddress;
+        console.error(`[onesource] auth: ${authMethod} (wallet: ${x402Address})`);
       } else {
         console.error('[onesource] auth: none');
       }
     } catch (err) {
-      console.error(`[onesource] x402 setup failed, continuing without auth: ${err instanceof Error ? err.message : err}`);
+      console.error(`[onesource] payment setup failed, continuing without auth: ${err instanceof Error ? err.message : err}`);
     }
   }
 
@@ -319,8 +333,8 @@ if (args.includes('--http')) {
     source: 'unified',
   });
 
-  // Graceful shutdown — flush analytics before exit
-  process.once('SIGINT', async () => {
+  // Graceful shutdown — flush analytics + settle any open MPP session before exit
+  const shutdown = async () => {
     sharedAnalytics.trackService({
       type: 'service_stop',
       service: 'onesource',
@@ -333,11 +347,14 @@ if (args.includes('--http')) {
       (async () => {
         await sharedAnalytics.flush();
         await new Promise<void>((resolve) => httpServer.close(() => resolve()));
+        await closePaymentSession();
       })(),
       new Promise<void>((resolve) => setTimeout(resolve, 5_000)),
     ]);
     process.exit(0);
-  });
+  };
+  process.once('SIGINT', shutdown);
+  process.once('SIGTERM', shutdown);
 
 } else {
   // ---------- Stdio mode (default) ----------
@@ -348,41 +365,42 @@ if (args.includes('--http')) {
   );
   const { createClientFromEnv } = await import('@one-source/api-mcp/client');
 
-  // Auth detection — API key takes priority over x402
+  // Auth detection — API key takes priority over a payment wallet
   const apiKey = process.env.ONESOURCE_API_KEY?.trim() || undefined;
-  const hasX402 = !!process.env.X402_PRIVATE_KEY;
+  const hasWallet = !!(process.env.X402_PRIVATE_KEY || process.env.MPP_PRIVATE_KEY);
 
-  if (apiKey && hasX402) {
-    console.error('[onesource] WARNING: Both ONESOURCE_API_KEY and X402_PRIVATE_KEY are set. API key takes priority; x402 will not be used.');
+  if (apiKey && hasWallet) {
+    console.error('[onesource] WARNING: ONESOURCE_API_KEY is set alongside a payment wallet. API key takes priority; X402_PRIVATE_KEY / MPP_PRIVATE_KEY will not be used.');
   }
 
-  let authMethod: 'api_key' | 'x402' | 'none' = 'none';
+  let authMethod: 'api_key' | 'x402' | 'mpp' | 'none' = 'none';
   let x402Fetch: typeof globalThis.fetch | undefined;
   let x402Address: string | undefined;
 
-  // Resolve batch preferences (file > env > default) and mirror the deposit
-  // multiplier + initial mode into process.env BEFORE setupX402 builds the
-  // payment channel, so settings saved via 1s_batch_config take effect at startup.
+  // Resolve payment preferences (file > env > default) and mirror them into
+  // process.env BEFORE setupPayments builds the payer, so settings saved via
+  // 1s_batch_config take effect at startup. closePaymentSession is captured for
+  // graceful shutdown (settles any open MPP voucher channel).
   const { loadBatchPrefs } = await import('./batch-prefs.js');
   const batchPrefs = loadBatchPrefs();
+  const { setupPayments, closePaymentSession } = await import('@one-source/api-mcp/payment');
 
   if (apiKey) {
     authMethod = 'api_key';
     console.error('[onesource] auth: api_key');
   } else {
     try {
-      const { setupX402 } = await import('@one-source/api-mcp/x402');
-      const x402 = setupX402();
-      if (x402.enabled) {
-        authMethod = 'x402';
-        x402Fetch = x402.fetch;
-        x402Address = x402.address;
-        console.error(`[onesource] auth: x402 (wallet: ${x402.address})`);
+      const pay = setupPayments();
+      if (pay.enabled) {
+        authMethod = pay.authMethod;
+        x402Fetch = pay.fetch;
+        x402Address = pay.x402Address ?? pay.mppAddress;
+        console.error(`[onesource] auth: ${authMethod} (wallet: ${x402Address})`);
       } else {
         console.error('[onesource] auth: none');
       }
     } catch (err) {
-      console.error(`[onesource] x402 setup failed, continuing without auth: ${err instanceof Error ? err.message : err}`);
+      console.error(`[onesource] payment setup failed, continuing without auth: ${err instanceof Error ? err.message : err}`);
     }
   }
 
@@ -417,8 +435,8 @@ if (args.includes('--http')) {
     source: 'unified',
   });
 
-  // Graceful shutdown — flush analytics before exit
-  process.once('SIGINT', async () => {
+  // Graceful shutdown — flush analytics + settle any open MPP session before exit
+  const shutdown = async () => {
     analytics.trackService({
       type: 'service_stop',
       service: 'onesource',
@@ -432,11 +450,14 @@ if (args.includes('--http')) {
         await analytics.flush();
         stdioTransport.close();
         await server.close();
+        await closePaymentSession();
       })(),
       new Promise<void>((resolve) => setTimeout(resolve, 5_000)),
     ]);
     process.exit(0);
-  });
+  };
+  process.once('SIGINT', shutdown);
+  process.once('SIGTERM', shutdown);
 }
 
 // Empty export makes this file a module (required for top-level await in TypeScript)

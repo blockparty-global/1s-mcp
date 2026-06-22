@@ -20,18 +20,24 @@
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { readFileSync, writeFileSync, mkdirSync, rmSync, existsSync } from 'node:fs';
+import type { PaymentRailMode } from '@one-source/api-mcp/payment';
 
 export type BatchPromptPref = 'ask' | 'auto' | 'off';
-export type PaymentMode = 'exact' | 'batch';
+/** Unified rail+mode. Legacy 'exact'/'batch' map to 'x402-exact'/'x402-batch'. */
+export type PaymentMode = PaymentRailMode;
+
+const ALL_MODES: readonly PaymentRailMode[] = ['x402-exact', 'x402-batch', 'mpp-charge', 'mpp-session'];
 
 export interface BatchPrefs {
   /** Agent autonomy when deciding to switch to batch mode. */
   prompt: BatchPromptPref;
   /** Anticipated call count at/above which batching is worth considering. */
   threshold: number;
-  /** Channel deposit = call price × this multiplier. */
+  /** x402 channel deposit = call price × this multiplier. */
   depositMultiplier: number;
-  /** Payment scheme the session starts in. */
+  /** MPP session channel max deposit, in human token units (e.g. '1'). */
+  mppMaxDeposit: string;
+  /** Payment rail+mode the session starts in. */
   mode: PaymentMode;
 }
 
@@ -39,7 +45,8 @@ export const DEFAULT_BATCH_PREFS: BatchPrefs = {
   prompt: 'ask',
   threshold: 5,
   depositMultiplier: 10,
-  mode: 'exact',
+  mppMaxDeposit: '1',
+  mode: 'x402-exact',
 };
 
 /** Lowest deposit multiplier the batch-settlement SDK accepts. */
@@ -73,7 +80,16 @@ export function coerceMultiplier(v: unknown): number | undefined {
 
 export function coerceMode(v: unknown): PaymentMode | undefined {
   const s = typeof v === 'string' ? v.trim().toLowerCase() : '';
-  return s === 'exact' || s === 'batch' ? s : undefined;
+  // Legacy values from older persisted configs / env.
+  if (s === 'exact') return 'x402-exact';
+  if (s === 'batch') return 'x402-batch';
+  return (ALL_MODES as readonly string[]).includes(s) ? (s as PaymentMode) : undefined;
+}
+
+export function coerceMaxDeposit(v: unknown): string | undefined {
+  const s = typeof v === 'number' ? String(v) : typeof v === 'string' ? v.trim() : '';
+  const n = Number(s);
+  return s.length > 0 && Number.isFinite(n) && n > 0 ? s : undefined;
 }
 
 // Snapshot the launch-time env vars ONCE at module load. We mirror resolved
@@ -85,7 +101,9 @@ const ENV_SNAPSHOT = {
   prompt: process.env.X402_BATCH_PROMPT,
   threshold: process.env.X402_BATCH_THRESHOLD,
   depositMultiplier: process.env.X402_DEPOSIT_MULTIPLIER,
-  mode: process.env.X402_PAYMENT_MODE,
+  mppMaxDeposit: process.env.MPP_MAX_DEPOSIT,
+  // Prefer the unified mode; fall back to the legacy x402 sub-mode env.
+  mode: process.env.ONESOURCE_PAYMENT_MODE ?? process.env.X402_PAYMENT_MODE,
 };
 
 let _cache: BatchPrefs | undefined;
@@ -101,6 +119,8 @@ function readPersisted(): Partial<BatchPrefs> {
     if (threshold) out.threshold = threshold;
     const depositMultiplier = coerceMultiplier(data.depositMultiplier);
     if (depositMultiplier) out.depositMultiplier = depositMultiplier;
+    const mppMaxDeposit = coerceMaxDeposit(data.mppMaxDeposit);
+    if (mppMaxDeposit) out.mppMaxDeposit = mppMaxDeposit;
     const mode = coerceMode(data.mode);
     if (mode) out.mode = mode;
     return out;
@@ -118,15 +138,27 @@ function fromEnv(): Partial<BatchPrefs> {
   if (threshold) out.threshold = threshold;
   const depositMultiplier = coerceMultiplier(ENV_SNAPSHOT.depositMultiplier);
   if (depositMultiplier) out.depositMultiplier = depositMultiplier;
+  const mppMaxDeposit = coerceMaxDeposit(ENV_SNAPSHOT.mppMaxDeposit);
+  if (mppMaxDeposit) out.mppMaxDeposit = mppMaxDeposit;
   const mode = coerceMode(ENV_SNAPSHOT.mode);
   if (mode) out.mode = mode;
   return out;
 }
 
-/** Mirror api-mcp-consumed values into process.env so its x402 layer honours them. */
+/**
+ * Mirror api-mcp-consumed values into process.env so its payment layer honours
+ * them. setupPayments resolves the initial mode from ONESOURCE_PAYMENT_MODE; the
+ * per-rail sub-mode + rail params are read by x402.ts / mpp.ts respectively.
+ */
 function mirrorToEnv(prefs: BatchPrefs): void {
-  process.env.X402_PAYMENT_MODE = prefs.mode;
+  process.env.ONESOURCE_PAYMENT_MODE = prefs.mode;
+  if (prefs.mode.startsWith('x402-')) {
+    process.env.X402_PAYMENT_MODE = prefs.mode.slice('x402-'.length); // exact | batch
+  } else if (prefs.mode.startsWith('mpp-')) {
+    process.env.MPP_PAYMENT_MODE = prefs.mode.slice('mpp-'.length); // charge | session
+  }
   process.env.X402_DEPOSIT_MULTIPLIER = String(prefs.depositMultiplier);
+  process.env.MPP_MAX_DEPOSIT = prefs.mppMaxDeposit;
 }
 
 function resolve(): BatchPrefs {

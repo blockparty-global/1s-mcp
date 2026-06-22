@@ -18,7 +18,7 @@ import {
 /** ToolCallEvent with category and auth_method widened to include unified MCP additions. */
 export type ToolCallEvent = Omit<_ToolCallEvent, 'category' | 'auth_method'> & {
   category: _ToolCallEvent['category'] | 'docs' | 'ops';
-  auth_method: _ToolCallEvent['auth_method'] | 'api_key';
+  auth_method: _ToolCallEvent['auth_method'] | 'api_key' | 'mpp';
   wallet_id?: string;
   source?: string;
 };
