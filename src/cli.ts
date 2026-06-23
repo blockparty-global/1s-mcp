@@ -43,12 +43,12 @@ function buildBatchGuidance(
   // MPP rail: the cheaper-for-a-burst mode is a Tempo voucher channel.
   if (authMethod === 'mpp') {
     if (prompt === 'off') {
-      return 'Session payments: only switch to a voucher channel if the user explicitly asks. You can change this preference with 1s_batch_config.';
+      return 'Session payments: only switch to a voucher channel if the user explicitly asks. The unspent deposit is reclaimed with 1s_refund (or automatically on shutdown). You can change this preference with 1s_batch_config.';
     }
     if (prompt === 'auto') {
-      return `Session payments: when you anticipate ${threshold} or more blockchain calls in a session, switch to a voucher channel automatically via 1s_payment_mode {mode:'mpp-session'}. The unspent deposit is reclaimed automatically on shutdown. Behaviour is configurable with 1s_batch_config.`;
+      return `Session payments: when you anticipate ${threshold} or more blockchain calls in a session, switch to a voucher channel automatically via 1s_payment_mode {mode:'mpp-session'}, and call 1s_refund when finished to reclaim the unspent deposit (it also settles automatically on shutdown). Behaviour is configurable with 1s_batch_config.`;
     }
-    return `Session payments: when you anticipate ${threshold} or more blockchain calls in one session, mpp-session (a Tempo voucher channel) is cheaper than per-call mpp-charge. Because it deposits up front, ask the user before switching; on agreement call 1s_payment_mode {mode:'mpp-session'}. The unspent deposit is reclaimed automatically on shutdown. Tune behaviour any time via 1s_batch_config — no restart needed.`;
+    return `Session payments: when you anticipate ${threshold} or more blockchain calls in one session, mpp-session (a Tempo voucher channel) is cheaper than per-call mpp-charge. Because it deposits up front, ask the user before switching; on agreement call 1s_payment_mode {mode:'mpp-session'}, and remind them to 1s_refund the unspent deposit when finished (it also settles automatically on shutdown). Tune behaviour any time via 1s_batch_config — no restart needed.`;
   }
 
   if (authMethod !== 'x402') return '';

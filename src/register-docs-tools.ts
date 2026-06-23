@@ -220,7 +220,7 @@ export function registerDocsTools(opts: RegisterDocsToolsOptions): number {
   const x402Address = opts.x402Address;
   instrumentedTool(server, analytics, transport,
     '1s_setup_check',
-    'Check OneSource MCP server health — version (current vs latest), authentication status (API key or x402), API connectivity, and setup instructions if anything is missing. Free, no authentication required. Call this first when troubleshooting.',
+    'Check OneSource MCP server health — version (current vs latest), authentication status (API key, x402, or MPP), payment-channel status for each enabled rail, API connectivity, and setup instructions if anything is missing. Free, no authentication required. Call this first when troubleshooting.',
     {},
     async () => {
       const parts: string[] = [];
@@ -257,6 +257,11 @@ export function registerDocsTools(opts: RegisterDocsToolsOptions): number {
       // Use authMethod from startup; fall back to runtime env check for robustness
       const activeMethod = authMethod ?? (runtimeApiKey ? 'api_key' : runtimeX402Key ? 'x402' : runtimeMppKey ? 'mpp' : 'none');
       const payInfo = getPaymentModeInfo();
+      // Both rails are reported at equal depth, independent of which is primary.
+      // (When an API key is active, setupPayments is skipped so both read false —
+      // the wallet keys are intentionally ignored; see the bothSet warning.)
+      const x402Enabled = payInfo.x402.enabled;
+      const mppEnabled = payInfo.mpp.enabled;
 
       if (activeMethod === 'api_key') {
         parts.push('Status: **Configured (API key)**');
@@ -277,6 +282,10 @@ export function registerDocsTools(opts: RegisterDocsToolsOptions): number {
         }
         parts.push('\nThis wallet must hold USDC on the **Base** network to pay for API calls.');
         parts.push('\n> **If this key was not explicitly set in your Claude MCP config**, it may be inherited from your shell environment. Run `echo $X402_PRIVATE_KEY` in your terminal to check.');
+        if (mppEnabled) {
+          const mppAddr = payInfo.mpp.address;
+          parts.push(`\nAlso available: **MPP (Tempo)**${mppAddr ? ` — wallet \`${mppAddr}\`` : ''} (must hold USDC.e or pathUSD on Tempo). Switch with \`1s_payment_mode { "mode": "mpp-charge" }\` or \`{ "mode": "mpp-session" }\`.`);
+        }
       } else if (activeMethod === 'mpp') {
         parts.push('Status: **Configured (MPP / Tempo)**');
         const addr = payInfo.mpp.address ?? x402Address;
@@ -284,8 +293,12 @@ export function registerDocsTools(opts: RegisterDocsToolsOptions): number {
           parts.push(`Wallet: \`${addr}\``);
         }
         parts.push('\nThis wallet must hold **USDC.e or pathUSD on the Tempo network** to pay for API calls.');
-        parts.push('Two modes are available via `1s_payment_mode`: `mpp-charge` (per-call) and `mpp-session` (a voucher channel — cheaper for a burst of calls; the unspent deposit is reclaimed automatically on shutdown).');
+        parts.push('Two modes are available via `1s_payment_mode`: `mpp-charge` (per-call) and `mpp-session` (a voucher channel — cheaper for a burst of calls; reclaim the unspent deposit with `1s_refund`, or it settles automatically on shutdown).');
         parts.push('\n> **If this key was not explicitly set in your Claude MCP config**, it may be inherited from your shell environment. Run `echo $MPP_PRIVATE_KEY` in your terminal to check.');
+        if (x402Enabled) {
+          const x402Addr = payInfo.x402.address;
+          parts.push(`\nAlso available: **x402 (Base)**${x402Addr ? ` — wallet \`${x402Addr}\`` : ''} (must hold USDC on Base). Switch with \`1s_payment_mode { "mode": "x402-exact" }\` or \`{ "mode": "x402-batch" }\`.`);
+        }
       } else {
         parts.push('Status: **Not configured**');
         parts.push('\nBlockchain API tools require authentication. Choose one of the options below.\n');
@@ -356,55 +369,80 @@ export function registerDocsTools(opts: RegisterDocsToolsOptions): number {
         parts.push('**Security:** Never commit keys to source control. Use environment variables or a secrets manager.\n');
       }
 
-      // 2b. Batch settlement (x402 payment channels)
-      parts.push('\n## Batch Settlement (x402)\n');
+      // 2b. Payment channels — both rails reported at equal depth: x402 batch
+      // settlement (Base) and MPP session channels (Tempo). Each subsection is
+      // rendered whenever its rail is enabled, regardless of which is primary.
+      parts.push('\n## Payment Channels\n');
 
-      if (activeMethod === 'x402') {
+      if (x402Enabled || mppEnabled) {
+        // prompt/threshold are rail-agnostic (anticipated-call autonomy); shared
+        // by both subsections. mppMaxDeposit/depositMultiplier are rail-specific.
         const prefs = getBatchPrefs();
         const persisted = hasPersistedConfig();
 
-        parts.push(`Current mode: **${payInfo.mode}**${payInfo.mode === 'x402-exact' ? ' (per-call payments)' : payInfo.mode === 'x402-batch' ? ' (payment channel)' : ''}`);
-        if (payInfo.x402.batchAvailable) {
-          parts.push('Batch available: **Yes**');
-        } else {
-          parts.push('Batch available: **No** — the channel scheme failed to initialise (usually an RPC issue). Check `X402_RPC_URL` and restart the server.');
+        parts.push(`Active payment mode: **${payInfo.mode}**.`);
+
+        if (x402Enabled) {
+          parts.push('\n### Batch Settlement (x402 on Base)\n');
+          if (payInfo.x402.batchAvailable) {
+            parts.push('Batch channel available: **Yes**');
+          } else {
+            parts.push('Batch channel available: **No** — the channel scheme failed to initialise (usually an RPC issue). Check `X402_RPC_URL` and restart the server.');
+          }
+          parts.push('\n**Current batch settings:**');
+          parts.push(`- Autonomy: \`${prefs.prompt}\` (ask / auto / off — whether the agent confirms before switching to a channel mode)`);
+          parts.push(`- "Many" threshold: \`${prefs.threshold}\` (anticipated calls at/above which a channel is considered)`);
+          parts.push(`- Deposit multiplier: \`${prefs.depositMultiplier}\` (channel deposit = call price × this)`);
+          parts.push(`- Default mode: \`${prefs.mode}\` (scheme the session starts in)`);
+          parts.push(`- Saved to: ${persisted ? `\`${batchConfigPath()}\`` : `*(not yet saved — using ${process.env.X402_BATCH_PROMPT || process.env.X402_BATCH_THRESHOLD ? 'env vars / ' : ''}defaults)*`}`);
+
+          parts.push('\nBatch settlement opens a USDC payment channel: the first paid call deposits `price × deposit multiplier` on-chain, then subsequent calls are signed off-chain and settled together with a single claim. Best for a **burst of calls** — cheaper than paying per call. Switching back to `x402-exact` leaves any unspent channel balance locked until the on-chain withdraw delay (~1 day on mainnet), so reclaim it with `1s_refund` when done.');
+
+          parts.push('\n**Switch / configure from this session — no config editing, no restart:**');
+          parts.push('- Switch mode: `1s_payment_mode { "mode": "x402-batch" }` (or `"x402-exact"` for per-call).');
+          parts.push('- Change autonomy / threshold: `1s_batch_config { "prompt": "auto", "threshold": 8 }`.');
+          parts.push('- Change the deposit multiplier: `1s_batch_config { "deposit_multiplier": 20 }` (min ' + MIN_DEPOSIT_MULTIPLIER + '; applies to the next channel opened).');
+          parts.push('- Set the default mode and switch now: `1s_batch_config { "mode": "x402-batch" }` (applies immediately and on future restarts).');
+          parts.push('- Reclaim unspent channel deposit when finished: `1s_refund` (idle channels also auto-refund after a few hours).');
+
+          parts.push('\n#### Advanced: install-time env vars');
+          parts.push('Setting these in the MCP config seeds the defaults at startup (the saved config file, when present, takes priority). Most users should use `1s_batch_config` instead.');
+          parts.push('- `X402_BATCH_PROMPT` (default `ask`), `X402_BATCH_THRESHOLD` (default `5`), `X402_PAYMENT_MODE` (default `exact`), `X402_DEPOSIT_MULTIPLIER` (default `10`).');
+          parts.push('- `X402_RPC_URL` (default Base public RPC) — set your own Base RPC if channel deposits rate-limit.');
+          parts.push('- `X402_CHANNEL_DIR` (default unset = in-memory) — directory to persist the channel across restarts.');
+          parts.push('- `ONESOURCE_CONFIG_DIR` (default `~/.onesource`) — directory holding the saved payment config.');
         }
-        parts.push('\n**Current batch settings:**');
-        parts.push(`- Autonomy: \`${prefs.prompt}\` (ask / auto / off — whether the agent confirms before switching to batch)`);
-        parts.push(`- "Many" threshold: \`${prefs.threshold}\` (anticipated calls at/above which batching is considered)`);
-        parts.push(`- Deposit multiplier: \`${prefs.depositMultiplier}\` (channel deposit = call price × this)`);
-        parts.push(`- Default mode: \`${prefs.mode}\` (scheme the session starts in)`);
-        parts.push(`- Saved to: ${persisted ? `\`${batchConfigPath()}\`` : `*(not yet saved — using ${process.env.X402_BATCH_PROMPT || process.env.X402_BATCH_THRESHOLD ? 'env vars / ' : ''}defaults)*`}`);
 
-        parts.push('\nBatch settlement opens a USDC payment channel: the first paid call deposits `price × deposit multiplier` on-chain, then subsequent calls are signed off-chain and settled together with a single claim. Best for a **burst of calls** — cheaper than paying per call. Switching back to `exact` leaves any unspent channel balance locked until the on-chain withdraw delay (~1 day on mainnet), so reclaim it with `1s_refund` when done.');
+        if (mppEnabled) {
+          parts.push('\n### Session Channels (MPP on Tempo)\n');
+          if (payInfo.mpp.sessionAvailable) {
+            parts.push('Session channel available: **Yes**');
+          } else {
+            parts.push('Session channel available: **No** — the Tempo channel failed to initialise (usually an RPC issue). Check `MPP_RPC_URL` and restart the server.');
+          }
+          parts.push('\n**Current session settings:**');
+          parts.push(`- Autonomy: \`${prefs.prompt}\` (ask / auto / off — shared with x402; whether the agent confirms before switching to a channel mode)`);
+          parts.push(`- "Many" threshold: \`${prefs.threshold}\` (anticipated calls at/above which a channel is considered)`);
+          parts.push(`- Deposit cap: \`${prefs.mppMaxDeposit}\` (\`MPP_MAX_DEPOSIT\` — max USDC.e/pathUSD locked per channel)`);
+          parts.push(`- Default mode: \`${prefs.mode}\` (scheme the session starts in)`);
+          parts.push(`- Saved to: ${persisted ? `\`${batchConfigPath()}\`` : '*(not yet saved — using defaults)*'}`);
 
-        parts.push('\n### Configure from this session — no config editing, no restart\n');
-        parts.push('Use the `1s_batch_config` tool to view or change every batch setting. Changes are saved to the server-managed config file above and persist across restarts — you never need to edit the MCP client config or set env vars by hand.');
-        parts.push('- View current settings: call `1s_batch_config` with no arguments.');
-        parts.push('- Change autonomy: `1s_batch_config { "prompt": "auto" }` (or `"ask"` / `"off"`).');
-        parts.push('- Change the threshold: `1s_batch_config { "threshold": 8 }`.');
-        parts.push('- Change the deposit multiplier: `1s_batch_config { "deposit_multiplier": 20 }` (min ' + MIN_DEPOSIT_MULTIPLIER + '; applies to the next channel opened).');
-        parts.push('- Set the default mode and switch now: `1s_batch_config { "mode": "x402-batch" }` (applies immediately and on future restarts).');
-        parts.push('- Reset everything to defaults: `1s_batch_config { "reset": true }`.');
-        parts.push('\nThe `prompt`, `threshold`, and `mode` changes take effect immediately for the rest of this session; `deposit_multiplier` applies to the next payment channel that opens.');
+          parts.push('\n`mpp-session` opens a TIP-1034 voucher channel: the first paid call deposits up to the cap on-chain, then subsequent calls are signed off-chain as cumulative vouchers and settled together. Best for a **burst of calls** — cheaper than per-call `mpp-charge`. Reclaim the unspent deposit with `1s_refund` when done; it also settles automatically on clean shutdown (a hard kill leaves it locked until reclaimed on-chain later).');
 
-        parts.push('\n### Other runtime controls\n');
-        parts.push('- Switch scheme for this session only (without changing the saved default): `1s_payment_mode { "mode": "x402-batch" }` or `{ "mode": "x402-exact" }`.');
-        parts.push('- Reclaim unspent channel deposit when finished: `1s_refund` (idle channels also auto-refund after a few hours).');
+          parts.push('\n**Switch / configure from this session — no config editing, no restart:**');
+          parts.push('- Switch mode: `1s_payment_mode { "mode": "mpp-session" }` (or `"mpp-charge"` for per-call).');
+          parts.push('- Change the deposit cap: `1s_batch_config { "mpp_max_deposit": "1" }` (persists across restarts; applies to the next channel opened).');
+          parts.push('- Reclaim unspent channel deposit when finished: `1s_refund`.');
 
-        parts.push('\n### Advanced: install-time env vars\n');
-        parts.push('Setting these in the MCP config seeds the defaults at startup (the saved config file, when present, takes priority). Most users should use `1s_batch_config` instead.');
-        parts.push('- `X402_BATCH_PROMPT` (default `ask`), `X402_BATCH_THRESHOLD` (default `5`), `X402_PAYMENT_MODE` (default `exact`), `X402_DEPOSIT_MULTIPLIER` (default `10`).');
-        parts.push('- `X402_RPC_URL` (default Base public RPC) — set your own Base RPC if channel deposits rate-limit.');
-        parts.push('- `X402_CHANNEL_DIR` (default unset = in-memory) — directory to persist the channel across restarts.');
-        parts.push('- `ONESOURCE_CONFIG_DIR` (default `~/.onesource`) — directory holding the saved batch config.');
+          parts.push('\n#### Advanced: install-time env vars');
+          parts.push('Setting these in the MCP config seeds the defaults at startup (the saved config file, when present, takes priority).');
+          parts.push('- `MPP_PRIVATE_KEY` (funded Tempo wallet), `MPP_PAYMENT_MODE` (`charge` default | `session`), `MPP_MAX_DEPOSIT` (session deposit cap, default `1`), `MPP_RPC_URL` (default Tempo public RPC).');
+        }
 
         parts.push('\n### Your preference\n');
-        parts.push(`> **Agent:** ask the user how they want batch payments handled — (1) **how many calls** in a session should make batching worth it (currently ${prefs.threshold}), and (2) whether you should **ask first** (current: \`${prefs.prompt}\`), **switch automatically**, or **only act on request**. When they answer, apply it immediately with \`1s_batch_config\` (e.g. \`{ "threshold": 8, "prompt": "auto" }\`) — it persists automatically, so there is no config file to edit and no restart needed.`);
-      } else if (activeMethod === 'mpp') {
-        parts.push('x402 batch settlement does not apply when paying via MPP (Tempo). The MPP equivalent is `mpp-session`: switch with `1s_payment_mode { "mode": "mpp-session" }` to open a voucher channel (cheaper for a burst of calls); the unspent deposit is reclaimed automatically on shutdown. Cap the channel deposit with `MPP_MAX_DEPOSIT` (default `1`).');
+        parts.push(`> **Agent:** ask the user how they want channel payments handled — (1) **how many calls** in a session should make a channel worth it (currently ${prefs.threshold}), and (2) whether you should **ask first** (current: \`${prefs.prompt}\`), **switch automatically**, or **only act on request**. When they answer, apply it immediately with \`1s_batch_config\` (e.g. \`{ "threshold": 8, "prompt": "auto" }\`) — it persists automatically, so there is no config file to edit and no restart needed.`);
       } else {
-        parts.push('Batch settlement applies only to x402 payments. ' + (activeMethod === 'api_key'
+        parts.push('Payment channels apply only to wallet payments. ' + (activeMethod === 'api_key'
           ? 'Your calls are covered by your API key, so there is no per-call payment to batch.'
           : 'You have no payment wallet configured, so there is nothing to batch yet — set `X402_PRIVATE_KEY` (Base) or `MPP_PRIVATE_KEY` (Tempo).'));
       }
@@ -440,13 +478,14 @@ export function registerDocsTools(opts: RegisterDocsToolsOptions): number {
       if (activeMethod !== 'none') {
         parts.push('- Try an API tool: `1s_network_info` (returns chain ID, block number, gas price)');
       }
-      if (activeMethod === 'x402') {
-        parts.push('- Review your batch-payment preferences and adjust them with `1s_batch_config` (see Batch Settlement above) — no config editing or restart needed.');
-        if (payInfo.mode === 'x402-exact') {
-          parts.push('- Making many calls this session? Enable batch mode (`1s_payment_mode { "mode": "x402-batch" }`) to pay once for the whole burst.');
-        }
-      } else if (activeMethod === 'mpp' && payInfo.mode === 'mpp-charge') {
-        parts.push('- Making many calls this session? Switch to a voucher channel (`1s_payment_mode { "mode": "mpp-session" }`) — cheaper than per-call, reclaimed on shutdown.');
+      if (x402Enabled || mppEnabled) {
+        parts.push('- Review your channel-payment preferences and adjust them with `1s_batch_config` (see Payment Channels above) — no config editing or restart needed.');
+      }
+      if (x402Enabled && payInfo.mode === 'x402-exact') {
+        parts.push('- Making many calls this session? Open a Base payment channel (`1s_payment_mode { "mode": "x402-batch" }`) to pay once for the whole burst, then reclaim with `1s_refund`.');
+      }
+      if (mppEnabled && payInfo.mode === 'mpp-charge') {
+        parts.push('- Making many calls this session? Switch to a Tempo voucher channel (`1s_payment_mode { "mode": "mpp-session" }`) — cheaper than per-call, reclaim with `1s_refund`.');
       }
 
       return parts.join('\n');
