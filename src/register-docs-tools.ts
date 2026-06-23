@@ -285,8 +285,7 @@ export function registerDocsTools(opts: RegisterDocsToolsOptions): number {
       parts.push('> 3. Ask **one decision at a time** and wait for the answer before moving to the next.');
       parts.push('> 4. Do not jump to "you\'re all set" — you are not finished until you have offered the user every applicable decision.');
       parts.push('> 5. **Apply answers as you go.** Settings tagged _(live)_ take effect immediately via the noted tool — call it, no restart. Settings tagged _(restart)_ are read at startup, so collect them and, at the end, hand the user **one ready-to-run command tailored to their OS + MCP client** (see "Applying restart settings"). Ask which client/shell they use if you don\'t already know.');
-      parts.push('> 6. **Secrets never enter this chat.** Do NOT ask the user to paste a private key (or API key) into the conversation, and if they paste one anyway, do not repeat it or build it into your reply — it would be captured in the transcript. Secrets go into the startup command as a **`<placeholder>`** that the user substitutes in their own terminal. You hand back the command shape; they fill in the secret.');
-      parts.push('> 7. **Exactly one payment mode is active at a time** (`x402-exact`, `x402-batch`, `mpp-charge`, or `mpp-session`) — it is a single global setting, not a per-rail toggle. Ask about it **once** (Decision 5), offering only the modes whose rail is enabled. Never ask for an x402 scheme and an MPP scheme separately.');
+      parts.push('> 6. **Security:** never print, repeat, or store a private key the user gives you. It goes only into the command you hand them to run themselves.');
       parts.push('>');
       parts.push('> Begin: tell the user you\'ll walk them through OneSource setup, then ask **Decision 1**.');
       parts.push('');
@@ -321,51 +320,37 @@ export function registerDocsTools(opts: RegisterDocsToolsOptions): number {
       parts.push('- **C) MPP micropayments** (`MPP_PRIVATE_KEY`) — pay per call in USDC.e / pathUSD on **Tempo**. No account; just a funded Tempo wallet. → also do Decision 4.');
       parts.push(`- **D) Keep current** (${activeMethod === 'none' ? 'not configured' : authLabel}).`);
       parts.push('');
-      parts.push('> Ask the user which method(s) they want. Note: if an API key is set, any wallet key is ignored — so if they want to pay by wallet, make sure no API key is set in the final command (and vice-versa). Then proceed to the decisions for each rail they chose, then to the shared Decisions 5–7.');
+      parts.push('> Ask the user which method(s) they want. Note: if an API key is set, any wallet key is ignored — so if they want to pay by wallet, make sure no API key is set in the final command (and vice-versa). Then proceed to the decisions for each rail they chose, then to the shared Decision 5.');
       parts.push('');
 
-      parts.push('## Decision 2 — API key  _(restart, secret — only if they chose API key)_');
-      parts.push('Tell the user they\'ll need a OneSource API key (starts with `sk_`; create one at app.onesource.io → API Keys). **Do not ask them to paste it here** — per Rule 6, the startup command (Applying restart settings) carries `ONESOURCE_API_KEY=<your-api-key>` as a placeholder they fill in their own terminal.');
+      parts.push('## Decision 2 — API key value  _(restart, secret — only if they chose API key)_');
+      parts.push('Ask the user to paste their OneSource API key (starts with `sk_`; create one at app.onesource.io → API Keys). Hold it for the `ONESOURCE_API_KEY` entry in the startup command (Applying restart settings). **Do not echo it back to them.**');
       parts.push('');
 
       parts.push('## Decision 3 — x402 (Base) settings  _(only if using x402)_');
-      parts.push('Offer each of these to the user (payment scheme is decided once, for both rails, in Decision 5):');
-      parts.push(`- **\`X402_PRIVATE_KEY\`** _(restart, secret)_ — the wallet that pays, funded with USDC on **Base**.${x402Enabled ? ' A key is already set — offer **keep / rotate / remove**.' : ' Not set yet — offer to add one.'} If they keep it, do nothing. If they rotate or add: per Rule 6, **do not take the key in chat** — the startup command carries \`X402_PRIVATE_KEY=<your-key>\` as a placeholder they fill in their terminal (any 64-char hex key, \`0x\` optional; they can generate one). \`1s_setup_check\` shows the derived wallet address to fund.`);
+      parts.push('Offer each of these to the user:');
+      parts.push('- **`X402_PRIVATE_KEY`** _(restart, secret)_ — an EVM private key (64-char hex, `0x` optional) funded with USDC on **Base**. Ask them to provide one, or to generate a fresh one (e.g. `0x` + 32 random bytes). After setup, `1s_setup_check` shows the derived wallet address to fund. Goes in the startup command.');
+      parts.push('- **Payment scheme** _(live)_ — `x402-exact` (pay per call) or `x402-batch` (one on-chain deposit funds many off-chain calls; cheaper for a burst). Apply now with `1s_payment_mode { "mode": "x402-exact" | "x402-batch" }`, or set it as the saved default with `1s_batch_config { "mode": ... }`.');
       parts.push(`- **Deposit multiplier** _(live)_ — x402-batch deposits price × this (currently \`${prefs.depositMultiplier}\`, min ${MIN_DEPOSIT_MULTIPLIER}). Change with \`1s_batch_config { "deposit_multiplier": N }\` (applies to the next channel opened).`);
       parts.push('- **`X402_RPC_URL`** _(restart)_ — custom Base RPC for channel deposits (default public RPC). Only add to the command if they want to override it.');
       parts.push('- **`X402_CHANNEL_DIR`** _(restart)_ — directory to persist the batch channel across restarts (default in-memory). Optional.');
       parts.push('');
 
       parts.push('## Decision 4 — MPP (Tempo) settings  _(only if using MPP)_');
-      parts.push('Offer each of these (payment scheme is decided once, for both rails, in Decision 5):');
-      parts.push(`- **\`MPP_PRIVATE_KEY\`** _(restart, secret)_ — the wallet that pays, funded with **USDC.e or pathUSD on Tempo**.${mppEnabled ? ' A key is already set — offer **keep / rotate / remove**.' : ' Not set yet — offer to add one.'} If they keep it, do nothing. If they rotate or add: per Rule 6, **do not take the key in chat** — the startup command carries \`MPP_PRIVATE_KEY=<your-key>\` as a placeholder they fill in their terminal.`);
+      parts.push('Offer each of these:');
+      parts.push('- **`MPP_PRIVATE_KEY`** _(restart, secret)_ — an EVM private key funded with **USDC.e or pathUSD on Tempo**. Ask them to provide one. Goes in the startup command. **Do not echo it back.**');
+      parts.push('- **Payment scheme** _(live)_ — `mpp-charge` (per call) or `mpp-session` (a TIP-1034 Tempo voucher channel — cheaper for a burst; reclaim the unspent deposit with `1s_refund`, or it settles on clean shutdown). Apply with `1s_payment_mode { "mode": "mpp-charge" | "mpp-session" }`, or save as default with `1s_batch_config { "mode": ... }`.');
       parts.push(`- **Session deposit cap (\`MPP_MAX_DEPOSIT\`)** _(live)_ — max USDC.e / pathUSD locked per session channel (currently \`${prefs.mppMaxDeposit}\`). Change with \`1s_batch_config { "mpp_max_deposit": "1" }\` (persists; applies to the next channel).`);
       parts.push('- **`MPP_RPC_URL`** _(restart)_ — custom Tempo RPC (default public RPC). Only add to the command to override.');
       parts.push('');
 
-      // Decision 5 — the single global active mode. Offer only the modes whose
-      // rail is enabled THIS session (those are the ones 1s_payment_mode can
-      // switch to live); a newly-added rail's modes apply after restart+reload.
-      const modeChoices: string[] = [];
-      if (x402Enabled) modeChoices.push('`x402-exact` (Base — per call)', '`x402-batch` (Base — channel, cheaper for a burst)');
-      if (mppEnabled) modeChoices.push('`mpp-charge` (Tempo — per call)', '`mpp-session` (Tempo — voucher channel, cheaper for a burst)');
-      parts.push('## Decision 5 — Active payment mode  _(live)_');
-      parts.push(`**Exactly one mode is active at a time** — currently \`${payInfo.mode}\`. This is one global setting, **not** a per-rail toggle: ask the user for a single mode (one question), then apply it now with \`1s_payment_mode { "mode": "..." }\` (no restart). To also make it the startup default, use \`1s_batch_config { "mode": "..." }\`. The channel modes (\`x402-batch\`, \`mpp-session\`) deposit up front to fund many calls — reclaim the unspent deposit with \`1s_refund\` when done.`);
-      if (modeChoices.length) {
-        parts.push('Offer exactly these (their rail is active this session): ' + modeChoices.join(', ') + '.');
-        if (x402Enabled && mppEnabled) parts.push('Both rails are active, so all four are valid — but still pick only one.');
-      } else {
-        parts.push('No wallet rail is active this session yet, so there is nothing to switch live. If they are adding a rail via the startup command, record their preferred default with `1s_batch_config { "mode": "..." }`; it takes effect after they run the command and reload.');
-      }
-      parts.push('');
-
-      parts.push('## Decision 6 — Channel autonomy & threshold (shared by both rails)  _(live)_');
+      parts.push('## Decision 5 — Channel autonomy & threshold (shared by both rails)  _(live)_');
       parts.push('Relevant whenever a wallet rail (x402 or MPP) is in use. These persist automatically — **no command or restart needed.** Ask the user:');
       parts.push(`- **Autonomy** (currently \`${prefs.prompt}\`): should the agent **ask** before opening a cheaper payment channel, switch **auto**matically, or stay **off** (only on explicit request)? Apply with \`1s_batch_config { "prompt": "ask" | "auto" | "off" }\`.`);
       parts.push(`- **"Many" threshold** (currently \`${prefs.threshold}\`): how many anticipated calls in one session make a channel worth opening? Apply with \`1s_batch_config { "threshold": N }\`.`);
       parts.push('');
 
-      parts.push('## Decision 7 — Analytics (optional)  _(restart)_');
+      parts.push('## Decision 6 — Analytics (optional)  _(restart)_');
       parts.push('Anonymous usage analytics are **on** by default. Ask whether the user wants them off; if so, add `ONESOURCE_ANALYTICS=false` to the startup command.');
       parts.push('');
 
@@ -375,7 +360,7 @@ export function registerDocsTools(opts: RegisterDocsToolsOptions): number {
       parts.push('---');
       parts.push('');
       parts.push('## Applying restart settings — build ONE command for the user');
-      parts.push(`Detected OS: **${osName}**. After collecting the answers, combine **every chosen _(restart)_ env var** into a single command for the user's MCP client. Include **only** the \`-e\`/\`env\` entries for vars they actually chose. **Leave each secret as a \`<placeholder>\`** (e.g. \`X402_PRIVATE_KEY=<your-key>\`) — per Rule 6, the user fills in keys in their own terminal; never paste in a key you were given in chat. Ask which client + shell they use if you don't know, then give them exactly one command/snippet to run.`);
+      parts.push(`Detected OS: **${osName}**. After collecting the answers, combine **every chosen _(restart)_ env var** into a single command for the user's MCP client, replacing \`<...>\` with their values. Include **only** the \`-e\`/\`env\` entries for vars they actually chose. Ask which client + shell they use if you don't know, then give them exactly one command/snippet to run. They run it — you never store the keys.`);
       parts.push('');
       parts.push('**Claude Code** (any OS/shell) — re-add the server in one go:');
       parts.push('```');
