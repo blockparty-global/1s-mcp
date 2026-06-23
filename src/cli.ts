@@ -138,7 +138,10 @@ if (args.includes('--http')) {
   const { createAnalytics } = await import('./analytics.js');
   const { createClientFromEnv } = await import('@one-source/api-mcp/client');
   const { handleOAuthMetadata, handleAuthorize, handleToken, resolveBearer } = await import('./oauth.js');
-  const { handleLoginPage, handleLoginSubmit } = await import('./login-page.js');
+  const { handleConnectInit, handleConnectSubmit } = await import('./connect-page.js');
+  const { readFileSync } = await import('node:fs');
+  const { join, resolve: resolvePath, extname } = await import('node:path');
+  const { fileURLToPath } = await import('node:url');
 
   // Auth detection — API key takes priority over a payment wallet
   const apiKey = process.env.ONESOURCE_API_KEY?.trim() || undefined;
@@ -214,41 +217,91 @@ if (args.includes('--http')) {
     bugReportUrl,
   });
 
-  // Per-IP rate limiter for unauthenticated endpoints that make outbound calls.
-  // Rightmost X-Forwarded-For segment is the real client IP appended by the proxy
-  // (AWS ALB and Railway both append; leftmost is attacker-controlled).
-  const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+  // Static file serving — web frontend built to web/out/ by npm run build:web
+  const webOutDir = resolvePath(fileURLToPath(new URL('.', import.meta.url)), '../web/out');
+
+  const STATIC_MIME: Record<string, string> = {
+    '.html': 'text/html; charset=utf-8',
+    '.svg': 'image/svg+xml',
+    '.woff2': 'font/woff2',
+    '.woff': 'font/woff',
+    '.ttf': 'font/ttf',
+    '.otf': 'font/otf',
+    '.js': 'application/javascript',
+    '.css': 'text/css',
+  };
+
+  function serveStaticFile(res: ServerResponse, filePath: string): void {
+    const ext = extname(filePath);
+    try {
+      const content = readFileSync(filePath);
+      res.writeHead(200, {
+        'Content-Type': STATIC_MIME[ext] ?? 'application/octet-stream',
+        'Cache-Control': 'public, max-age=3600',
+      });
+      res.end(content);
+    } catch {
+      res.writeHead(404, { 'Content-Type': 'text/plain' });
+      res.end('Not found');
+    }
+  }
+
+  let connectPageHtml: Buffer | null = null;
+  try {
+    connectPageHtml = readFileSync(join(webOutDir, 'oauth', 'connect.html'));
+  } catch {
+    console.error('[onesource] WARNING: web/out/oauth/connect.html not found — run npm run build:web');
+  }
+
+  // Per-IP rate limiter for unauthenticated OAuth endpoints.
+  // TRUSTED_PROXY=true: use rightmost X-Forwarded-For (appended by ALB/Railway).
+  // Without it: use socket IP directly to prevent XFF spoofing.
+  const oauthRateLimitMap = new Map<string, { count: number; resetAt: number }>();
   const RATE_LIMIT_WINDOW_MS = 60_000;
   const RATE_LIMIT_MAX_REQ = 20;
   const RATE_LIMIT_MAX_IPS = 10_000;
+  const TRUSTED_PROXY = process.env.TRUSTED_PROXY === 'true';
+
+  if (TRUSTED_PROXY) {
+    console.error('[onesource] rate limiting: X-Forwarded-For (TRUSTED_PROXY=true) — ensure an ALB/proxy is in front or XFF is attacker-controlled');
+  } else {
+    console.error('[onesource] rate limiting: socket IP');
+    console.error('[onesource] WARNING: TRUSTED_PROXY not set — if running behind a load balancer (EKS/ALB, Railway), set TRUSTED_PROXY=true or all users will share one rate-limit bucket');
+  }
+
+  // Periodic cleanup — avoids O(n) scan on every request.
+  setInterval(() => {
+    const now = Date.now();
+    for (const [k, v] of oauthRateLimitMap) if (v.resetAt < now) oauthRateLimitMap.delete(k);
+  }, RATE_LIMIT_WINDOW_MS).unref();
 
   function getClientIp(req: IncomingMessage): string {
-    const xff = req.headers['x-forwarded-for'];
-    const raw = Array.isArray(xff) ? xff.join(',') : (xff ?? '');
-    if (raw) {
-      const rightmost = raw.split(',').pop()?.trim();
-      if (rightmost) return rightmost;
+    if (TRUSTED_PROXY) {
+      const xff = req.headers['x-forwarded-for'];
+      const raw = Array.isArray(xff) ? xff.join(',') : (xff ?? '');
+      if (raw) {
+        const rightmost = raw.split(',').pop()?.trim();
+        if (rightmost) return rightmost;
+      }
     }
     return req.socket.remoteAddress ?? 'unknown';
   }
 
   function checkRateLimit(ip: string): boolean {
     const now = Date.now();
-    for (const [k, v] of rateLimitMap) if (v.resetAt < now) rateLimitMap.delete(k);
-    const entry = rateLimitMap.get(ip);
+    const entry = oauthRateLimitMap.get(ip);
     if (!entry) {
-      if (rateLimitMap.size >= RATE_LIMIT_MAX_IPS) return false;
-      rateLimitMap.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
+      if (oauthRateLimitMap.size >= RATE_LIMIT_MAX_IPS) {
+        // ADV-04: sweep expired entries before rejecting — may free space.
+        for (const [k, v] of oauthRateLimitMap) if (v.resetAt < now) oauthRateLimitMap.delete(k);
+        if (oauthRateLimitMap.size >= RATE_LIMIT_MAX_IPS) return false;
+      }
+      oauthRateLimitMap.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
       return true;
     }
     if (entry.count >= RATE_LIMIT_MAX_REQ) return false;
     entry.count++;
     return true;
-  }
-
-  function serverErrorJson(res: ServerResponse): void {
-    res.writeHead(500, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ jsonrpc: '2.0', error: { code: -32603, message: 'Internal server error' }, id: null }));
   }
 
   const httpServer = createServer(async (req, res) => {
@@ -315,27 +368,64 @@ if (args.includes('--http')) {
       handleAuthorize(req, res); return;
     }
 
-    // Login page — rate-limited to prevent stateCookies exhaustion DoS
-    if (req.method === 'GET' && path === '/login') {
-      if (!checkRateLimit(getClientIp(req))) {
-        res.writeHead(429, { 'Retry-After': '60', 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Frame-Options': 'DENY', 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'" });
-        res.end('<html><body><h1>Too many requests</h1><p>Please wait and try again.</p></body></html>');
+    // GET /oauth/connect — serve the Next.js login page (static export)
+    if (req.method === 'GET' && path === '/oauth/connect') {
+      if (!connectPageHtml) {
+        res.writeHead(503, { 'Content-Type': 'text/plain', 'Cache-Control': 'no-store' });
+        res.end('Web frontend not built. Run: npm run build:web');
         return;
       }
-      handleLoginPage(req, res); return;
+      res.writeHead(200, {
+        'Content-Type': 'text/html; charset=utf-8',
+        'Cache-Control': 'no-store',
+        'X-Content-Type-Options': 'nosniff',
+        'X-Frame-Options': 'SAMEORIGIN',
+      });
+      res.end(connectPageHtml);
+      return;
     }
 
-    // Login submit — rate-limited (unauthenticated, makes one outbound API call per request)
-    if (req.method === 'POST' && path === '/login') {
-      if (!checkRateLimit(getClientIp(req))) {
-        res.writeHead(429, { 'Retry-After': '60', 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Frame-Options': 'DENY', 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'" });
-        res.end('<html><body><h1>Too many requests</h1><p>Please wait and try again.</p></body></html>');
+    // GET /onesource-logo.svg — static asset for the login page
+    if (req.method === 'GET' && path === '/onesource-logo.svg') {
+      serveStaticFile(res, join(webOutDir, 'onesource-logo.svg'));
+      return;
+    }
+
+    // GET /fonts/* — font files for the login page; path traversal guarded
+    if (req.method === 'GET' && path.startsWith('/fonts/')) {
+      const fontFile = path.slice('/fonts/'.length);
+      const fontsDir = resolvePath(webOutDir, 'fonts');
+      const fontPath = resolvePath(fontsDir, fontFile);
+      if (!fontPath.startsWith(fontsDir + '/') && fontPath !== fontsDir) {
+        res.writeHead(403, { 'Content-Type': 'text/plain' });
+        res.end('Forbidden');
         return;
       }
-      try { await handleLoginSubmit(req, res); } catch {
+      serveStaticFile(res, fontPath);
+      return;
+    }
+
+    // GET /api/oauth/connect-init — issue CSRF cookie; rate-limited
+    if (req.method === 'GET' && path === '/api/oauth/connect-init') {
+      if (!checkRateLimit(getClientIp(req))) {
+        res.writeHead(429, { 'Retry-After': '60', 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+        res.end(JSON.stringify({ error: 'too_many_requests' }));
+        return;
+      }
+      handleConnectInit(req, res); return;
+    }
+
+    // POST /api/oauth/connect-submit — validate key, issue auth code; rate-limited
+    if (req.method === 'POST' && path === '/api/oauth/connect-submit') {
+      if (!checkRateLimit(getClientIp(req))) {
+        res.writeHead(429, { 'Retry-After': '60', 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+        res.end(JSON.stringify({ error: 'too_many_requests' }));
+        return;
+      }
+      try { await handleConnectSubmit(req, res); } catch {
         if (!res.headersSent) {
-          res.writeHead(500, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Frame-Options': 'DENY', 'X-Content-Type-Options': 'nosniff' });
-          res.end('<html><body><h1>Error</h1><p>Something went wrong. Please try again.</p></body></html>');
+          res.writeHead(500, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+          res.end(JSON.stringify({ error: 'server_error' }));
         }
       }
       return;
@@ -440,6 +530,8 @@ if (args.includes('--http')) {
       }
     }
   });
+
+  httpServer.setTimeout(10_000);
 
   // Bind to 0.0.0.0 for deployment compatibility (AWS EKS, Railway, Fly.io, etc.)
   const host = '0.0.0.0';

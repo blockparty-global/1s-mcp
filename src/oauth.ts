@@ -7,12 +7,13 @@ import {
   timingSafeEqual,
 } from 'node:crypto';
 import type { IncomingMessage, ServerResponse } from 'node:http';
+import { readBody } from './http-utils.js';
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
 const ALLOWED_REDIRECT_HOSTS = ['claude.ai', 'www.claude.ai'];
 const JWT_TTL_SECONDS = 30 * 86400; // 30 days
-const STATE_TTL_MS = 60_000;        // 60 s — consent window
+const STATE_TTL_MS = 120_000;       // 120 s — consent window (headroom for validateApiKey)
 const MAX_PENDING = 1000;           // hard cap on in-flight sessions; excess → 503
 
 const OAUTH_METADATA = JSON.stringify({
@@ -46,6 +47,17 @@ initSecret();
 
 export function isOAuthConfigured(): boolean {
   return jwtSignKey !== null && aesKey !== null;
+}
+
+/** Returns true if `state` is in the authState map and has not expired. Non-consuming check. */
+export function hasAuthState(state: string): boolean {
+  const entry = authState.get(state);
+  if (!entry) return false;
+  if (entry.expiresAt < Date.now()) {
+    authState.delete(state);
+    return false;
+  }
+  return true;
 }
 
 // ── In-memory state ──────────────────────────────────────────────────────────
@@ -146,35 +158,6 @@ function serverError(res: ServerResponse): void {
   oauthError(res, 500, 'server_error');
 }
 
-// ── Body reader ──────────────────────────────────────────────────────────────
-
-async function readBody(req: IncomingMessage, maxBytes = 65536): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const chunks: Buffer[] = [];
-    let total = 0;
-    let settled = false;
-    req.on('data', (chunk: Buffer) => {
-      total += chunk.length;
-      if (total > maxBytes) {
-        req.destroy(new Error('request body too large'));
-        return;
-      }
-      chunks.push(chunk);
-    });
-    req.on('end', () => {
-      // settled guard is load-bearing: req.destroy(err) fires 'error' async; 'end' may arrive first
-      if (settled) return;
-      settled = true;
-      resolve(Buffer.concat(chunks).toString('utf8'));
-    });
-    req.on('error', (err: Error) => {
-      if (settled) return;
-      settled = true;
-      reject(err);
-    });
-  });
-}
-
 // ── Public exports ───────────────────────────────────────────────────────────
 
 /** RFC 8414 discovery document. Wired to GET /.well-known/oauth-authorization-server */
@@ -245,7 +228,7 @@ export function handleAuthorize(req: IncomingMessage, res: ServerResponse): void
     expiresAt: Date.now() + STATE_TTL_MS,
   });
 
-  res.writeHead(302, { Location: `/login?state=${encodeURIComponent(internalState)}`, 'Cache-Control': 'no-store' });
+  res.writeHead(302, { Location: `/oauth/connect?state=${encodeURIComponent(internalState)}`, 'Cache-Control': 'no-store' });
   res.end();
 }
 

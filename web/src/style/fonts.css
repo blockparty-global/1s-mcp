@@ -1,0 +1,46 @@
+@font-face {
+	font-family: "MonaspaceNeon";
+	src: url("/fonts/MonaspaceNeonVarVF-wght-wdth-slnt.woff2") format("woff2"), 
+		 url("/fonts/MonaspaceNeonVarVF-wght-wdth-slnt.woff") format("woff");
+	font-weight: 500;
+	font-style: normal;
+	font-display: swap;
+  }
+  
+  @font-face {
+	font-family: "MonaspaceNeon";
+	src: url("/fonts/MonaspaceNeonVarVF-wght-wdth-slnt.woff2") format("woff2"), 
+		 url("/fonts/MonaspaceNeonVarVF-wght-wdth-slnt.woff") format("woff");
+	font-weight: 600;
+	font-style: normal;
+	font-display: swap;
+  }
+  
+  @font-face {
+	font-family: "Figtree";
+	src: url("/fonts/Figtree-VariableFont_wght.ttf") format("truetype");
+	font-weight: 500;
+	font-style: normal;
+  }
+  
+  @font-face {
+	font-family: "Figtree";
+	src: url("/fonts/Figtree-VariableFont_wght.ttf") format("truetype");
+	font-weight: 600;
+	font-style: normal;
+  }
+
+  @font-face {
+	font-family: "Figtree Italic";
+	src: url("/fonts/Figtree-Italic-VariableFont_wght.ttf") format("truetype");
+	font-style: italic;
+  }
+
+  @font-face {
+	font-family: "Mabry Medium Pro";
+	src: url("/fonts/mabry-medium-pro-web.ttf") format("truetype");
+	font-weight: 500;
+	font-style: normal;
+	font-display: swap;
+  }
+  

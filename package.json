@@ -17,19 +17,21 @@
   },
   "files": [
     "dist/",
+    "web/out/",
     "README.md",
     "skills/",
     "LICENSE"
   ],
   "scripts": {
-    "build": "tsc",
+    "build": "npm run build:web && tsc",
+    "build:web": "cd web && npm run build",
     "test": "vitest run",
     "test:watch": "vitest",
     "bump-version": "node scripts/bump-version.mjs",
     "validate": "node scripts/validate-mcp.mjs",
     "prepack": "node -e \"fs=require('fs');fs.copyFileSync('README.md','README.repo.md');fs.copyFileSync('README.npm.md','README.md')\"",
     "postpack": "node -e \"fs=require('fs');fs.renameSync('README.repo.md','README.md')\"",
-    "prepare": "npm run build"
+    "prepare": "tsc"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.27.1",
