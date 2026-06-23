@@ -71,12 +71,12 @@ function buildInstructions(
   batchThreshold: number,
 ): string {
   const authLine = authMethod === 'api_key'
-    ? 'Blockchain API tools are authenticated via API key. If a tool returns a 402 error, the API key may be invalid or inactive — tell the user to verify their key at app.onesource.io. If a tool returns a 403 error, the account does not have a developer plan — tell the user to upgrade at app.onesource.io.'
+    ? 'Blockchain API tools are authenticated via API key. If a tool returns a 402 error, the API key may be invalid or inactive — tell the user to verify their key at app.onesource.io. If a tool returns a 403 error, the account does not have a developer plan — tell the user to upgrade at app.onesource.io. To review or change configuration (auth method or either payment rail), run 1s_setup_check — it walks the user through every option interactively.'
     : authMethod === 'x402'
-      ? 'Blockchain API tools require x402 payment (USDC on Base). If a tool returns a 402 error, the user needs to configure X402_PRIVATE_KEY. Call 1s_setup_check for diagnostics and setup instructions.'
+      ? 'Blockchain API tools are paid via x402 (USDC on Base). If a tool returns a 402 error, the wallet (X402_PRIVATE_KEY) may be unfunded — it must hold USDC on Base. To set up, switch payment rail (x402 on Base or MPP on Tempo), or change any setting, run 1s_setup_check — it walks the user through every option interactively, with no manual config editing.'
       : authMethod === 'mpp'
-        ? 'Blockchain API tools are paid via MPP (Tempo USDC.e / pathUSD). If a tool returns a 402 error, the MPP wallet (MPP_PRIVATE_KEY) may be unfunded — it must hold USDC.e or pathUSD on Tempo. Call 1s_setup_check for diagnostics.'
-        : 'Blockchain API tools require authentication. Set ONESOURCE_API_KEY (API key), X402_PRIVATE_KEY (x402 on Base), or MPP_PRIVATE_KEY (MPP on Tempo) to access them. Call 1s_setup_check for setup instructions.';
+        ? 'Blockchain API tools are paid via MPP (Tempo USDC.e / pathUSD). If a tool returns a 402 error, the MPP wallet (MPP_PRIVATE_KEY) may be unfunded — it must hold USDC.e or pathUSD on Tempo. To set up, switch payment rail (MPP on Tempo or x402 on Base), or change any setting, run 1s_setup_check — it walks the user through every option interactively, with no manual config editing.'
+        : 'Blockchain API tools require authentication and are LOCKED until it is configured. The moment the user wants to use a blockchain tool — or asks to set up, configure, or connect OneSource — call 1s_setup_check: it is an interactive setup that walks the user through choosing an auth method (API key) or payment rail (x402 on Base / MPP on Tempo) and every related option, then hands them a ready-to-run command. Do not ask the user to hand-edit env vars or config files; run 1s_setup_check and follow its agent instructions.';
 
   const batchGuidance = buildBatchGuidance(authMethod, batchPrompt, batchThreshold);
 

@@ -87,8 +87,8 @@ RPC only.
 
 | Tool | Description |
 |------|-------------|
-| `1s_payment_mode` | View or switch the x402 payment scheme — `exact` (per-call) vs `batch` (payment channel: one deposit funds many off-chain calls, settled with a single claim) |
-| `1s_refund` | Refund unused `batch` channel balance back to your wallet on demand |
+| `1s_payment_mode` | View or switch the payment rail + scheme across all four modes: `x402-exact` / `x402-batch` (USDC on Base) and `mpp-charge` / `mpp-session` (USDC.e / pathUSD on Tempo). `batch` and `session` open a channel that funds many calls. |
+| `1s_refund` | Reclaim an open payment channel's unspent deposit on demand — works for both an x402 `batch` channel (Base) and an MPP `session` voucher channel (Tempo) |
 
 ### Setup & Ops (3 tools)
 
@@ -96,8 +96,8 @@ No authentication required.
 
 | Tool | Purpose | When to use |
 |------|---------|-------------|
-| `1s_setup_check` | Server health, version, auth status, batch-settlement status, and setup instructions | First thing to call — checks if everything is configured |
-| `1s_batch_config` | View or change x402 batch-settlement preferences (autonomy, threshold, deposit multiplier, default mode) and persist them across restarts — no config editing required | Configure batch behaviour from the session |
+| `1s_setup_check` | **Interactive setup & health check** — walks the user through every config choice for both rails (auth method, x402, MPP, payment modes, channel prefs) one decision at a time, every run, plus version/auth/channel/connectivity status | First thing to call — to set up, change configuration, or troubleshoot |
+| `1s_batch_config` | View or change payment-channel preferences (autonomy, threshold, x402 deposit multiplier, MPP session deposit cap, default mode) and persist them across restarts — no config editing required | Configure channel behaviour from the session |
 | `1s_report_bug` | Report bugs to Slack (or GitHub Issues fallback) | When a tool errors or user wants to report an issue |
 
 ## Networks
@@ -111,12 +111,15 @@ All blockchain API tools accept an optional `network` parameter:
 
 ## Authentication
 
-Blockchain API tools require authentication. Two options are available — if both are set, API key takes priority.
+Blockchain API tools require authentication. Three options are available — if an API key is set alongside a wallet key, the API key takes priority and the wallet is ignored.
+
+> **Tip:** the easiest way to configure any of these is the `1s_setup_check` tool — it walks you through every option interactively and hands you a ready-to-run command, so you never have to hand-edit env vars or config files. The manual instructions below are the reference.
 
 | Method | Variable | Description |
 |--------|----------|-------------|
 | API key | `ONESOURCE_API_KEY` | Unlimited calls, no per-call cost |
-| x402 micropayments | `X402_PRIVATE_KEY` | Pay-per-call via USDC on Base, no account required |
+| x402 micropayments | `X402_PRIVATE_KEY` | Pay-per-call via USDC on **Base**, no account required |
+| MPP micropayments | `MPP_PRIVATE_KEY` | Pay-per-call via USDC.e / pathUSD on **Tempo**, no account required |
 
 ### Option 1: API Key
 
@@ -194,11 +197,55 @@ X402_PRIVATE_KEY=<key> npx -y @one-source/mcp@latest
 4. **Fund that address with USDC on Base** — send USDC to the address shown, on the [Base](https://base.org) network. A few dollars ($1–5 USDC) is enough for hundreds of calls. Bridge from Ethereum mainnet if needed using the [Base Bridge](https://bridge.base.org).
 5. **Verify** — call `1s_network_info` for ethereum. If it returns chain data, payments are working.
 
-#### Batch payments (optional)
+### Option 3: MPP Micropayments (Tempo)
 
-By default each paid call signs one USDC payment (`exact`). For a burst of calls, switch to a **batch** payment channel — one on-chain deposit funds many off-chain calls, settled with a single claim — by calling `1s_payment_mode` with `{ "mode": "batch" }` (or setting `X402_PAYMENT_MODE=batch`). The first batch call deposits `price × X402_DEPOSIT_MULTIPLIER` (default 10), so a session usually over-funds the channel. Reclaim the unused balance any time with the `1s_refund` tool; idle channels are also auto-refunded after a few hours. The residual is always recoverable.
+Pay-per-call via USDC.e / pathUSD on the [Tempo](https://docs.onesource.io) network — an alternative to x402 on Base. No account required — just a Tempo wallet funded with USDC.e or pathUSD. The server handles payments transparently.
 
-When paying via x402, the agent is also given batch guidance at startup so it can manage this for you: when it anticipates a burst of calls it offers to switch to batch mode and reminds you to `1s_refund` when done. Tune that behavior with the `1s_batch_config` tool — set whether the agent asks first / switches automatically / only on request (`prompt`), how many calls count as "a burst" (`threshold`), the deposit multiplier, and the default mode, all from your session. Changes are saved to a server-managed config file and persist across restarts, so you never have to edit the MCP config or set env vars by hand. (The matching `X402_BATCH_PROMPT` / `X402_BATCH_THRESHOLD` / `X402_PAYMENT_MODE` / `X402_DEPOSIT_MULTIPLIER` env vars still work as install-time defaults.) Run `1s_setup_check` to see your current mode, whether batch is available, and these settings.
+1. **Get an EVM private key** — same format as x402 (64-char hex, `0x` optional).
+2. **Pass the key to the server:**
+
+#### Claude Code
+
+```bash
+claude mcp add onesource -e MPP_PRIVATE_KEY=<key> -- npx -y @one-source/mcp@latest
+```
+
+#### Claude Desktop / Cursor
+
+```json
+{
+  "mcpServers": {
+    "onesource": {
+      "command": "npx",
+      "args": ["-y", "@one-source/mcp@latest"],
+      "env": {
+        "MPP_PRIVATE_KEY": "<key>"
+      }
+    }
+  }
+}
+```
+
+#### Any MCP Client (stdio)
+
+```bash
+MPP_PRIVATE_KEY=<key> npx -y @one-source/mcp@latest
+```
+
+3. **Reload and find your wallet address** — reload the MCP server, then call `1s_setup_check`. It shows the wallet address derived from your key.
+4. **Fund that address with USDC.e or pathUSD on Tempo** — a few dollars covers hundreds of calls.
+5. **Verify** — call `1s_network_info`. If it returns chain data, MPP payments are working.
+
+### Payment channels (optional)
+
+By default each paid call signs one payment per call (`x402-exact` on Base, `mpp-charge` on Tempo). For a burst of calls, open a **payment channel** — one on-chain deposit funds many off-chain calls, settled together — which is cheaper than per-call:
+
+- **x402 (Base):** `1s_payment_mode { "mode": "x402-batch" }` (or `X402_PAYMENT_MODE=batch`). First call deposits `price × X402_DEPOSIT_MULTIPLIER` (default 10).
+- **MPP (Tempo):** `1s_payment_mode { "mode": "mpp-session" }` (or `MPP_PAYMENT_MODE=session`). First call deposits up to `MPP_MAX_DEPOSIT` (default 1).
+
+Reclaim the unused balance any time with the `1s_refund` tool (works for both rails); the residual is always recoverable. An idle x402 channel auto-refunds after a few hours; an MPP session settles automatically on clean shutdown.
+
+When paying via a wallet, the agent is also given channel guidance at startup so it can manage this for you: when it anticipates a burst of calls it offers to switch to the active rail's channel mode and reminds you to `1s_refund` when done. Tune that behavior with the `1s_batch_config` tool — set whether the agent asks first / switches automatically / only on request (`prompt`), how many calls count as "a burst" (`threshold`, shared across rails), the x402 deposit multiplier, the MPP session deposit cap, and the default mode, all from your session. Changes are saved to a server-managed config file and persist across restarts, so you never have to edit the MCP config or set env vars by hand. (The matching `X402_*` / `MPP_*` env vars still work as install-time defaults.) Run `1s_setup_check` to see your current mode, whether the channel is available, and these settings.
 
 ### Security
 
@@ -210,16 +257,17 @@ Never commit keys to source control. Use environment variables, a `.env` file (e
 
 ### Required
 
-Set one to access the blockchain API tools. Without either, only the no-auth Setup & Ops tools work. API key takes priority when both are set.
+Set one to access the blockchain API tools. Without any, only the no-auth Setup & Ops tools work. The API key takes priority when set alongside a wallet key.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `ONESOURCE_API_KEY` | — | OneSource API key for Bearer token auth. Takes priority over x402. |
-| `X402_PRIVATE_KEY` | — | EVM private key (64-char hex, `0x` prefix optional) for automatic x402 USDC payments on Base. |
+| `ONESOURCE_API_KEY` | — | OneSource API key for Bearer token auth. Takes priority over the wallet rails. |
+| `X402_PRIVATE_KEY` | — | EVM private key (64-char hex, `0x` prefix optional) for automatic x402 USDC payments on **Base**. |
+| `MPP_PRIVATE_KEY` | — | EVM private key for automatic MPP payments (USDC.e / pathUSD) on **Tempo**. |
 
 ### Optional / Advanced
 
-All have sensible defaults — batch mode runs out of the box. Set these only to tune how `batch` mode behaves or how proactively the agent reaches for it. Payment modes can also be switched at runtime with the `1s_payment_mode` tool.
+All have sensible defaults — channel modes run out of the box. Set these only to tune how channel modes behave or how proactively the agent reaches for them. Payment modes can also be switched at runtime with the `1s_payment_mode` tool.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
@@ -227,12 +275,15 @@ All have sensible defaults — batch mode runs out of the box. Set these only to
 | `X402_DEPOSIT_MULTIPLIER` | `10` | Batch mode: deposit = price × this multiplier, funding that many calls per channel. Unused balance is reclaimable via `1s_refund`. |
 | `X402_RPC_URL` | Base default | Base RPC endpoint used to submit channel deposits in batch mode. |
 | `X402_CHANNEL_DIR` | — | Directory to persist batch channel state across restarts. Unset = in-memory (channel lost on restart). |
-| `X402_BATCH_PROMPT` | `ask` | How the agent handles switching to batch mode: `ask` (confirm first), `auto` (switch on its own), or `off` (only when explicitly asked). |
-| `X402_BATCH_THRESHOLD` | `5` | Number of anticipated calls in a session at/above which the agent considers batch mode. Advisory — the agent estimates the count; not a hard runtime counter. |
+| `MPP_PAYMENT_MODE` | `charge` | Initial MPP scheme: `charge` (per-call) or `session` (Tempo voucher channel). Switch in-session with `1s_payment_mode`. |
+| `MPP_MAX_DEPOSIT` | `1` | Session mode: max USDC.e / pathUSD locked per Tempo voucher channel. Unused balance is reclaimable via `1s_refund`. |
+| `MPP_RPC_URL` | Tempo default | Tempo RPC endpoint used to submit channel deposits in session mode. |
+| `X402_BATCH_PROMPT` | `ask` | How the agent handles switching to a channel mode (both rails): `ask` (confirm first), `auto` (switch on its own), or `off` (only when explicitly asked). |
+| `X402_BATCH_THRESHOLD` | `5` | Number of anticipated calls in a session at/above which the agent considers a channel mode (both rails). Advisory — the agent estimates the count; not a hard runtime counter. |
 
 ## Troubleshooting
 
-**`1s_setup_check` shows "Not configured"** — Set either `ONESOURCE_API_KEY` or `X402_PRIVATE_KEY`. Reload the MCP server after setting either variable. If the key still isn't reaching the server, set it as a shell environment variable directly.
+**`1s_setup_check` shows "Not configured"** — Set one of `ONESOURCE_API_KEY` (API key), `X402_PRIVATE_KEY` (x402 on Base), or `MPP_PRIVATE_KEY` (MPP on Tempo) — or just run `1s_setup_check` and let it walk you through it. Reload the MCP server after setting any variable. If the key still isn't reaching the server, set it as a shell environment variable directly.
 
 **Getting 403 / wrong key active despite correct setup** — A key set in your shell profile (e.g. `~/.zshrc`, `~/.bash_profile`) is picked up by the MCP server process even if it isn't in your Claude MCP config. Run `echo $ONESOURCE_API_KEY` in your terminal to check. If it prints a value you didn't intend, unset it (`unset ONESOURCE_API_KEY`) or explicitly clear it when adding the server: `claude mcp add onesource -e ONESOURCE_API_KEY= -e X402_PRIVATE_KEY=<key> -- npx -y @one-source/mcp@latest`. `1s_setup_check` shows the first 6 characters of whichever key is active so you can confirm which one the server is using.
 

@@ -220,15 +220,12 @@ export function registerDocsTools(opts: RegisterDocsToolsOptions): number {
   const x402Address = opts.x402Address;
   instrumentedTool(server, analytics, transport,
     '1s_setup_check',
-    'Check OneSource MCP server health — version (current vs latest), authentication status (API key, x402, or MPP), payment-channel status for each enabled rail, API connectivity, and setup instructions if anything is missing. Free, no authentication required. Call this first when troubleshooting.',
+    'Interactive setup & health check for the OneSource MCP server. Returns a step-by-step setup script that the AGENT must run by consulting the user: it walks through EVERY configuration choice for BOTH payment rails (auth method, API key, x402 on Base, MPP on Tempo, payment modes, channel preferences) one decision at a time, every time it is run — even when everything is already configured, so the user can review and adjust without touching env vars or config files directly. Also reports version, auth status, channel status, and connectivity. Free, no authentication required. Call this first to set up, to change configuration, or to troubleshoot.',
     {},
     async () => {
       const parts: string[] = [];
 
-      // 1. Server version
-      parts.push('## Server Version\n');
-      parts.push(`Current: ${VERSION}`);
-
+      // ---- Gather current state -------------------------------------------
       let latestVersion = 'unknown';
       try {
         const res = await fetch('https://registry.npmjs.org/@one-source/mcp/latest', {
@@ -239,254 +236,173 @@ export function registerDocsTools(opts: RegisterDocsToolsOptions): number {
           latestVersion = data.version;
         }
       } catch { /* network error — skip */ }
+      const updateAvailable = latestVersion !== 'unknown' && latestVersion !== VERSION;
 
-      parts.push(`Latest:  ${latestVersion}`);
-      if (latestVersion !== 'unknown' && latestVersion !== VERSION) {
-        parts.push('\n**Update available!** Run: `npx -y @one-source/mcp@latest`');
-      } else if (latestVersion === VERSION) {
-        parts.push('\nYou are on the latest version.');
-      }
-
-      // 2. Authentication status
-      parts.push('\n## Authentication\n');
-
-      const runtimeApiKey = process.env.ONESOURCE_API_KEY;
+      const runtimeApiKey = process.env.ONESOURCE_API_KEY?.trim();
       const runtimeX402Key = process.env.X402_PRIVATE_KEY;
       const runtimeMppKey = process.env.MPP_PRIVATE_KEY;
       const bothSet = !!(runtimeApiKey && (runtimeX402Key || runtimeMppKey));
       // Use authMethod from startup; fall back to runtime env check for robustness
       const activeMethod = authMethod ?? (runtimeApiKey ? 'api_key' : runtimeX402Key ? 'x402' : runtimeMppKey ? 'mpp' : 'none');
       const payInfo = getPaymentModeInfo();
-      // Both rails are reported at equal depth, independent of which is primary.
-      // (When an API key is active, setupPayments is skipped so both read false —
-      // the wallet keys are intentionally ignored; see the bothSet warning.)
       const x402Enabled = payInfo.x402.enabled;
       const mppEnabled = payInfo.mpp.enabled;
+      const prefs = getBatchPrefs();
+      const persisted = hasPersistedConfig();
 
-      if (activeMethod === 'api_key') {
-        parts.push('Status: **Configured (API key)**');
-        const keyPreview = runtimeApiKey?.trim().slice(0, 6);
-        if (keyPreview) {
-          parts.push(`Key: \`${keyPreview}••••••\``);
-        }
-        if (bothSet) {
-          parts.push('\n⚠️ Both `ONESOURCE_API_KEY` and `X402_PRIVATE_KEY` are set. API key takes priority; x402 is not used.');
-        }
-        parts.push('\nAPI key authentication is active. Blockchain API tools are ready to use.');
-        parts.push('\n> **If this key was not explicitly set in your Claude MCP config**, it may be inherited from your shell environment. Run `echo $ONESOURCE_API_KEY` in your terminal to check.');
-      } else if (activeMethod === 'x402') {
-        parts.push('Status: **Configured (x402)**');
-        const addr = x402Address ?? payInfo.x402.address;
-        if (addr) {
-          parts.push(`Wallet: \`${addr}\``);
-        }
-        parts.push('\nThis wallet must hold USDC on the **Base** network to pay for API calls.');
-        parts.push('\n> **If this key was not explicitly set in your Claude MCP config**, it may be inherited from your shell environment. Run `echo $X402_PRIVATE_KEY` in your terminal to check.');
-        if (mppEnabled) {
-          const mppAddr = payInfo.mpp.address;
-          parts.push(`\nAlso available: **MPP (Tempo)**${mppAddr ? ` — wallet \`${mppAddr}\`` : ''} (must hold USDC.e or pathUSD on Tempo). Switch with \`1s_payment_mode { "mode": "mpp-charge" }\` or \`{ "mode": "mpp-session" }\`.`);
-        }
-      } else if (activeMethod === 'mpp') {
-        parts.push('Status: **Configured (MPP / Tempo)**');
-        const addr = payInfo.mpp.address ?? x402Address;
-        if (addr) {
-          parts.push(`Wallet: \`${addr}\``);
-        }
-        parts.push('\nThis wallet must hold **USDC.e or pathUSD on the Tempo network** to pay for API calls.');
-        parts.push('Two modes are available via `1s_payment_mode`: `mpp-charge` (per-call) and `mpp-session` (a voucher channel — cheaper for a burst of calls; reclaim the unspent deposit with `1s_refund`, or it settles automatically on shutdown).');
-        parts.push('\n> **If this key was not explicitly set in your Claude MCP config**, it may be inherited from your shell environment. Run `echo $MPP_PRIVATE_KEY` in your terminal to check.');
-        if (x402Enabled) {
-          const x402Addr = payInfo.x402.address;
-          parts.push(`\nAlso available: **x402 (Base)**${x402Addr ? ` — wallet \`${x402Addr}\`` : ''} (must hold USDC on Base). Switch with \`1s_payment_mode { "mode": "x402-exact" }\` or \`{ "mode": "x402-batch" }\`.`);
-        }
-      } else {
-        parts.push('Status: **Not configured**');
-        parts.push('\nBlockchain API tools require authentication. Choose one of the options below.\n');
+      const authLabel = activeMethod === 'api_key'
+        ? `API key (\`${runtimeApiKey?.slice(0, 6)}••••••\`)`
+        : activeMethod === 'x402' ? 'x402 (Base)'
+        : activeMethod === 'mpp' ? 'MPP (Tempo)'
+        : '*none — blockchain tools are locked until you pick one below*';
 
-        parts.push('### Option 1: API Key (recommended)\n');
-        parts.push('Set `ONESOURCE_API_KEY` with your OneSource API key.\n');
-        parts.push('**Claude Code:**');
-        parts.push('```');
-        parts.push('claude mcp remove onesource');
-        parts.push('claude mcp add onesource -e ONESOURCE_API_KEY=<key> -- npx -y @one-source/mcp@latest');
-        parts.push('```\n');
-        parts.push('**Claude Desktop / Cursor:**');
-        parts.push('```json');
-        parts.push('{');
-        parts.push('  "mcpServers": {');
-        parts.push('    "onesource": {');
-        parts.push('      "command": "npx",');
-        parts.push('      "args": ["-y", "@one-source/mcp@latest"],');
-        parts.push('      "env": { "ONESOURCE_API_KEY": "<key>" }');
-        parts.push('    }');
-        parts.push('  }');
-        parts.push('}');
-        parts.push('```\n');
-        parts.push('**Any MCP client (stdio):**');
-        parts.push('```');
-        parts.push('ONESOURCE_API_KEY=<key> npx -y @one-source/mcp@latest');
-        parts.push('```\n');
+      // OS-aware command/config hints for the "apply" section.
+      const platform = process.platform; // 'win32' | 'darwin' | 'linux' | ...
+      const osName = platform === 'win32' ? 'Windows' : platform === 'darwin' ? 'macOS' : 'Linux';
+      const desktopCfg = platform === 'win32'
+        ? '%APPDATA%\\Claude\\claude_desktop_config.json'
+        : platform === 'darwin'
+          ? '~/Library/Application Support/Claude/claude_desktop_config.json'
+          : '~/.config/Claude/claude_desktop_config.json';
+      const cursorCfg = platform === 'win32' ? '%USERPROFILE%\\.cursor\\mcp.json' : '~/.cursor/mcp.json';
+      // Per-shell example for setting a key as an OS env var (the "any client" path).
+      const shellExample = platform === 'win32'
+        ? 'PowerShell: `$env:X402_PRIVATE_KEY = "<key>"` · cmd: `set X402_PRIVATE_KEY=<key>`'
+        : 'bash/zsh: `export X402_PRIVATE_KEY=<key>`';
 
-        parts.push('### Option 2: x402 Micropayments\n');
-        parts.push('Set `X402_PRIVATE_KEY` with an EVM private key (64-char hex, `0x` prefix optional) funded with USDC on Base.\n');
-        parts.push('1. **Get an EVM private key** — export from MetaMask, Coinbase Wallet, or generate one.');
-        parts.push('   ```');
-        parts.push('   # macOS/Linux or Git Bash on Windows');
-        parts.push('   echo "0x$(openssl rand -hex 32)"');
-        parts.push('   ```\n');
-        parts.push('2. **Fund the wallet** with USDC on the **Base** network (not Ethereum mainnet).\n');
-        parts.push('3. **Set the key:**\n');
-        parts.push('   **Claude Code:**');
-        parts.push('   ```');
-        parts.push('   claude mcp remove onesource');
-        parts.push('   claude mcp add onesource -e X402_PRIVATE_KEY=0x... -- npx -y @one-source/mcp@latest');
-        parts.push('   ```\n');
-        parts.push('   **Claude Desktop / Cursor:**');
-        parts.push('   ```json');
-        parts.push('   {');
-        parts.push('     "mcpServers": {');
-        parts.push('       "onesource": {');
-        parts.push('         "command": "npx",');
-        parts.push('         "args": ["-y", "@one-source/mcp@latest"],');
-        parts.push('         "env": { "X402_PRIVATE_KEY": "0x..." }');
-        parts.push('       }');
-        parts.push('     }');
-        parts.push('   }');
-        parts.push('   ```\n');
-        parts.push('   **Any MCP client (stdio):**');
-        parts.push('   ```');
-        parts.push('   X402_PRIVATE_KEY=0x... npx -y @one-source/mcp@latest');
-        parts.push('   ```\n');
-        parts.push('4. **Reload the MCP server** — run `/reload-plugins` in Claude Code, or restart Claude Desktop / Cursor.\n');
+      // =====================================================================
+      // AGENT DIRECTIVE — this is the load-bearing part. The user invoked
+      // setup because they want to configure something; the agent must now
+      // run the interactive script below by consulting the user.
+      // =====================================================================
+      parts.push('# OneSource MCP — Interactive Setup');
+      parts.push('');
+      parts.push('> ⚠️ **AGENT: ACT ON THIS NOW. This tool changed nothing by itself** — it handed you a setup script that *you* run by talking to the user. The user called `1s_setup_check` because they want to set up or adjust their configuration. Your job is to walk them through **every decision below, one at a time**, using your client\'s interactive prompt UI (in Claude Code / Desktop that is the **AskUserQuestion** prompt; in any other client, ask in plain text and wait for the reply).');
+      parts.push('>');
+      parts.push('> **Non-negotiable rules:**');
+      parts.push('> 1. Offer **every** decision below, in order — including ones that already have a value. For a value that is already set, show it and ask whether to **keep or change** it. Never silently leave a setting as-is without offering it.');
+      parts.push('> 2. **Do not assume a default on the user\'s behalf.** Present the options and let them choose.');
+      parts.push('> 3. Ask **one decision at a time** and wait for the answer before moving to the next.');
+      parts.push('> 4. Do not jump to "you\'re all set" — you are not finished until you have offered the user every applicable decision.');
+      parts.push('> 5. **Apply answers as you go.** Settings tagged _(live)_ take effect immediately via the noted tool — call it, no restart. Settings tagged _(restart)_ are read at startup, so collect them and, at the end, hand the user **one ready-to-run command tailored to their OS + MCP client** (see "Applying restart settings"). Ask which client/shell they use if you don\'t already know.');
+      parts.push('> 6. **Security:** never print, repeat, or store a private key the user gives you. It goes only into the command you hand them to run themselves.');
+      parts.push('>');
+      parts.push('> Begin: tell the user you\'ll walk them through OneSource setup, then ask **Decision 1**.');
+      parts.push('');
 
-        parts.push('### Option 3: MPP Micropayments (Tempo)\n');
-        parts.push('Set `MPP_PRIVATE_KEY` with an EVM private key funded with **USDC.e or pathUSD on the Tempo network**. Pays per call on Tempo rails (an alternative to x402 on Base).\n');
-        parts.push('```');
-        parts.push('MPP_PRIVATE_KEY=0x... npx -y @one-source/mcp@latest');
-        parts.push('```');
-        parts.push('Optional: `MPP_PAYMENT_MODE` (`charge` default | `session`), `MPP_MAX_DEPOSIT` (session deposit cap, default `1`). Switch modes in-session with `1s_payment_mode { "mode": "mpp-session" }`.\n');
+      // ---- Current configuration (reference) ------------------------------
+      parts.push('## Current configuration (for your reference — still offer every decision)');
+      parts.push('');
+      parts.push(`- **Server version:** ${VERSION}${latestVersion === 'unknown' ? '' : updateAvailable ? ` — ⚠️ update available: **${latestVersion}** (\`npx -y @one-source/mcp@latest\`)` : ' (latest)'}`);
+      parts.push(`- **Detected OS:** ${osName} (\`process.platform = ${platform}\`)`);
+      parts.push(`- **Active auth method:** ${authLabel}`);
+      const x402Wallet = payInfo.x402.address ?? (activeMethod === 'x402' ? x402Address : undefined);
+      const mppWallet = payInfo.mpp.address ?? (activeMethod === 'mpp' ? x402Address : undefined);
+      parts.push(`- **x402 (Base) wallet:** ${x402Enabled ? `\`${x402Wallet ?? 'enabled'}\` — must hold USDC on Base` : '*not set*'}`);
+      parts.push(`- **MPP (Tempo) wallet:** ${mppEnabled ? `\`${mppWallet ?? 'enabled'}\` — must hold USDC.e / pathUSD on Tempo` : '*not set*'}`);
+      parts.push(`- **Active payment mode:** \`${payInfo.mode}\``);
+      if (x402Enabled) parts.push(`- **x402 batch channel:** ${payInfo.x402.batchAvailable ? 'available' : '**unavailable** — channel scheme failed to init (check `X402_RPC_URL`, then restart)'}`);
+      if (mppEnabled) parts.push(`- **MPP session channel:** ${payInfo.mpp.sessionAvailable ? 'available' : '**unavailable** — Tempo channel failed to init (check `MPP_RPC_URL`, then restart)'}`);
+      parts.push(`- **Channel preferences:** autonomy \`${prefs.prompt}\`, threshold \`${prefs.threshold}\`, x402 deposit ×\`${prefs.depositMultiplier}\`, MPP max deposit \`${prefs.mppMaxDeposit}\` ${persisted ? `— saved to \`${batchConfigPath()}\`` : '— defaults (not yet saved)'}`);
+      if (bothSet) parts.push('- ⚠️ **Both an API key and a wallet key are set.** The API key wins; the wallet key is ignored. Resolve this in Decision 1.');
+      parts.push('');
 
-        parts.push('**Security:** Never commit keys to source control. Use environment variables or a secrets manager.\n');
+      // =====================================================================
+      // DECISIONS
+      // =====================================================================
+      parts.push('---');
+      parts.push('');
+      parts.push('## Decision 1 — Authentication / payment method  _(restart)_');
+      parts.push(`How blockchain API tools get paid for. Current: **${authLabel}**. The user may pick **one or more** rails (e.g. an API key, or x402, or MPP, or both wallet rails).`);
+      parts.push('');
+      parts.push('- **A) API key** (`ONESOURCE_API_KEY`) — unlimited calls, no per-call cost; requires a developer plan at app.onesource.io. Best if they have an account.');
+      parts.push('- **B) x402 micropayments** (`X402_PRIVATE_KEY`) — pay per call in USDC on **Base**. No account; just a funded EVM wallet. → also do Decision 3.');
+      parts.push('- **C) MPP micropayments** (`MPP_PRIVATE_KEY`) — pay per call in USDC.e / pathUSD on **Tempo**. No account; just a funded Tempo wallet. → also do Decision 4.');
+      parts.push(`- **D) Keep current** (${activeMethod === 'none' ? 'not configured' : authLabel}).`);
+      parts.push('');
+      parts.push('> Ask the user which method(s) they want. Note: if an API key is set, any wallet key is ignored — so if they want to pay by wallet, make sure no API key is set in the final command (and vice-versa). Then proceed to the decisions for each rail they chose, then to the shared Decision 5.');
+      parts.push('');
+
+      parts.push('## Decision 2 — API key value  _(restart, secret — only if they chose API key)_');
+      parts.push('Ask the user to paste their OneSource API key (starts with `sk_`; create one at app.onesource.io → API Keys). Hold it for the `ONESOURCE_API_KEY` entry in the startup command (Applying restart settings). **Do not echo it back to them.**');
+      parts.push('');
+
+      parts.push('## Decision 3 — x402 (Base) settings  _(only if using x402)_');
+      parts.push('Offer each of these to the user:');
+      parts.push('- **`X402_PRIVATE_KEY`** _(restart, secret)_ — an EVM private key (64-char hex, `0x` optional) funded with USDC on **Base**. Ask them to provide one, or to generate a fresh one (e.g. `0x` + 32 random bytes). After setup, `1s_setup_check` shows the derived wallet address to fund. Goes in the startup command.');
+      parts.push('- **Payment scheme** _(live)_ — `x402-exact` (pay per call) or `x402-batch` (one on-chain deposit funds many off-chain calls; cheaper for a burst). Apply now with `1s_payment_mode { "mode": "x402-exact" | "x402-batch" }`, or set it as the saved default with `1s_batch_config { "mode": ... }`.');
+      parts.push(`- **Deposit multiplier** _(live)_ — x402-batch deposits price × this (currently \`${prefs.depositMultiplier}\`, min ${MIN_DEPOSIT_MULTIPLIER}). Change with \`1s_batch_config { "deposit_multiplier": N }\` (applies to the next channel opened).`);
+      parts.push('- **`X402_RPC_URL`** _(restart)_ — custom Base RPC for channel deposits (default public RPC). Only add to the command if they want to override it.');
+      parts.push('- **`X402_CHANNEL_DIR`** _(restart)_ — directory to persist the batch channel across restarts (default in-memory). Optional.');
+      parts.push('');
+
+      parts.push('## Decision 4 — MPP (Tempo) settings  _(only if using MPP)_');
+      parts.push('Offer each of these:');
+      parts.push('- **`MPP_PRIVATE_KEY`** _(restart, secret)_ — an EVM private key funded with **USDC.e or pathUSD on Tempo**. Ask them to provide one. Goes in the startup command. **Do not echo it back.**');
+      parts.push('- **Payment scheme** _(live)_ — `mpp-charge` (per call) or `mpp-session` (a TIP-1034 Tempo voucher channel — cheaper for a burst; reclaim the unspent deposit with `1s_refund`, or it settles on clean shutdown). Apply with `1s_payment_mode { "mode": "mpp-charge" | "mpp-session" }`, or save as default with `1s_batch_config { "mode": ... }`.');
+      parts.push(`- **Session deposit cap (\`MPP_MAX_DEPOSIT\`)** _(live)_ — max USDC.e / pathUSD locked per session channel (currently \`${prefs.mppMaxDeposit}\`). Change with \`1s_batch_config { "mpp_max_deposit": "1" }\` (persists; applies to the next channel).`);
+      parts.push('- **`MPP_RPC_URL`** _(restart)_ — custom Tempo RPC (default public RPC). Only add to the command to override.');
+      parts.push('');
+
+      parts.push('## Decision 5 — Channel autonomy & threshold (shared by both rails)  _(live)_');
+      parts.push('Relevant whenever a wallet rail (x402 or MPP) is in use. These persist automatically — **no command or restart needed.** Ask the user:');
+      parts.push(`- **Autonomy** (currently \`${prefs.prompt}\`): should the agent **ask** before opening a cheaper payment channel, switch **auto**matically, or stay **off** (only on explicit request)? Apply with \`1s_batch_config { "prompt": "ask" | "auto" | "off" }\`.`);
+      parts.push(`- **"Many" threshold** (currently \`${prefs.threshold}\`): how many anticipated calls in one session make a channel worth opening? Apply with \`1s_batch_config { "threshold": N }\`.`);
+      parts.push('');
+
+      parts.push('## Decision 6 — Analytics (optional)  _(restart)_');
+      parts.push('Anonymous usage analytics are **on** by default. Ask whether the user wants them off; if so, add `ONESOURCE_ANALYTICS=false` to the startup command.');
+      parts.push('');
+
+      // =====================================================================
+      // APPLYING RESTART SETTINGS — OS/client-tailored command
+      // =====================================================================
+      parts.push('---');
+      parts.push('');
+      parts.push('## Applying restart settings — build ONE command for the user');
+      parts.push(`Detected OS: **${osName}**. After collecting the answers, combine **every chosen _(restart)_ env var** into a single command for the user's MCP client, replacing \`<...>\` with their values. Include **only** the \`-e\`/\`env\` entries for vars they actually chose. Ask which client + shell they use if you don't know, then give them exactly one command/snippet to run. They run it — you never store the keys.`);
+      parts.push('');
+      parts.push('**Claude Code** (any OS/shell) — re-add the server in one go:');
+      parts.push('```');
+      parts.push('claude mcp remove onesource');
+      parts.push('claude mcp add onesource -e <VAR>=<value> [-e <VAR>=<value> ...] -- npx -y @one-source/mcp@latest');
+      parts.push('```');
+      parts.push('Example with x402 + MPP: `claude mcp add onesource -e X402_PRIVATE_KEY=<key> -e MPP_PRIVATE_KEY=<key> -- npx -y @one-source/mcp@latest`');
+      parts.push('');
+      parts.push(`**Claude Desktop / Cursor** — edit the MCP config file and set the \`env\` block (only the chosen vars):`);
+      parts.push('```json');
+      parts.push('{ "mcpServers": { "onesource": {');
+      parts.push('  "command": "npx", "args": ["-y", "@one-source/mcp@latest"],');
+      parts.push('  "env": { "X402_PRIVATE_KEY": "<key>" }');
+      parts.push('} } }');
+      parts.push('```');
+      parts.push(`Config file on ${osName} — Claude Desktop: \`${desktopCfg}\` · Cursor: \`${cursorCfg}\`. (Claude Code: run \`claude mcp get onesource\` to find its path.)`);
+      if (platform === 'win32') {
+        parts.push('> **Windows note:** if `/doctor` warns about `npx`, set `"command": "cmd"` and `"args": ["/c", "npx", "-y", "@one-source/mcp@latest"]`.');
       }
+      parts.push('');
+      parts.push(`**Any MCP client (stdio)** — or set the key as an OS environment variable, then launch: ${shellExample}, then \`npx -y @one-source/mcp@latest\`.`);
+      parts.push('');
+      parts.push('After they run/save the command, tell them to reload: `/reload-plugins` in Claude Code (do a **full restart** if they switched auth method, so the LLM instructions refresh), or restart Claude Desktop / Cursor. Then call `1s_setup_check` again to confirm and continue tuning.');
+      parts.push('');
 
-      // 2b. Payment channels — both rails reported at equal depth: x402 batch
-      // settlement (Base) and MPP session channels (Tempo). Each subsection is
-      // rendered whenever its rail is enabled, regardless of which is primary.
-      parts.push('\n## Payment Channels\n');
-
-      if (x402Enabled || mppEnabled) {
-        // prompt/threshold are rail-agnostic (anticipated-call autonomy); shared
-        // by both subsections. mppMaxDeposit/depositMultiplier are rail-specific.
-        const prefs = getBatchPrefs();
-        const persisted = hasPersistedConfig();
-
-        parts.push(`Active payment mode: **${payInfo.mode}**.`);
-
-        if (x402Enabled) {
-          parts.push('\n### Batch Settlement (x402 on Base)\n');
-          if (payInfo.x402.batchAvailable) {
-            parts.push('Batch channel available: **Yes**');
-          } else {
-            parts.push('Batch channel available: **No** — the channel scheme failed to initialise (usually an RPC issue). Check `X402_RPC_URL` and restart the server.');
-          }
-          parts.push('\n**Current batch settings:**');
-          parts.push(`- Autonomy: \`${prefs.prompt}\` (ask / auto / off — whether the agent confirms before switching to a channel mode)`);
-          parts.push(`- "Many" threshold: \`${prefs.threshold}\` (anticipated calls at/above which a channel is considered)`);
-          parts.push(`- Deposit multiplier: \`${prefs.depositMultiplier}\` (channel deposit = call price × this)`);
-          parts.push(`- Default mode: \`${prefs.mode}\` (scheme the session starts in)`);
-          parts.push(`- Saved to: ${persisted ? `\`${batchConfigPath()}\`` : `*(not yet saved — using ${process.env.X402_BATCH_PROMPT || process.env.X402_BATCH_THRESHOLD ? 'env vars / ' : ''}defaults)*`}`);
-
-          parts.push('\nBatch settlement opens a USDC payment channel: the first paid call deposits `price × deposit multiplier` on-chain, then subsequent calls are signed off-chain and settled together with a single claim. Best for a **burst of calls** — cheaper than paying per call. Switching back to `x402-exact` leaves any unspent channel balance locked until the on-chain withdraw delay (~1 day on mainnet), so reclaim it with `1s_refund` when done.');
-
-          parts.push('\n**Switch / configure from this session — no config editing, no restart:**');
-          parts.push('- Switch mode: `1s_payment_mode { "mode": "x402-batch" }` (or `"x402-exact"` for per-call).');
-          parts.push('- Change autonomy / threshold: `1s_batch_config { "prompt": "auto", "threshold": 8 }`.');
-          parts.push('- Change the deposit multiplier: `1s_batch_config { "deposit_multiplier": 20 }` (min ' + MIN_DEPOSIT_MULTIPLIER + '; applies to the next channel opened).');
-          parts.push('- Set the default mode and switch now: `1s_batch_config { "mode": "x402-batch" }` (applies immediately and on future restarts).');
-          parts.push('- Reclaim unspent channel deposit when finished: `1s_refund` (idle channels also auto-refund after a few hours).');
-
-          parts.push('\n#### Advanced: install-time env vars');
-          parts.push('Setting these in the MCP config seeds the defaults at startup (the saved config file, when present, takes priority). Most users should use `1s_batch_config` instead.');
-          parts.push('- `X402_BATCH_PROMPT` (default `ask`), `X402_BATCH_THRESHOLD` (default `5`), `X402_PAYMENT_MODE` (default `exact`), `X402_DEPOSIT_MULTIPLIER` (default `10`).');
-          parts.push('- `X402_RPC_URL` (default Base public RPC) — set your own Base RPC if channel deposits rate-limit.');
-          parts.push('- `X402_CHANNEL_DIR` (default unset = in-memory) — directory to persist the channel across restarts.');
-          parts.push('- `ONESOURCE_CONFIG_DIR` (default `~/.onesource`) — directory holding the saved payment config.');
-        }
-
-        if (mppEnabled) {
-          parts.push('\n### Session Channels (MPP on Tempo)\n');
-          if (payInfo.mpp.sessionAvailable) {
-            parts.push('Session channel available: **Yes**');
-          } else {
-            parts.push('Session channel available: **No** — the Tempo channel failed to initialise (usually an RPC issue). Check `MPP_RPC_URL` and restart the server.');
-          }
-          parts.push('\n**Current session settings:**');
-          parts.push(`- Autonomy: \`${prefs.prompt}\` (ask / auto / off — shared with x402; whether the agent confirms before switching to a channel mode)`);
-          parts.push(`- "Many" threshold: \`${prefs.threshold}\` (anticipated calls at/above which a channel is considered)`);
-          parts.push(`- Deposit cap: \`${prefs.mppMaxDeposit}\` (\`MPP_MAX_DEPOSIT\` — max USDC.e/pathUSD locked per channel)`);
-          parts.push(`- Default mode: \`${prefs.mode}\` (scheme the session starts in)`);
-          parts.push(`- Saved to: ${persisted ? `\`${batchConfigPath()}\`` : '*(not yet saved — using defaults)*'}`);
-
-          parts.push('\n`mpp-session` opens a TIP-1034 voucher channel: the first paid call deposits up to the cap on-chain, then subsequent calls are signed off-chain as cumulative vouchers and settled together. Best for a **burst of calls** — cheaper than per-call `mpp-charge`. Reclaim the unspent deposit with `1s_refund` when done; it also settles automatically on clean shutdown (a hard kill leaves it locked until reclaimed on-chain later).');
-
-          parts.push('\n**Switch / configure from this session — no config editing, no restart:**');
-          parts.push('- Switch mode: `1s_payment_mode { "mode": "mpp-session" }` (or `"mpp-charge"` for per-call).');
-          parts.push('- Change the deposit cap: `1s_batch_config { "mpp_max_deposit": "1" }` (persists across restarts; applies to the next channel opened).');
-          parts.push('- Reclaim unspent channel deposit when finished: `1s_refund`.');
-
-          parts.push('\n#### Advanced: install-time env vars');
-          parts.push('Setting these in the MCP config seeds the defaults at startup (the saved config file, when present, takes priority).');
-          parts.push('- `MPP_PRIVATE_KEY` (funded Tempo wallet), `MPP_PAYMENT_MODE` (`charge` default | `session`), `MPP_MAX_DEPOSIT` (session deposit cap, default `1`), `MPP_RPC_URL` (default Tempo public RPC).');
-        }
-
-        parts.push('\n### Your preference\n');
-        parts.push(`> **Agent:** ask the user how they want channel payments handled — (1) **how many calls** in a session should make a channel worth it (currently ${prefs.threshold}), and (2) whether you should **ask first** (current: \`${prefs.prompt}\`), **switch automatically**, or **only act on request**. When they answer, apply it immediately with \`1s_batch_config\` (e.g. \`{ "threshold": 8, "prompt": "auto" }\`) — it persists automatically, so there is no config file to edit and no restart needed.`);
-      } else {
-        parts.push('Payment channels apply only to wallet payments. ' + (activeMethod === 'api_key'
-          ? 'Your calls are covered by your API key, so there is no per-call payment to batch.'
-          : 'You have no payment wallet configured, so there is nothing to batch yet — set `X402_PRIVATE_KEY` (Base) or `MPP_PRIVATE_KEY` (Tempo).'));
-      }
-
-      // 3. API connectivity
-      parts.push('\n## API Connectivity\n');
+      // =====================================================================
+      // DIAGNOSTICS
+      // =====================================================================
+      parts.push('---');
+      parts.push('');
+      parts.push('## Diagnostics');
+      parts.push(`- **Transport:** ${transport ?? 'unknown'}`);
       const baseUrl = process.env.ONESOURCE_BASE_URL ?? 'https://api.onesource.io';
       try {
         await fetch(baseUrl, { method: 'HEAD', signal: AbortSignal.timeout(5000) });
-        parts.push(`Backend: **Reachable** (${baseUrl})`);
+        parts.push(`- **Backend:** reachable (${baseUrl})`);
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
-        parts.push(`Backend: **Unreachable** — ${msg}`);
+        parts.push(`- **Backend:** ⚠️ unreachable — ${msg} (${baseUrl})`);
       }
-
-      // 4. Transport
-      parts.push('\n## Transport\n');
-      parts.push(`Mode: ${transport ?? 'unknown'}`);
-      parts.push('\n> **Note:** If you recently changed auth method (e.g. API key → x402), restart Claude Code fully to refresh the LLM instructions. `/reload-plugins` reconnects tools but may not update the system prompt the LLM sees.');
-
-      // 5. Bug reporting
-      parts.push('\n## Bug Reporting\n');
-      parts.push('Status: **Enabled** — call `1s_report_bug` to report issues to the OneSource team.');
-
-      // 6. Next steps
-      parts.push('\n## Next Steps\n');
-      if (activeMethod === 'none') {
-        parts.push('- Configure authentication to use blockchain API tools (see instructions above)');
-      }
-      if (latestVersion !== 'unknown' && latestVersion !== VERSION) {
-        parts.push('- Update to the latest version: `npx -y @one-source/mcp@latest`');
-      }
-      if (activeMethod !== 'none') {
-        parts.push('- Try an API tool: `1s_network_info` (returns chain ID, block number, gas price)');
-      }
-      if (x402Enabled || mppEnabled) {
-        parts.push('- Review your channel-payment preferences and adjust them with `1s_batch_config` (see Payment Channels above) — no config editing or restart needed.');
-      }
-      if (x402Enabled && payInfo.mode === 'x402-exact') {
-        parts.push('- Making many calls this session? Open a Base payment channel (`1s_payment_mode { "mode": "x402-batch" }`) to pay once for the whole burst, then reclaim with `1s_refund`.');
-      }
-      if (mppEnabled && payInfo.mode === 'mpp-charge') {
-        parts.push('- Making many calls this session? Switch to a Tempo voucher channel (`1s_payment_mode { "mode": "mpp-session" }`) — cheaper than per-call, reclaim with `1s_refund`.');
-      }
+      parts.push('- **Bug reporting:** enabled — call `1s_report_bug` to report issues to the OneSource team.');
+      parts.push('- **Key not reaching the server?** A key set in your shell profile is inherited by the MCP process even when it isn\'t in your MCP config. Check with `echo $ONESOURCE_API_KEY` / `$X402_PRIVATE_KEY` / `$MPP_PRIVATE_KEY` (PowerShell: `$env:NAME`).');
 
       return parts.join('\n');
     },
