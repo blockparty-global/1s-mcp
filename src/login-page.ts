@@ -1,9 +1,14 @@
+import { randomBytes, timingSafeEqual } from 'node:crypto';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { issueCode, isOAuthConfigured } from './oauth.js';
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
 const ONESOURCE_DASHBOARD = 'https://app.onesource.io/dashboard';
+
+// Must match STATE_TTL_MS in oauth.ts — cookie binding expires with the auth session.
+const COOKIE_TTL_MS = 60_000;
+const MAX_STATE_COOKIES = 1000;
 
 // Server-generated state tokens are always randomBytes(16).toString('base64url') — 22 chars.
 // Enforcing this pattern on both GET and POST paths prevents HTML injection through the
@@ -23,6 +28,18 @@ const HTML_HEADERS: Record<string, string> = {
   'X-Frame-Options': 'DENY',
   'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'",
 };
+
+// ── Browser-binding cookie Map ───────────────────────────────────────────────
+// Binds each pending login state to the browser that initiated it.
+// Prevents login CSRF: an attacker who sees the ?state= URL cannot POST on
+// behalf of the victim because the server requires the matching cookie.
+
+const stateCookies = new Map<string, { token: Buffer; expiresAt: number }>();
+
+function sweepStateCookies(): void {
+  const now = Date.now();
+  for (const [k, v] of stateCookies) if (v.expiresAt < now) stateCookies.delete(k);
+}
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -166,7 +183,9 @@ export function handleLoginPage(req: IncomingMessage, res: ServerResponse): void
     return;
   }
 
-  const state = new URL(req.url ?? '/', 'https://x').searchParams.get('state') ?? '';
+  const params = new URL(req.url ?? '/', 'https://x').searchParams;
+  const state = params.get('state') ?? '';
+  const errorParam = params.get('error');
 
   if (!state || !STATE_RE.test(state)) {
     res.writeHead(400, HTML_HEADERS);
@@ -174,8 +193,31 @@ export function handleLoginPage(req: IncomingMessage, res: ServerResponse): void
     return;
   }
 
-  res.writeHead(200, HTML_HEADERS);
-  res.end(loginHtml(state));
+  // Issue a browser-binding cookie to prevent login CSRF.
+  const cookieToken = randomBytes(16);
+  sweepStateCookies();
+  if (stateCookies.size >= MAX_STATE_COOKIES && !stateCookies.has(state)) {
+    res.writeHead(503, HTML_HEADERS);
+    res.end(terminalErrorHtml('Service Unavailable', 'Too many pending sessions. Please try again in a moment.'));
+    return;
+  }
+  stateCookies.set(state, { token: cookieToken, expiresAt: Date.now() + COOKIE_TTL_MS });
+
+  const cookieStr = [
+    `oauth_state=${cookieToken.toString('hex')}`,
+    'HttpOnly',
+    'Secure',
+    'SameSite=Lax',
+    'Path=/login',
+    'Max-Age=60',
+  ].join('; ');
+
+  const errorMsg = errorParam === 'invalid_key'
+    ? 'Invalid API key. Please check your key and try again.'
+    : undefined;
+
+  res.writeHead(200, { ...HTML_HEADERS, 'Set-Cookie': cookieStr });
+  res.end(loginHtml(state, errorMsg));
 }
 
 /**
@@ -222,6 +264,24 @@ export async function handleLoginSubmit(req: IncomingMessage, res: ServerRespons
     return;
   }
 
+  // Cookie binding — prevents login CSRF / session fixation.
+  // The cookie was issued when GET /login was served; it must match the stored token
+  // for this state. Single-use: entry deleted regardless of outcome.
+  const cookieHeader = req.headers['cookie'] ?? '';
+  const cookieMatch = /(?:^|;\s*)oauth_state=([0-9a-f]{32})(?=\s*(?:;|$))/.exec(cookieHeader);
+  const browserToken = cookieMatch ? Buffer.from(cookieMatch[1], 'hex') : null;
+  const storedEntry = stateCookies.get(state);
+  const cookieValid = browserToken !== null
+    && storedEntry !== undefined
+    && storedEntry.expiresAt > Date.now()
+    && timingSafeEqual(browserToken, storedEntry.token);
+  stateCookies.delete(state);
+  if (!cookieValid) {
+    res.writeHead(400, HTML_HEADERS);
+    res.end(terminalErrorHtml('Invalid Request', 'Session verification failed. Please return to Claude.ai and connect again.'));
+    return;
+  }
+
   // All key-validation failure paths share a floor so their timing is indistinguishable.
   const keyCheckStart = Date.now();
   async function keyFailFloor(): Promise<void> {
@@ -230,20 +290,22 @@ export async function handleLoginSubmit(req: IncomingMessage, res: ServerRespons
   }
 
   // Validate apiKey format — non-empty, ≤512 chars, no control chars.
+  // On failure, redirect back to GET /login so the browser gets a fresh cookie.
   const apiKeyFormatOk = apiKey.length > 0 && apiKey.length <= 512 && !/[\r\n\t]/.test(apiKey);
   if (!apiKeyFormatOk) {
     await keyFailFloor();
-    res.writeHead(200, HTML_HEADERS);
-    res.end(loginHtml(state, 'Invalid API key. Please check your key and try again.'));
+    res.writeHead(302, { 'Location': `/login?state=${encodeURIComponent(state)}&error=invalid_key`, 'Cache-Control': 'no-store' });
+    res.end();
     return;
   }
 
   // Live API key validation — 5s timeout; never logs `apiKey` on failure.
+  // On failure, redirect back to GET /login so the browser gets a fresh cookie.
   const valid = await validateApiKey(apiKey);
   if (!valid) {
     await keyFailFloor();
-    res.writeHead(200, HTML_HEADERS);
-    res.end(loginHtml(state, 'Invalid API key. Please check your key and try again.'));
+    res.writeHead(302, { 'Location': `/login?state=${encodeURIComponent(state)}&error=invalid_key`, 'Cache-Control': 'no-store' });
+    res.end();
     return;
   }
 

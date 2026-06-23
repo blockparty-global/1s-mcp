@@ -256,6 +256,11 @@ if (args.includes('--http')) {
 
     // POST /oauth/token — no CORS headers (server-to-server endpoint; RFC 6749 §4.1.3)
     if (req.method === 'POST' && path === '/oauth/token') {
+      if (!checkRateLimit(getClientIp(req))) {
+        res.writeHead(429, { 'Retry-After': '60', 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+        res.end(JSON.stringify({ error: 'invalid_request', error_description: 'too many requests' }));
+        return;
+      }
       try { await handleToken(req, res); } catch {
         if (!res.headersSent) {
           res.writeHead(500, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
@@ -310,8 +315,13 @@ if (args.includes('--http')) {
       handleAuthorize(req, res); return;
     }
 
-    // Login page
+    // Login page — rate-limited to prevent stateCookies exhaustion DoS
     if (req.method === 'GET' && path === '/login') {
+      if (!checkRateLimit(getClientIp(req))) {
+        res.writeHead(429, { 'Retry-After': '60', 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Frame-Options': 'DENY', 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'" });
+        res.end('<html><body><h1>Too many requests</h1><p>Please wait and try again.</p></body></html>');
+        return;
+      }
       handleLoginPage(req, res); return;
     }
 
@@ -390,7 +400,7 @@ if (args.includes('--http')) {
 
     // Always create a fresh client per request — avoids concurrent mutation of a shared
     // client's onHttpEvent handler when multiple unauthenticated requests overlap.
-    const requestAuthMethod: 'api_key' | 'x402' | 'none' = requestApiKey ? 'api_key' : authMethod;
+    const requestAuthMethod: 'api_key' | 'x402' | 'mpp' | 'none' = requestApiKey ? 'api_key' : authMethod;
     const requestClient = requestApiKey
       ? createClientFromEnv({ apiKey: requestApiKey })
       : createClientFromEnv({ fetch: x402Fetch, apiKey });

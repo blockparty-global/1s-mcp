@@ -62,6 +62,7 @@ interface PendingCodeEntry {
   encryptedApiKey: string;
   codeChallenge: string;
   redirectUri: string;
+  clientId: string;
   expiresAt: number;
 }
 
@@ -244,7 +245,7 @@ export function handleAuthorize(req: IncomingMessage, res: ServerResponse): void
     expiresAt: Date.now() + STATE_TTL_MS,
   });
 
-  res.writeHead(302, { Location: `/login?state=${encodeURIComponent(internalState)}` });
+  res.writeHead(302, { Location: `/login?state=${encodeURIComponent(internalState)}`, 'Cache-Control': 'no-store' });
   res.end();
 }
 
@@ -273,12 +274,18 @@ export async function handleToken(req: IncomingMessage, res: ServerResponse): Pr
   const code = params.get('code');
   const codeVerifier = params.get('code_verifier');
   const redirectUri = params.get('redirect_uri');
+  const clientId = params.get('client_id');
 
   if (grantType !== 'authorization_code') {
     oauthError(res, 400, 'unsupported_grant_type'); return;
   }
   if (!code || !codeVerifier || !redirectUri) {
     oauthError(res, 400, 'invalid_request', 'code, code_verifier, and redirect_uri required'); return;
+  }
+
+  // RFC 7636 §4.1 — code_verifier must be 43-128 unreserved ASCII characters
+  if (codeVerifier.length < 43 || codeVerifier.length > 128 || !/^[A-Za-z0-9\-._~]+$/.test(codeVerifier)) {
+    oauthError(res, 400, 'invalid_request', 'code_verifier does not meet RFC 7636 requirements'); return;
   }
 
   const entry = pendingCode.get(code);
@@ -306,6 +313,11 @@ export async function handleToken(req: IncomingMessage, res: ServerResponse): Pr
 
   // redirect_uri binding (RFC 6749 §4.1.3)
   if (redirectUri !== entry.redirectUri) {
+    oauthError(res, 400, 'invalid_grant'); return;
+  }
+
+  // client_id binding (RFC 6749 §4.1.3) — verified only when present; public clients may omit it
+  if (clientId !== null && clientId !== entry.clientId) {
     oauthError(res, 400, 'invalid_grant'); return;
   }
 
@@ -356,6 +368,7 @@ export function issueCode(
     encryptedApiKey,
     codeChallenge: entry.codeChallenge,
     redirectUri: entry.redirectUri,
+    clientId: entry.clientId,
     expiresAt: Date.now() + STATE_TTL_MS,
   });
 
