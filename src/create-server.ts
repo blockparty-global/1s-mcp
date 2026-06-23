@@ -1,9 +1,11 @@
 /**
  * Unified MCP Server Factory
  *
- * Creates a single McpServer named 'onesource' with all 30 tools
- * (27 API incl. payment-mode + 1 setup check + 1 batch config + 1 bug report)
- * by delegating to the register modules.
+ * Creates a single McpServer named 'onesource' by delegating to the register
+ * modules. Tool count is transport-dependent: stdio exposes the full set (API
+ * tools + 1s_setup_check + 1s_batch_config + 1s_report_bug), while the
+ * multi-tenant HTTP server omits the wallet-only singleton tools
+ * (1s_payment_mode / 1s_refund / 1s_batch_config) — see register-api-tools.ts.
  */
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';

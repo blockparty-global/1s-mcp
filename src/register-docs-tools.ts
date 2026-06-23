@@ -496,12 +496,15 @@ export function registerDocsTools(opts: RegisterDocsToolsOptions): number {
   count++;
 
   // ---------------------------------------------------------------------------
-  // 1s_batch_config — view or change x402 batch-settlement preferences at
-  // runtime. Persists to the server-managed config file so settings survive
-  // restarts without editing the MCP client config. Decoupled from auth: it can
-  // record preferences even before x402 is active, but only x402 sessions act on
-  // them, and a live mode switch only happens when x402 is enabled.
+  // 1s_batch_config — view or change payment-channel preferences at runtime.
+  // Persists to the server-managed config file + mutates process.env and the
+  // live payment mode, so it's a process-wide singleton control — registered in
+  // stdio only. On the multi-tenant HTTP server (mcp.onesource.io) one caller's
+  // change would leak to every tenant and the disk-backed config is meaningless
+  // for a stateless hosted process; it's also a no-op without a wallet. Mirrors
+  // the STDIO_ONLY gate on 1s_payment_mode / 1s_refund in register-api-tools.ts.
   // ---------------------------------------------------------------------------
+  if (transport === 'stdio') {
   instrumentedTool(server, analytics, transport,
     '1s_batch_config',
     'View or change payment preferences and save them so they persist across restarts — no MCP config editing or restart required. ' +
@@ -529,6 +532,7 @@ export function registerDocsTools(opts: RegisterDocsToolsOptions): number {
     { title: 'Payment Config', readOnlyHint: false, destructiveHint: false },
   );
   count++;
+  }
 
   return count;
 }

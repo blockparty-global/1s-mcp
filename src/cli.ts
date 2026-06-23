@@ -81,7 +81,7 @@ function buildInstructions(
   const batchGuidance = buildBatchGuidance(authMethod, batchPrompt, batchThreshold);
 
   const baseline = [
-    'OneSource MCP — 30 tools for blockchain data.',
+    'OneSource MCP — blockchain data tools.',
     '',
     authLine,
     ...(batchGuidance ? ['', batchGuidance] : []),

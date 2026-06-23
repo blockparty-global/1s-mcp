@@ -1,5 +1,8 @@
 /**
- * Register all 27 API tools from @one-source/api-mcp onto a shared McpServer.
+ * Register the API tools from @one-source/api-mcp onto a shared McpServer.
+ *
+ * All tools register in stdio mode; the wallet-only singleton tools
+ * (STDIO_ONLY_TOOLS) are omitted off stdio (e.g. the hosted HTTP server).
  *
  * Replicates the exact instrumentation pattern from api-mcp's create-server.ts:
  * per-call client context, x402 detection, performance timing, session hashing,
@@ -48,6 +51,14 @@ export const TOOL_META: Record<string, { title: string; annotations: ToolAnnotat
   '1s_tx_receipt':           { title: 'Transaction Receipt',      annotations: RO },
 });
 
+// Tools that mutate process-level singleton payment state (the active payment
+// mode / channel). Safe only in stdio, where a single user owns the process.
+// On the multi-tenant HTTP server (mcp.onesource.io) they'd let one caller flip
+// the shared payment mode or refund the shared channel for everyone — and the
+// hosted server has no wallet, so they're inert there anyway. Not registered off
+// stdio. Mirrors @one-source/api-mcp create-server.ts's SINGLETON_TOOLS gate.
+const STDIO_ONLY_TOOLS = new Set(['1s_payment_mode', '1s_refund']);
+
 function hashSession(sessionId: string | undefined): string | undefined {
   if (!sessionId) return undefined;
   return createHash('sha256').update(sessionId).digest('hex').slice(0, 16);
@@ -92,7 +103,10 @@ export function registerApiTools(
     });
   };
 
+  let count = 0;
   for (const tool of allTools) {
+    // Skip wallet-only singleton tools off stdio (see STDIO_ONLY_TOOLS).
+    if (transport !== 'stdio' && STDIO_ONLY_TOOLS.has(tool.name)) continue;
     const meta = TOOL_META[tool.name];
     server.registerTool(
       tool.name,
@@ -204,7 +218,8 @@ export function registerApiTools(
         }
       },
     );
+    count++;
   }
 
-  return { client, count: allTools.length };
+  return { client, count };
 }
