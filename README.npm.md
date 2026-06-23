@@ -156,7 +156,7 @@ claude mcp add onesource -e ONESOURCE_API_KEY=<key> -- npx -y @one-source/mcp@la
 ONESOURCE_API_KEY=<key> npx -y @one-source/mcp@latest
 ```
 
-After adding, reload the MCP server and call `1s_setup_check` — it should show `Status: Configured (API key)`.
+After adding, reload the MCP server and call `1s_setup_check` — under **Current configuration** it should report **Active auth method: API key** (with the first 6 characters of your key).
 
 ### Option 2: x402 Micropayments
 
@@ -193,7 +193,7 @@ claude mcp add onesource -e X402_PRIVATE_KEY=<key> -- npx -y @one-source/mcp@lat
 X402_PRIVATE_KEY=<key> npx -y @one-source/mcp@latest
 ```
 
-3. **Reload and find your wallet address** — reload the MCP server, then call `1s_setup_check`. It will show the wallet address derived from your key under "Wallet address".
+3. **Reload and find your wallet address** — reload the MCP server, then call `1s_setup_check`. Under **Current configuration** it lists your **x402 (Base) wallet** — the address derived from your key.
 4. **Fund that address with USDC on Base** — send USDC to the address shown, on the [Base](https://base.org) network. A few dollars ($1–5 USDC) is enough for hundreds of calls. Bridge from Ethereum mainnet if needed using the [Base Bridge](https://bridge.base.org).
 5. **Verify** — call `1s_network_info` for ethereum. If it returns chain data, payments are working.
 
@@ -232,7 +232,7 @@ claude mcp add onesource -e MPP_PRIVATE_KEY=<key> -- npx -y @one-source/mcp@late
 MPP_PRIVATE_KEY=<key> npx -y @one-source/mcp@latest
 ```
 
-3. **Reload and find your wallet address** — reload the MCP server, then call `1s_setup_check`. It shows the wallet address derived from your key.
+3. **Reload and find your wallet address** — reload the MCP server, then call `1s_setup_check`. Under **Current configuration** it lists your **MPP (Tempo) wallet** — the address derived from your key.
 4. **Fund that address with USDC.e or pathUSD on Tempo** — a few dollars covers hundreds of calls.
 5. **Verify** — call `1s_network_info`. If it returns chain data, MPP payments are working.
 
@@ -283,7 +283,7 @@ All have sensible defaults — channel modes run out of the box. Set these only 
 
 ## Troubleshooting
 
-**`1s_setup_check` shows "Not configured"** — Set one of `ONESOURCE_API_KEY` (API key), `X402_PRIVATE_KEY` (x402 on Base), or `MPP_PRIVATE_KEY` (MPP on Tempo) — or just run `1s_setup_check` and let it walk you through it. Reload the MCP server after setting any variable. If the key still isn't reaching the server, set it as a shell environment variable directly.
+**`1s_setup_check` shows "Active auth method: none" (blockchain tools locked)** — Under **Current configuration**, "Active auth method: *none*" means no authentication is set. Set one of `ONESOURCE_API_KEY` (API key), `X402_PRIVATE_KEY` (x402 on Base), or `MPP_PRIVATE_KEY` (MPP on Tempo) — or just run `1s_setup_check` and let it walk you through it. Reload the MCP server after setting any variable. If the key still isn't reaching the server, set it as a shell environment variable directly.
 
 **Getting 403 / wrong key active despite correct setup** — A key set in your shell profile (e.g. `~/.zshrc`, `~/.bash_profile`) is picked up by the MCP server process even if it isn't in your Claude MCP config. Run `echo $ONESOURCE_API_KEY` in your terminal to check. If it prints a value you didn't intend, unset it (`unset ONESOURCE_API_KEY`) or explicitly clear it when adding the server: `claude mcp add onesource -e ONESOURCE_API_KEY= -e X402_PRIVATE_KEY=<key> -- npx -y @one-source/mcp@latest`. `1s_setup_check` shows the first 6 characters of whichever key is active so you can confirm which one the server is using.
 
