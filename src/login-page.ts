@@ -84,7 +84,7 @@ function readBody(req: IncomingMessage, maxBytes = 4096): Promise<string> {
 // IMPORTANT: never log `candidate` — it is a user-supplied API key.
 async function validateApiKey(candidate: string): Promise<boolean> {
   try {
-    const base = (process.env.ONESOURCE_BASE_URL ?? 'https://skills.onesource.io').replace(/\/+$/, '');
+    const base = (process.env.ONESOURCE_BASE_URL ?? 'https://api.onesource.io').replace(/\/+$/, '');
     const res = await fetch(`${base}/api/chain/chain-id?network=ethereum`, {
       headers: { Authorization: `Bearer ${candidate}` },
       signal: AbortSignal.timeout(5000),
