@@ -323,7 +323,7 @@ export function registerDocsTools(opts: RegisterDocsToolsOptions): number {
       parts.push(`Every API call costs a tiny amount; this chooses who pays. Current: **${authLabel}**. Explain these in plain terms and let the user pick (they can pick one, or both wallet options):`);
       parts.push('');
       parts.push('- **A) API key** — you have a OneSource account with a paid plan, and your calls are covered by it: no per-call charge, unlimited use. Pick this if you already have an account (sign up at app.onesource.io). *(sets `ONESOURCE_API_KEY`)*');
-      parts.push('- **B) Pay-as-you-go on Base (x402)** — no account needed. A few cents of USDC (a US-dollar stablecoin) is paid automatically from your own crypto wallet for each call, on the **Base** network. Easiest way to start if you don\'t have an account. *(sets `X402_PRIVATE_KEY`; → then Decision 3)*');
+      parts.push('- **B) Pay-as-you-go on Base (x402)** — no account needed. A fraction of a cent in USDC (a US-dollar stablecoin) is paid automatically from your own crypto wallet for each call, on the **Base** network. Easiest way to start if you don\'t have an account. *(sets `X402_PRIVATE_KEY`; → then Decision 3)*');
       parts.push('- **C) Pay-as-you-go on Tempo (MPP)** — the same pay-from-your-wallet idea as (B), but on the **Tempo** network (pays in USDC.e / pathUSD). Pick this only if you already use Tempo. *(sets `MPP_PRIVATE_KEY`; → then Decision 4)*');
       parts.push(`- **D) Keep what I have** (${activeMethod === 'none' ? 'nothing set up yet' : authLabel}).`);
       parts.push('');
