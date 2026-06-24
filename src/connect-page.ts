@@ -36,7 +36,7 @@ function jsonError(res: ServerResponse, status: number, error: string): void {
   res.end(JSON.stringify({ error }));
 }
 
-async function validateApiKey(candidate: string): Promise<boolean> {
+async function validateApiKey(candidate: string): Promise<'valid' | 'invalid' | 'error'> {
   try {
     const base = (process.env.ONESOURCE_BASE_URL ?? 'https://api.onesource.io').replace(/\/+$/, '');
     const r = await fetch(`${base}/api/chain/chain-id?network=ethereum`, {
@@ -44,9 +44,11 @@ async function validateApiKey(candidate: string): Promise<boolean> {
       signal: AbortSignal.timeout(5000),
     });
     // 200 → valid key; 403 → valid key, no dev plan (user can still connect)
-    return r.status === 200 || r.status === 403;
+    if (r.status === 200 || r.status === 403) return 'valid';
+    if (r.status >= 500) return 'error';
+    return 'invalid';
   } catch {
-    return false;
+    return 'error';
   }
 }
 
@@ -94,14 +96,15 @@ export function handleConnectInit(req: IncomingMessage, res: ServerResponse): vo
   const cookieToken = randomBytes(16);
   stateCookies.set(state, { token: cookieToken, expiresAt: Date.now() + COOKIE_TTL_MS });
 
-  // Detect HTTPS via X-Forwarded-Proto (set by ALB / Railway) so the Secure flag
-  // is present in production without requiring it in local dev over HTTP.
-  const proto = req.headers['x-forwarded-proto'];
-  const isHttps = Array.isArray(proto) ? proto[0] === 'https' : proto === 'https';
+  // Production (TRUSTED_PROXY=true, behind ALB): always Secure.
+  // Local dev (plain HTTP): read XFP with correct string parsing (not Array.isArray).
+  const isTrustedProxy = process.env.TRUSTED_PROXY === 'true';
+  const xfp = (req.headers['x-forwarded-proto'] as string | undefined)?.split(',')[0]?.trim();
+  const needsSecure = isTrustedProxy || xfp === 'https';
   const cookieStr = [
     `connect_state=${cookieToken.toString('hex')}`,
     'HttpOnly',
-    ...(isHttps ? ['Secure'] : []),
+    ...(needsSecure ? ['Secure'] : []),
     'SameSite=Lax',
     'Path=/api/oauth',
     'Max-Age=60',
@@ -174,26 +177,35 @@ export async function handleConnectSubmit(req: IncomingMessage, res: ServerRespo
     if (remaining > 0) await new Promise<void>(r => setTimeout(r, remaining));
   }
 
-  const apiKeyFormatOk = apiKey.length > 0 && apiKey.length <= 512 && !/[\r\n\t]/.test(apiKey);
+  const apiKeyFormatOk = apiKey.length > 0 && apiKey.length <= 512 && /^[\x21-\x7E]+$/.test(apiKey);
   if (!apiKeyFormatOk) {
     await keyFailFloor();
     // Cookie stays alive — user can retry with corrected key
     jsonError(res, 401, 'invalid_key'); return;
   }
 
-  const valid = await validateApiKey(apiKey);
-  if (!valid) {
+  const keyResult = await validateApiKey(apiKey);
+  if (keyResult === 'error') {
+    await keyFailFloor();
+    jsonError(res, 503, 'server_busy'); return;
+  }
+  if (keyResult === 'invalid') {
     await keyFailFloor();
     // Cookie stays alive — user can retry with corrected key
     jsonError(res, 401, 'invalid_key'); return;
   }
 
   // Issue auth code — consumes the authState entry atomically.
+  // issueCode deletes the authState entry on expiry, so checking hasAuthState
+  // after a null return correctly distinguishes expiry (false) from capacity (true).
   const result = issueCode(state, apiKey);
   if (!result) {
-    // authState expired in the key-validation window, or pendingCode at capacity.
-    stateCookies.delete(state);
-    jsonError(res, 400, 'session_expired'); return;
+    if (!hasAuthState(state)) {
+      stateCookies.delete(state);
+      jsonError(res, 400, 'session_expired'); return;
+    }
+    // authState still present — pendingCode at capacity; user can retry.
+    jsonError(res, 503, 'server_busy'); return;
   }
 
   // C-01 fix: delete cookie only after issueCode succeeds.

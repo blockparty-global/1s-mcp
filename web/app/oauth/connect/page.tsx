@@ -13,15 +13,13 @@ import AuthLayout from "../../../src/components/Authentication/AuthLayout"
 import AuthFormTemplate from "../../../src/components/Authentication/Template"
 import type { ConnectSubmitResponse } from "../../../src/types/connect-api"
 
-const RETURN_URL = process.env.NEXT_PUBLIC_OAUTH_CLIENT_RETURN_URL ?? "https://claude.ai"
-const DASHBOARD_RETURN_URL = `https://app.onesource.io/dashboard/api-keys?return_url=${encodeURIComponent(RETURN_URL)}`
-
 const ALLOWED_REDIRECT_HOSTS = ["claude.ai", "www.claude.ai"]
 
 type PageState =
   | { kind: "loading" }
   | { kind: "ready"; state: string }
   | { kind: "init_error"; message: string }
+  | { kind: "init_retryable" }
   | { kind: "done" }
 
 export default function ConnectPage() {
@@ -29,6 +27,7 @@ export default function ConnectPage() {
   const [apiKey, setApiKey] = useState("")
   const [fieldError, setFieldError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [retryCount, setRetryCount] = useState(0)
   const initCalled = useRef(false)
 
   useEffect(() => {
@@ -44,17 +43,23 @@ export default function ConnectPage() {
     }
 
     fetch(`/api/oauth/connect-init?state=${encodeURIComponent(stateParam)}`)
-      .then((res) => {
+      .then(async (res) => {
         if (!res.ok) {
-          setPage({ kind: "init_error", message: "Session verification failed. Please return to Claude.ai and connect again." })
+          const body = await res.json().catch(() => ({})) as { error?: string }
+          if (res.status === 429 || body?.error === 'server_busy') {
+            setPage({ kind: "init_retryable" })
+          } else {
+            setPage({ kind: "init_error", message: "Session verification failed. Please return to Claude.ai and connect again." })
+          }
         } else {
           setPage({ kind: "ready", state: stateParam })
         }
       })
       .catch(() => {
-        setPage({ kind: "init_error", message: "Could not reach the server. Please try again." })
+        setPage({ kind: "init_retryable" })
       })
-  }, [])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [retryCount])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -81,6 +86,8 @@ export default function ConnectPage() {
             ? "Session expired. Please return to Claude.ai and connect again."
             : err === "server_busy"
             ? "Server is busy. Please try again in a moment."
+            : err === "too_many_requests"
+            ? "Too many attempts. Please wait a moment and try again."
             : "Something went wrong. Please try again."
         setFieldError(msg)
         setIsSubmitting(false)
@@ -127,6 +134,26 @@ export default function ConnectPage() {
       <AuthLayout>
         <AuthFormTemplate heading="Invalid Link" subHeading={page.message} error>
           {null}
+        </AuthFormTemplate>
+      </AuthLayout>
+    )
+  }
+
+  if (page.kind === "init_retryable") {
+    return (
+      <AuthLayout>
+        <AuthFormTemplate heading="Server busy" subHeading="Could not reach the server. Please try again.">
+          <Button
+            variant="solid"
+            w="full"
+            onClick={() => {
+              initCalled.current = false
+              setPage({ kind: "loading" })
+              setRetryCount(c => c + 1)
+            }}
+          >
+            Try again
+          </Button>
         </AuthFormTemplate>
       </AuthLayout>
     )
@@ -190,7 +217,15 @@ export default function ConnectPage() {
 
           <Text textStyle="bodyXsMedium" color="darkBrown.30">
             Don&apos;t have a key?{" "}
-            <Link href={DASHBOARD_RETURN_URL} color="nightGreen" isExternal>
+            <Link
+              href={
+                typeof window !== "undefined"
+                  ? `https://app.onesource.io/dashboard/api-keys?return_url=${encodeURIComponent(window.location.href)}`
+                  : "https://app.onesource.io/dashboard/api-keys"
+              }
+              color="nightGreen"
+              isExternal
+            >
               Get one at app.onesource.io
             </Link>
           </Text>

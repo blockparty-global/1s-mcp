@@ -256,7 +256,8 @@ if (args.includes('--http')) {
   // Per-IP rate limiter for unauthenticated OAuth endpoints.
   // TRUSTED_PROXY=true: use rightmost X-Forwarded-For (appended by ALB/Railway).
   // Without it: use socket IP directly to prevent XFF spoofing.
-  const oauthRateLimitMap = new Map<string, { count: number; resetAt: number }>();
+  const authRateLimitMap = new Map<string, { count: number; resetAt: number }>();
+  const submitRateLimitMap = new Map<string, { count: number; resetAt: number }>();
   const RATE_LIMIT_WINDOW_MS = 60_000;
   const RATE_LIMIT_MAX_REQ = 20;
   const RATE_LIMIT_MAX_IPS = 10_000;
@@ -272,7 +273,8 @@ if (args.includes('--http')) {
   // Periodic cleanup — avoids O(n) scan on every request.
   setInterval(() => {
     const now = Date.now();
-    for (const [k, v] of oauthRateLimitMap) if (v.resetAt < now) oauthRateLimitMap.delete(k);
+    for (const [k, v] of authRateLimitMap) if (v.resetAt < now) authRateLimitMap.delete(k);
+    for (const [k, v] of submitRateLimitMap) if (v.resetAt < now) submitRateLimitMap.delete(k);
   }, RATE_LIMIT_WINDOW_MS).unref();
 
   function getClientIp(req: IncomingMessage): string {
@@ -287,16 +289,20 @@ if (args.includes('--http')) {
     return req.socket.remoteAddress ?? 'unknown';
   }
 
-  function checkRateLimit(ip: string): boolean {
+  function checkRateLimit(ip: string, map: Map<string, { count: number; resetAt: number }>): boolean {
     const now = Date.now();
-    const entry = oauthRateLimitMap.get(ip);
+    const entry = map.get(ip);
     if (!entry) {
-      if (oauthRateLimitMap.size >= RATE_LIMIT_MAX_IPS) {
-        // ADV-04: sweep expired entries before rejecting — may free space.
-        for (const [k, v] of oauthRateLimitMap) if (v.resetAt < now) oauthRateLimitMap.delete(k);
-        if (oauthRateLimitMap.size >= RATE_LIMIT_MAX_IPS) return false;
+      if (map.size >= RATE_LIMIT_MAX_IPS) {
+        for (const [k, v] of map) if (v.resetAt < now) map.delete(k);
+        if (map.size >= RATE_LIMIT_MAX_IPS) return false;
       }
-      oauthRateLimitMap.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
+      map.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
+      return true;
+    }
+    if (entry.resetAt < now) {
+      entry.count = 1;
+      entry.resetAt = now + RATE_LIMIT_WINDOW_MS;
       return true;
     }
     if (entry.count >= RATE_LIMIT_MAX_REQ) return false;
@@ -309,7 +315,7 @@ if (args.includes('--http')) {
 
     // POST /oauth/token — no CORS headers (server-to-server endpoint; RFC 6749 §4.1.3)
     if (req.method === 'POST' && path === '/oauth/token') {
-      if (!checkRateLimit(getClientIp(req))) {
+      if (!checkRateLimit(getClientIp(req), submitRateLimitMap)) {
         res.writeHead(429, { 'Retry-After': '60', 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
         res.end(JSON.stringify({ error: 'invalid_request', error_description: 'too many requests' }));
         return;
@@ -323,10 +329,12 @@ if (args.includes('--http')) {
       return;
     }
 
-    // CORS headers for all other routes
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, mcp-session-id, Authorization, X-Api-Key');
+    // CORS headers — /api/oauth/* are same-origin endpoints, no CORS header needed
+    if (!path.startsWith('/api/oauth/')) {
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, mcp-session-id, Authorization, X-Api-Key');
+    }
 
     // CORS preflight
     if (req.method === 'OPTIONS') {
@@ -360,7 +368,7 @@ if (args.includes('--http')) {
 
     // OAuth authorization — rate-limited (unauthenticated, writes to authState Map)
     if (req.method === 'GET' && path === '/oauth/authorize') {
-      if (!checkRateLimit(getClientIp(req))) {
+      if (!checkRateLimit(getClientIp(req), authRateLimitMap)) {
         res.writeHead(429, { 'Retry-After': '60', 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ jsonrpc: '2.0', error: { code: -32000, message: 'Too many requests' }, id: null }));
         return;
@@ -379,7 +387,7 @@ if (args.includes('--http')) {
         'Content-Type': 'text/html; charset=utf-8',
         'Cache-Control': 'no-store',
         'X-Content-Type-Options': 'nosniff',
-        'X-Frame-Options': 'SAMEORIGIN',
+        'Content-Security-Policy': "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; connect-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
       });
       res.end(connectPageHtml);
       return;
@@ -407,7 +415,7 @@ if (args.includes('--http')) {
 
     // GET /api/oauth/connect-init — issue CSRF cookie; rate-limited
     if (req.method === 'GET' && path === '/api/oauth/connect-init') {
-      if (!checkRateLimit(getClientIp(req))) {
+      if (!checkRateLimit(getClientIp(req), submitRateLimitMap)) {
         res.writeHead(429, { 'Retry-After': '60', 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
         res.end(JSON.stringify({ error: 'too_many_requests' }));
         return;
@@ -417,7 +425,7 @@ if (args.includes('--http')) {
 
     // POST /api/oauth/connect-submit — validate key, issue auth code; rate-limited
     if (req.method === 'POST' && path === '/api/oauth/connect-submit') {
-      if (!checkRateLimit(getClientIp(req))) {
+      if (!checkRateLimit(getClientIp(req), submitRateLimitMap)) {
         res.writeHead(429, { 'Retry-After': '60', 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
         res.end(JSON.stringify({ error: 'too_many_requests' }));
         return;
