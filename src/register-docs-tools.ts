@@ -305,8 +305,17 @@ export function registerDocsTools(opts: RegisterDocsToolsOptions): number {
       parts.push(`- **Active auth method:** ${authLabel}`);
       const x402Wallet = payInfo.x402.address ?? (activeMethod === 'x402' ? x402Address : undefined);
       const mppWallet = payInfo.mpp.address ?? (activeMethod === 'mpp' ? x402Address : undefined);
-      parts.push(`- **x402 (Base) wallet:** ${x402Enabled ? `\`${x402Wallet ?? 'enabled'}\` — must hold USDC on Base` : '*not set*'}`);
-      parts.push(`- **MPP (Tempo) wallet:** ${mppEnabled ? `\`${mppWallet ?? 'enabled'}\` — must hold USDC.e / pathUSD on Tempo` : '*not set*'}`);
+      // Three states, not two: an enabled rail (show wallet), a key that is
+      // present in the environment but ignored because an API key takes
+      // precedence (don't print "*not set*" — it contradicts the bothSet
+      // warning below and hides a real, ignored key), or genuinely unset.
+      const walletState = (enabled: boolean, addr: string | undefined, keyPresent: string | undefined, hold: string): string => {
+        if (enabled) return `\`${addr ?? 'enabled'}\` — ${hold}`;
+        if (keyPresent) return '*set but ignored* — an active API key takes precedence (drop `ONESOURCE_API_KEY` to pay by wallet)';
+        return '*not set*';
+      };
+      parts.push(`- **x402 (Base) wallet:** ${walletState(x402Enabled, x402Wallet, runtimeX402Key, 'must hold USDC on Base')}`);
+      parts.push(`- **MPP (Tempo) wallet:** ${walletState(mppEnabled, mppWallet, runtimeMppKey, 'must hold USDC.e / pathUSD on Tempo')}`);
       parts.push(`- **Active payment mode:** \`${payInfo.mode}\``);
       if (x402Enabled) parts.push(`- **x402 batch channel:** ${payInfo.x402.batchAvailable ? 'available' : '**unavailable** — channel scheme failed to init (check `X402_RPC_URL`, then restart)'}`);
       if (mppEnabled) parts.push(`- **MPP session channel:** ${payInfo.mpp.sessionAvailable ? 'available' : '**unavailable** — Tempo channel failed to init (check `MPP_RPC_URL`, then restart)'}`);

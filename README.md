@@ -40,9 +40,9 @@ npx -y @one-source/mcp@latest --http
 npx -y @one-source/mcp@latest --http --port=8080
 ```
 
-Then connect your MCP client to `http://localhost:8080/`.
+Then connect your MCP client to `http://localhost:3000/` (or the `--port` you passed).
 
-Health check: `GET http://localhost:8080/health`
+Health check: `GET http://localhost:3000/health`
 
 ## Tools (30)
 
