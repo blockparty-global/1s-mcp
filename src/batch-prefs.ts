@@ -35,6 +35,13 @@ export interface BatchPrefs {
   threshold: number;
   /** x402 channel deposit = call price × this multiplier. */
   depositMultiplier: number;
+  /**
+   * Optional ceiling on the x402 batch channel deposit, in whole USDC (e.g.
+   * '1'). Unset = no cap: the deposit is whatever the multiplier sizes it to.
+   * Mirrors {@link mppMaxDeposit}, but with no default (x402 is uncapped unless
+   * the user opts in).
+   */
+  x402MaxDeposit?: string;
   /** MPP session channel max deposit, in human token units (e.g. '1'). */
   mppMaxDeposit: string;
   /** Payment rail+mode the session starts in. */
@@ -101,6 +108,7 @@ const ENV_SNAPSHOT = {
   prompt: process.env.X402_BATCH_PROMPT,
   threshold: process.env.X402_BATCH_THRESHOLD,
   depositMultiplier: process.env.X402_DEPOSIT_MULTIPLIER,
+  x402MaxDeposit: process.env.X402_MAX_DEPOSIT,
   mppMaxDeposit: process.env.MPP_MAX_DEPOSIT,
   // Prefer the unified mode; fall back to the legacy x402 sub-mode env.
   mode: process.env.ONESOURCE_PAYMENT_MODE ?? process.env.X402_PAYMENT_MODE,
@@ -119,6 +127,8 @@ function readPersisted(): Partial<BatchPrefs> {
     if (threshold) out.threshold = threshold;
     const depositMultiplier = coerceMultiplier(data.depositMultiplier);
     if (depositMultiplier) out.depositMultiplier = depositMultiplier;
+    const x402MaxDeposit = coerceMaxDeposit(data.x402MaxDeposit);
+    if (x402MaxDeposit) out.x402MaxDeposit = x402MaxDeposit;
     const mppMaxDeposit = coerceMaxDeposit(data.mppMaxDeposit);
     if (mppMaxDeposit) out.mppMaxDeposit = mppMaxDeposit;
     const mode = coerceMode(data.mode);
@@ -138,6 +148,8 @@ function fromEnv(): Partial<BatchPrefs> {
   if (threshold) out.threshold = threshold;
   const depositMultiplier = coerceMultiplier(ENV_SNAPSHOT.depositMultiplier);
   if (depositMultiplier) out.depositMultiplier = depositMultiplier;
+  const x402MaxDeposit = coerceMaxDeposit(ENV_SNAPSHOT.x402MaxDeposit);
+  if (x402MaxDeposit) out.x402MaxDeposit = x402MaxDeposit;
   const mppMaxDeposit = coerceMaxDeposit(ENV_SNAPSHOT.mppMaxDeposit);
   if (mppMaxDeposit) out.mppMaxDeposit = mppMaxDeposit;
   const mode = coerceMode(ENV_SNAPSHOT.mode);
@@ -158,6 +170,10 @@ function mirrorToEnv(prefs: BatchPrefs): void {
     process.env.MPP_PAYMENT_MODE = prefs.mode.slice('mpp-'.length); // charge | session
   }
   process.env.X402_DEPOSIT_MULTIPLIER = String(prefs.depositMultiplier);
+  // X402_MAX_DEPOSIT is optional (unset = no cap). Delete rather than set an
+  // empty string so the downstream api-mcp sees a genuinely absent cap.
+  if (prefs.x402MaxDeposit) process.env.X402_MAX_DEPOSIT = prefs.x402MaxDeposit;
+  else delete process.env.X402_MAX_DEPOSIT;
   process.env.MPP_MAX_DEPOSIT = prefs.mppMaxDeposit;
 }
 

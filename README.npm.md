@@ -240,7 +240,7 @@ MPP_PRIVATE_KEY=<key> npx -y @one-source/mcp@latest
 
 By default each paid call signs one payment per call (`x402-exact` on Base, `mpp-charge` on Tempo). For a burst of calls, open a **payment channel** — one on-chain deposit funds many off-chain calls, settled together — which is cheaper than per-call:
 
-- **x402 (Base):** `1s_payment_mode { "mode": "x402-batch" }` (or `X402_PAYMENT_MODE=batch`). First call deposits `price × X402_DEPOSIT_MULTIPLIER` (default 10).
+- **x402 (Base):** `1s_payment_mode { "mode": "x402-batch" }` (or `X402_PAYMENT_MODE=batch`). First call deposits `price × X402_DEPOSIT_MULTIPLIER` (default 10), optionally capped by `X402_MAX_DEPOSIT` (default off).
 - **MPP (Tempo):** `1s_payment_mode { "mode": "mpp-session" }` (or `MPP_PAYMENT_MODE=session`). First call deposits up to `MPP_MAX_DEPOSIT` (default 1).
 
 Reclaim the unused balance any time with the `1s_refund` tool (works for both rails); the residual is always recoverable. An idle x402 channel auto-refunds after a few hours; an MPP session settles automatically on clean shutdown.
@@ -273,6 +273,7 @@ All have sensible defaults — channel modes run out of the box. Set these only 
 |----------|---------|-------------|
 | `X402_PAYMENT_MODE` | `exact` | Initial x402 scheme: `exact` (per-call) or `batch` (payment channel). Switch in-session with `1s_payment_mode`. |
 | `X402_DEPOSIT_MULTIPLIER` | `10` | Batch mode: deposit = price × this multiplier, funding that many calls per channel. Unused balance is reclaimable via `1s_refund`. |
+| `X402_MAX_DEPOSIT` | — | Batch mode: optional ceiling (in USDC) on a channel's deposit. Unset = no cap. When set, deposit = `min(price × multiplier, this)`. The x402 analog of `MPP_MAX_DEPOSIT`. |
 | `X402_RPC_URL` | Base default | Base RPC endpoint used to submit channel deposits in batch mode. |
 | `X402_CHANNEL_DIR` | — | Directory to persist batch channel state across restarts. Unset = in-memory (channel lost on restart). |
 | `MPP_PAYMENT_MODE` | `charge` | Initial MPP scheme: `charge` (per-call) or `session` (Tempo voucher channel). Switch in-session with `1s_payment_mode`. |

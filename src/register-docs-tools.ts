@@ -338,6 +338,7 @@ export function registerDocsTools(opts: RegisterDocsToolsOptions): number {
       parts.push('Walk through these (the pay-per-call vs. channel choice is made once for both rails in Decision 5, so don\'t ask it here):');
       parts.push(`- **Wallet key (\`X402_PRIVATE_KEY\`)** _(restart, secret)_ — this is the crypto wallet that pays; it must hold some USDC on the **Base** network.${x402Enabled ? ' One is already set — ask **keep / rotate (use a different wallet) / remove**.' : ' None set yet — ask if they want to add one.'} If they keep it, move on. To add or rotate: per Rule 6, **never take the key in chat** — the startup command will contain \`X402_PRIVATE_KEY=<your-key>\` for them to fill in their own terminal (it\'s a 64-character hex key from any EVM wallet, e.g. MetaMask; they can also generate a fresh one). After setup, running \`1s_setup_check\` again shows the wallet address to send USDC to.`);
       parts.push(`- **Deposit size for channel mode (\`X402_DEPOSIT_MULTIPLIER\`)** _(live; advanced — fine to skip)_ — only matters if they pick \`x402-batch\` in Decision 5. It sets how big the up-front refundable deposit is (= call price × this number, so a bigger number = fewer top-ups but more held at once; always reclaimable with \`1s_refund\`). **DEFAULT: 10.** Currently \`${prefs.depositMultiplier}\`. Most people leave this alone; to change: \`1s_batch_config { "deposit_multiplier": N }\` (min ${MIN_DEPOSIT_MULTIPLIER}).`);
+      parts.push(`- **Deposit ceiling for channel mode (\`X402_MAX_DEPOSIT\`)** _(live; advanced — fine to skip)_ — only matters if they pick \`x402-batch\` in Decision 5. An optional cap (in USDC) on the up-front deposit, so the deposit is \`min(price × multiplier, this)\` — a safety net if a call's advertised price is unexpectedly high. **DEFAULT: off (no cap)** — the multiplier alone sizes the deposit. Currently \`${prefs.x402MaxDeposit ?? 'off'}\`. Most people leave this off; to set: \`1s_batch_config { "x402_max_deposit": "1" }\`, or \`"0"\` to remove it. (This is the x402 analog of \`MPP_MAX_DEPOSIT\`.)`);
       parts.push('- **Base connection (`X402_RPC_URL`)** _(restart; ⚠️ advanced users only)_ — **DEFAULT: OneSource\'s built-in public Base RPC, which works out of the box — recommend leaving this as-is.** Only change it if the user knowingly runs their own Base RPC endpoint (e.g. deposits are rate-limiting). If they don\'t know what an RPC is, that\'s a clear signal to keep the default and skip it.');
       parts.push('- **Where to save the channel so it survives restarts (`X402_CHANNEL_DIR`)** _(restart)_ — only relevant if they use a payment **channel** (`x402-batch`, Decision 5); ignore it for plain pay-per-call. **DEFAULT: off — the channel lives only in memory, so if the server restarts it forgets the open channel.** The unspent deposit isn\'t lost (the network auto-refunds idle channels after a few hours), but until then it\'s locked and can\'t be reclaimed on demand — confusing for a newcomer. **So if they\'re using a channel, recommend setting this** to a convenient, persistent folder they\'ll remember (the agent should suggest a sensible path for their OS, e.g. inside their home directory); then the channel and its deposit survive restarts and stay reclaimable any time with `1s_refund`. (MPP has no equivalent — its session channel can\'t persist.)');
       parts.push('');
@@ -449,7 +450,7 @@ export function registerDocsTools(opts: RegisterDocsToolsOptions): number {
     'View or change payment preferences and save them so they persist across restarts — no MCP config editing or restart required. ' +
       'Call with no arguments to see current settings. ' +
       'Set "prompt" (ask/auto/off — agent autonomy when switching to a cheaper channel mode), "threshold" (anticipated calls before a channel is worth it), ' +
-      '"deposit_multiplier" (x402 channel deposit = call price × this; applies to the next channel opened), "mpp_max_deposit" (MPP session channel deposit cap, in tokens), ' +
+      '"deposit_multiplier" (x402 channel deposit = call price × this; applies to the next channel opened), "x402_max_deposit" (optional ceiling on the x402 channel deposit, in USDC; 0 removes it), "mpp_max_deposit" (MPP session channel deposit cap, in tokens), ' +
       'or "mode" (the default rail+scheme — x402-exact / x402-batch / mpp-charge / mpp-session — also switched live for this session). ' +
       'Pass "reset": true to restore defaults. With an API key, calls are covered by your plan.',
     {
@@ -459,6 +460,8 @@ export function registerDocsTools(opts: RegisterDocsToolsOptions): number {
         .describe('Anticipated call count at/above which a channel mode is worth considering. Default 5.'),
       deposit_multiplier: z.number().min(MIN_DEPOSIT_MULTIPLIER).optional()
         .describe(`x402 channel deposit = call price × this multiplier. Minimum ${MIN_DEPOSIT_MULTIPLIER}. Applies to the next channel opened.`),
+      x402_max_deposit: z.string().optional()
+        .describe('Optional ceiling on the x402 batch channel deposit, in whole USDC (e.g. "1"). Deposit becomes min(price × multiplier, this). Pass "0" to remove the cap (uncapped is the default). Applies to the next channel opened.'),
       mpp_max_deposit: z.string().optional()
         .describe('MPP session channel max deposit, in human token units (e.g. "1"). Applies to the next Tempo channel opened.'),
       mode: z.enum(['x402-exact', 'x402-batch', 'mpp-charge', 'mpp-session']).optional()
@@ -473,6 +476,12 @@ export function registerDocsTools(opts: RegisterDocsToolsOptions): number {
   count++;
 
   return count;
+}
+
+/** Whether a x402_max_deposit input means "remove the cap" (0 / none / off). */
+function isClearCap(v: unknown): boolean {
+  const s = typeof v === 'number' ? String(v) : typeof v === 'string' ? v.trim().toLowerCase() : '';
+  return s === '0' || s === 'none' || s === 'off' || s === '';
 }
 
 /**
@@ -512,6 +521,15 @@ function handleBatchConfig(
     const v = coerceMultiplier(input.deposit_multiplier);
     if (v) patch.depositMultiplier = v;
     else errors.push(`deposit_multiplier must be a number ≥ ${MIN_DEPOSIT_MULTIPLIER} (got ${JSON.stringify(input.deposit_multiplier)})`);
+  }
+  if (input.x402_max_deposit !== undefined) {
+    const v = coerceMaxDeposit(input.x402_max_deposit);
+    if (v) patch.x402MaxDeposit = v;
+    // "0" (or any non-positive) clears the cap — uncapped is a valid state for
+    // x402, unlike MPP which always has a positive default. Explicit-undefined
+    // patch drops the field on persist and the env mirror.
+    else if (isClearCap(input.x402_max_deposit)) patch.x402MaxDeposit = undefined;
+    else errors.push(`x402_max_deposit must be a positive number string, or "0" to remove the cap (got ${JSON.stringify(input.x402_max_deposit)})`);
   }
   if (input.mpp_max_deposit !== undefined) {
     const v = coerceMaxDeposit(input.mpp_max_deposit);
@@ -577,6 +595,7 @@ function renderBatchConfig(
   lines.push(`- Autonomy (prompt): \`${prefs.prompt}\``);
   lines.push(`- "Many" threshold: \`${prefs.threshold}\``);
   lines.push(`- x402 deposit multiplier: \`${prefs.depositMultiplier}\``);
+  lines.push(`- x402 max deposit: \`${prefs.x402MaxDeposit ?? 'off (no cap)'}\``);
   lines.push(`- MPP session max deposit: \`${prefs.mppMaxDeposit}\``);
 
   if (modeNote) lines.push('', modeNote);
