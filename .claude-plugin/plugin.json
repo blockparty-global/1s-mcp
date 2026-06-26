@@ -1,11 +1,12 @@
 {
   "name": "onesource",
   "description": "30 tools for live blockchain queries via x402 micropayments",
-  "version": "5.4.4",
+  "version": "5.8.0",
   "author": {
-    "name": "BlockParty"
+    "name": "BlockParty",
+    "url": "https://github.com/blockparty-global"
   },
-  "homepage": "https://docs.onesource.io",
+  "homepage": "https://mcp.onesource.io",
   "repository": "https://github.com/blockparty-global/1s-mcp",
   "license": "Apache-2.0",
   "keywords": [

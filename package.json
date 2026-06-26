@@ -1,7 +1,7 @@
 {
   "name": "@one-source/mcp",
   "mcpName": "io.onesource/mcp",
-  "version": "5.7.3",
+  "version": "5.8.0",
   "type": "module",
   "description": "Unified MCP server for OneSource — 30 tools for blockchain data, with x402 (USDC on Base) and MPP (Tempo) pay-per-call payment rails",
   "bin": {
@@ -17,19 +17,23 @@
   },
   "files": [
     "dist/",
+    "web/out/",
     "README.md",
     "skills/",
     "LICENSE"
   ],
   "scripts": {
-    "build": "tsc",
+    "build": "npm run build:web && tsc",
+    "build:tsc": "tsc",
+    "build:web": "cd web && npm run build",
+    "dev:http": "npm run build:tsc && node --env-file-if-exists=.env dist/cli.js --http",
     "test": "vitest run",
     "test:watch": "vitest",
     "bump-version": "node scripts/bump-version.mjs",
     "validate": "node scripts/validate-mcp.mjs",
     "prepack": "node -e \"fs=require('fs');fs.copyFileSync('README.md','README.repo.md');fs.copyFileSync('README.npm.md','README.md')\"",
     "postpack": "node -e \"fs=require('fs');fs.renameSync('README.repo.md','README.md')\"",
-    "prepare": "npm run build"
+    "prepare": "tsc"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.27.1",
@@ -59,7 +63,7 @@
   ],
   "author": "BlockParty",
   "license": "Apache-2.0",
-  "homepage": "https://docs.onesource.io",
+  "homepage": "https://mcp.onesource.io",
   "repository": {
     "type": "git",
     "url": "https://github.com/blockparty-global/1s-mcp.git"

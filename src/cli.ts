@@ -9,6 +9,7 @@
  */
 
 import { parseBearerToken } from './auth-header.js';
+import type { IncomingMessage, ServerResponse } from 'node:http';
 
 const args = process.argv.slice(2);
 
@@ -136,6 +137,11 @@ if (args.includes('--http')) {
   const { createMcpServer, VERSION } = await import('./create-server.js');
   const { createAnalytics } = await import('./analytics.js');
   const { createClientFromEnv } = await import('@one-source/api-mcp/client');
+  const { handleOAuthMetadata, handleAuthorize, handleToken, resolveBearer } = await import('./oauth.js');
+  const { handleConnectInit, handleConnectSubmit } = await import('./connect-page.js');
+  const { readFileSync } = await import('node:fs');
+  const { join, resolve: resolvePath, extname } = await import('node:path');
+  const { fileURLToPath } = await import('node:url');
 
   // Auth detection — API key takes priority over a payment wallet
   const apiKey = process.env.ONESOURCE_API_KEY?.trim() || undefined;
@@ -211,11 +217,124 @@ if (args.includes('--http')) {
     bugReportUrl,
   });
 
+  // Static file serving — web frontend built to web/out/ by npm run build:web
+  const webOutDir = resolvePath(fileURLToPath(new URL('.', import.meta.url)), '../web/out');
+
+  const STATIC_MIME: Record<string, string> = {
+    '.html': 'text/html; charset=utf-8',
+    '.svg': 'image/svg+xml',
+    '.woff2': 'font/woff2',
+    '.woff': 'font/woff',
+    '.ttf': 'font/ttf',
+    '.otf': 'font/otf',
+    '.js': 'application/javascript',
+    '.css': 'text/css',
+  };
+
+  function serveStaticFile(res: ServerResponse, filePath: string): void {
+    const ext = extname(filePath);
+    try {
+      const content = readFileSync(filePath);
+      res.writeHead(200, {
+        'Content-Type': STATIC_MIME[ext] ?? 'application/octet-stream',
+        'Cache-Control': 'public, max-age=3600',
+      });
+      res.end(content);
+    } catch {
+      res.writeHead(404, { 'Content-Type': 'text/plain' });
+      res.end('Not found');
+    }
+  }
+
+  let connectPageHtml: Buffer | null = null;
+  try {
+    connectPageHtml = readFileSync(join(webOutDir, 'oauth', 'connect.html'));
+  } catch {
+    console.error('[onesource] WARNING: web/out/oauth/connect.html not found — run npm run build:web');
+  }
+
+  // Per-IP rate limiter for unauthenticated OAuth endpoints.
+  // TRUSTED_PROXY=true: use rightmost X-Forwarded-For (appended by ALB/Railway).
+  // Without it: use socket IP directly to prevent XFF spoofing.
+  const authRateLimitMap = new Map<string, { count: number; resetAt: number }>();
+  const submitRateLimitMap = new Map<string, { count: number; resetAt: number }>();
+  const RATE_LIMIT_WINDOW_MS = 60_000;
+  const RATE_LIMIT_MAX_REQ = 20;
+  const RATE_LIMIT_MAX_IPS = 10_000;
+  const TRUSTED_PROXY = process.env.TRUSTED_PROXY === 'true';
+
+  if (TRUSTED_PROXY) {
+    console.error('[onesource] rate limiting: X-Forwarded-For (TRUSTED_PROXY=true) — ensure an ALB/proxy is in front or XFF is attacker-controlled');
+  } else {
+    console.error('[onesource] rate limiting: socket IP');
+    console.error('[onesource] WARNING: TRUSTED_PROXY not set — if running behind a load balancer (EKS/ALB, Railway), set TRUSTED_PROXY=true or all users will share one rate-limit bucket');
+  }
+
+  // Periodic cleanup — avoids O(n) scan on every request.
+  setInterval(() => {
+    const now = Date.now();
+    for (const [k, v] of authRateLimitMap) if (v.resetAt < now) authRateLimitMap.delete(k);
+    for (const [k, v] of submitRateLimitMap) if (v.resetAt < now) submitRateLimitMap.delete(k);
+  }, RATE_LIMIT_WINDOW_MS).unref();
+
+  function getClientIp(req: IncomingMessage): string {
+    if (TRUSTED_PROXY) {
+      const xff = req.headers['x-forwarded-for'];
+      const raw = Array.isArray(xff) ? xff.join(',') : (xff ?? '');
+      if (raw) {
+        const rightmost = raw.split(',').pop()?.trim();
+        if (rightmost) return rightmost;
+      }
+    }
+    return req.socket.remoteAddress ?? 'unknown';
+  }
+
+  function checkRateLimit(ip: string, map: Map<string, { count: number; resetAt: number }>): boolean {
+    const now = Date.now();
+    const entry = map.get(ip);
+    if (!entry) {
+      if (map.size >= RATE_LIMIT_MAX_IPS) {
+        for (const [k, v] of map) if (v.resetAt < now) map.delete(k);
+        if (map.size >= RATE_LIMIT_MAX_IPS) return false;
+      }
+      map.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
+      return true;
+    }
+    if (entry.resetAt < now) {
+      entry.count = 1;
+      entry.resetAt = now + RATE_LIMIT_WINDOW_MS;
+      return true;
+    }
+    if (entry.count >= RATE_LIMIT_MAX_REQ) return false;
+    entry.count++;
+    return true;
+  }
+
   const httpServer = createServer(async (req, res) => {
-    // CORS headers
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, mcp-session-id, Authorization');
+    const path = req.url?.split('?')[0] ?? '/';
+
+    // POST /oauth/token — no CORS headers (server-to-server endpoint; RFC 6749 §4.1.3)
+    if (req.method === 'POST' && path === '/oauth/token') {
+      if (!checkRateLimit(getClientIp(req), submitRateLimitMap)) {
+        res.writeHead(429, { 'Retry-After': '60', 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+        res.end(JSON.stringify({ error: 'invalid_request', error_description: 'too many requests' }));
+        return;
+      }
+      try { await handleToken(req, res); } catch {
+        if (!res.headersSent) {
+          res.writeHead(500, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+          res.end(JSON.stringify({ error: 'server_error' }));
+        }
+      }
+      return;
+    }
+
+    // CORS headers — /api/oauth/* are same-origin endpoints, no CORS header needed
+    if (!path.startsWith('/api/oauth/')) {
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, mcp-session-id, Authorization, X-Api-Key');
+    }
 
     // CORS preflight
     if (req.method === 'OPTIONS') {
@@ -224,14 +343,14 @@ if (args.includes('--http')) {
     }
 
     // Browser redirect — GET / with Accept: text/html → landing page
-    if (req.method === 'GET' && req.url === '/' && req.headers['accept']?.includes('text/html')) {
+    if (req.method === 'GET' && path === '/' && req.headers['accept']?.includes('text/html')) {
       res.writeHead(301, { 'Location': 'https://onesource.io/mcp' });
       res.end();
       return;
     }
 
     // Health check
-    if (req.method === 'GET' && req.url === '/health') {
+    if (req.method === 'GET' && path === '/health') {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({
         status: 'ok',
@@ -239,6 +358,84 @@ if (args.includes('--http')) {
         version: VERSION,
         tools: toolCount,
       }));
+      return;
+    }
+
+    // OAuth discovery document (RFC 8414)
+    if (req.method === 'GET' && path === '/.well-known/oauth-authorization-server') {
+      handleOAuthMetadata(req, res); return;
+    }
+
+    // OAuth authorization — rate-limited (unauthenticated, writes to authState Map)
+    if (req.method === 'GET' && path === '/oauth/authorize') {
+      if (!checkRateLimit(getClientIp(req), authRateLimitMap)) {
+        res.writeHead(429, { 'Retry-After': '60', 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ jsonrpc: '2.0', error: { code: -32000, message: 'Too many requests' }, id: null }));
+        return;
+      }
+      handleAuthorize(req, res); return;
+    }
+
+    // GET /oauth/connect — serve the Next.js login page (static export)
+    if (req.method === 'GET' && path === '/oauth/connect') {
+      if (!connectPageHtml) {
+        res.writeHead(503, { 'Content-Type': 'text/plain', 'Cache-Control': 'no-store' });
+        res.end('Web frontend not built. Run: npm run build:web');
+        return;
+      }
+      res.writeHead(200, {
+        'Content-Type': 'text/html; charset=utf-8',
+        'Cache-Control': 'no-store',
+        'X-Content-Type-Options': 'nosniff',
+        'Content-Security-Policy': "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; connect-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
+      });
+      res.end(connectPageHtml);
+      return;
+    }
+
+    // GET /onesource-logo.svg — static asset for the login page
+    if (req.method === 'GET' && path === '/onesource-logo.svg') {
+      serveStaticFile(res, join(webOutDir, 'onesource-logo.svg'));
+      return;
+    }
+
+    // GET /fonts/* — font files for the login page; path traversal guarded
+    if (req.method === 'GET' && path.startsWith('/fonts/')) {
+      const fontFile = path.slice('/fonts/'.length);
+      const fontsDir = resolvePath(webOutDir, 'fonts');
+      const fontPath = resolvePath(fontsDir, fontFile);
+      if (!fontPath.startsWith(fontsDir + '/') && fontPath !== fontsDir) {
+        res.writeHead(403, { 'Content-Type': 'text/plain' });
+        res.end('Forbidden');
+        return;
+      }
+      serveStaticFile(res, fontPath);
+      return;
+    }
+
+    // GET /api/oauth/connect-init — issue CSRF cookie; rate-limited
+    if (req.method === 'GET' && path === '/api/oauth/connect-init') {
+      if (!checkRateLimit(getClientIp(req), submitRateLimitMap)) {
+        res.writeHead(429, { 'Retry-After': '60', 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+        res.end(JSON.stringify({ error: 'too_many_requests' }));
+        return;
+      }
+      handleConnectInit(req, res); return;
+    }
+
+    // POST /api/oauth/connect-submit — validate key, issue auth code; rate-limited
+    if (req.method === 'POST' && path === '/api/oauth/connect-submit') {
+      if (!checkRateLimit(getClientIp(req), submitRateLimitMap)) {
+        res.writeHead(429, { 'Retry-After': '60', 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+        res.end(JSON.stringify({ error: 'too_many_requests' }));
+        return;
+      }
+      try { await handleConnectSubmit(req, res); } catch {
+        if (!res.headersSent) {
+          res.writeHead(500, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+          res.end(JSON.stringify({ error: 'server_error' }));
+        }
+      }
       return;
     }
 
@@ -253,42 +450,68 @@ if (args.includes('--http')) {
       return;
     }
 
-    // ── Per-request API-key auth (multi-tenant HTTP hosting) ─────────────────
-    // A remote buyer (e.g. via AWS Marketplace or Bedrock AgentCore Gateway)
-    // connects to this hosted endpoint and sends their key as
-    // `Authorization: Bearer sk_...`. Forward it as a per-request client so the
-    // upstream gateway authenticates THEM. Without a header, behaviour is
-    // unchanged — requests fall back to the process-level auth (x402/none),
-    // which is what local stdio installs and the env-keyed deployments use.
-    //
-    // Note: x402 cannot be performed server-side for arbitrary callers (the
-    // payer must hold the signing key), so a forwarded API key is the only way
-    // the hosted endpoint can serve data for a remote buyer.
-    let reqClient = sharedClient;
-    let reqAuthMethod = authMethod;
-    let reqInstructions = instructions;
-    const bearerKey = parseBearerToken(req.headers['authorization']);
-    if (bearerKey) {
-      try {
-        // Per-request client; never logged. baseUrl resolves from
-        // ONESOURCE_BASE_URL (default https://api.onesource.io).
-        reqClient = createClientFromEnv({ apiKey: bearerKey });
-        reqAuthMethod = 'api_key';
-        reqInstructions = apiKeyInstructions;
-      } catch {
-        // Malformed key (e.g. contains a newline) — ignore and fall back to
-        // the process-level auth rather than failing the request.
+    // Per-request auth — Authorization: Bearer <key|jwt> or X-Api-Key.
+    // JWT Bearer tokens (eyJ prefix) are resolved via resolveBearer(); raw keys
+    // are forwarded directly. If a header is present but validation fails, reject
+    // with 400/401 rather than silently downgrading to startup auth.
+    const rawBearer = parseBearerToken(req.headers['authorization']);
+    const xApiKeyHeader = req.headers['x-api-key'];
+    let requestApiKey: string | undefined;
+    let authHeaderPresent = false;
+
+    if (rawBearer !== undefined) {
+      authHeaderPresent = true;
+      const candidate = rawBearer;
+      if (candidate.length > 0 && candidate.length <= 512 && !/[\r\n]/.test(candidate)) {
+        if (candidate.startsWith('eyJ') && candidate.split('.').length === 3) {
+          // JWT-shaped token (all JWTs base64url-encode a JSON header starting with 'eyJ').
+          // Resolve to underlying API key, or reject; never fall back to raw-key forwarding.
+          const resolved = resolveBearer(candidate);
+          if (resolved !== null) {
+            requestApiKey = resolved;
+          } else {
+            res.writeHead(401, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'WWW-Authenticate': 'Bearer error="invalid_token"' });
+            res.end(JSON.stringify({ jsonrpc: '2.0', error: { code: -32000, message: 'Token expired or invalid' }, id: null }));
+            return;
+          }
+        } else {
+          requestApiKey = candidate; // raw API key
+        }
+      }
+    } else if (typeof xApiKeyHeader === 'string') {
+      authHeaderPresent = true;
+      const candidate = xApiKeyHeader.trim();
+      if (candidate.length > 0 && candidate.length <= 512 && !/[\r\n]/.test(candidate)) {
+        requestApiKey = candidate;
       }
     }
+
+    if (authHeaderPresent && !requestApiKey) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        jsonrpc: '2.0',
+        error: { code: -32600, message: 'Invalid API key format' },
+        id: null,
+      }));
+      return;
+    }
+
+    // Always create a fresh client per request — avoids concurrent mutation of a shared
+    // client's onHttpEvent handler when multiple unauthenticated requests overlap.
+    const requestAuthMethod: 'api_key' | 'x402' | 'mpp' | 'none' = requestApiKey ? 'api_key' : authMethod;
+    const requestClient = requestApiKey
+      ? createClientFromEnv({ apiKey: requestApiKey })
+      : createClientFromEnv({ fetch: x402Fetch, apiKey });
+    const requestInstructions = requestApiKey ? apiKeyInstructions : instructions;
 
     // Fresh server per request (SDK stateless pattern), shared singletons
     const { server } = createMcpServer({
       analytics: sharedAnalytics,
-      client: reqClient,
+      client: requestClient,
       transport: 'http',
-      authMethod: reqAuthMethod,
+      authMethod: requestAuthMethod,
       x402Address,
-      instructions: reqInstructions,
+      instructions: requestInstructions,
       bugReportUrl,
     });
     const httpTransport = new StreamableHTTPServerTransport({
@@ -316,11 +539,13 @@ if (args.includes('--http')) {
     }
   });
 
-  // Bind to 0.0.0.0 for deployment compatibility (Railway, Fly.io, etc.)
+  httpServer.setTimeout(10_000);
+
+  // Bind to 0.0.0.0 for deployment compatibility (AWS EKS, Railway, Fly.io, etc.)
   const host = '0.0.0.0';
   httpServer.listen(port, host, () => {
     console.error(`[onesource] HTTP server listening on http://${host}:${port}`);
-    console.error(`[onesource] MCP endpoint: POST http://${host}:${port}/`);
+    console.error(`[onesource] MCP endpoint: POST http://${host}:${port}/mcp`);
     console.error(`[onesource] Health: GET http://${host}:${port}/health`);
   });
 

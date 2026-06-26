@@ -1,6 +1,14 @@
+.env
 node_modules/
 dist/
 key.pem
 mcp-publisher.exe
 .claude/
+mcp-publisher
+1s-mcp.mcpb
 
+# web/ Next.js app
+web/node_modules/
+web/out/
+web/.next/
+web/.env.local

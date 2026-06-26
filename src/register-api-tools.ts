@@ -92,7 +92,14 @@ export function registerApiTools(
     });
   };
 
-  for (const tool of allTools) {
+  // 1s_payment_mode and 1s_refund operate on the module-level x402 singleton,
+  // which is stdio-only. In HTTP mode multiple users share one process and cannot
+  // own that singleton, so these tools must not be registered.
+  const tools = transport === 'http'
+    ? allTools.filter(t => t.name !== '1s_payment_mode' && t.name !== '1s_refund')
+    : allTools;
+
+  for (const tool of tools) {
     const meta = TOOL_META[tool.name];
     server.registerTool(
       tool.name,
