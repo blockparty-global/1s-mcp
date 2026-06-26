@@ -1,6 +1,8 @@
 # Sensitive files
 key.pem
 .claude/settings.local.json
+.env.local
+
 
 # Large binaries and build artifacts
 mcp-publisher

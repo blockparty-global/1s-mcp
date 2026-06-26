@@ -1,7 +1,7 @@
 {
   "name": "onesource",
   "description": "30 tools for live blockchain queries via x402 micropayments",
-  "version": "5.8.0",
+  "version": "5.8.1",
   "author": {
     "name": "BlockParty",
     "url": "https://github.com/blockparty-global"
