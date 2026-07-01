@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "onesource-mcp",
   "display_name": "OneSource",
-  "version": "5.8.2",
+  "version": "5.8.3",
   "description": "30 blockchain tools for Claude — 25 live data queries (ERC-20 and NFT balances, transaction details, contract info, gas estimation, event queries across EVM networks), plus 3 setup tools and 2 x402 payment controls.",
   "author": {
     "name": "BlockParty",
