@@ -530,7 +530,8 @@ if (args.includes('--http')) {
       return;
     }
 
-    // Reject oversized bodies before creating a server (SDK reads body internally)
+    // Reject oversized bodies before creating a server (SDK reads body internally).
+    // Fast path: honest clients declare Content-Length, so reject those up front.
     const contentLength = parseInt(req.headers['content-length'] ?? '0', 10);
     if (contentLength > 65536) {
       res.writeHead(413, { 'Content-Type': 'application/json' });
@@ -541,6 +542,26 @@ if (args.includes('--http')) {
       }));
       return;
     }
+
+    // Hard cap that also covers chunked / missing-Content-Length requests, which
+    // parse to 0 above and would otherwise stream unbounded into the SDK's own
+    // reader. req is an EventEmitter, so this listener counts bytes alongside
+    // handleRequest's reader and tears down the request the moment it crosses 64KB.
+    let received = 0;
+    req.on('data', (chunk: Buffer) => {
+      received += chunk.length;
+      if (received > 65536) {
+        if (!res.headersSent) {
+          res.writeHead(413, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({
+            jsonrpc: '2.0',
+            error: { code: -32000, message: 'Request body too large (max 64KB)' },
+            id: null,
+          }));
+        }
+        req.destroy();
+      }
+    });
 
     // Always create a fresh client per request — avoids concurrent mutation of a shared
     // client's onHttpEvent handler when multiple unauthenticated requests overlap.
