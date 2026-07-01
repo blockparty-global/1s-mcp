@@ -114,6 +114,9 @@ if (args.includes('--http')) {
     const parsed = parseInt(envPort, 10);
     if (!isNaN(parsed) && parsed >= 1 && parsed <= 65535) {
       port = parsed;
+    } else {
+      console.error(`Error: Invalid PORT "${envPort}". Must be between 1 and 65535.`);
+      process.exit(1);
     }
   } else if (portArgIdx !== -1) {
     const arg = args[portArgIdx];
@@ -141,6 +144,7 @@ if (args.includes('--http')) {
   const { handleConnectInit, handleConnectSubmit } = await import('./connect-page.js');
   const { readFileSync } = await import('node:fs');
   const { join, resolve: resolvePath, extname } = await import('node:path');
+  const { createHash } = await import('node:crypto');
   const { fileURLToPath } = await import('node:url');
 
   // Auth detection — API key takes priority over a payment wallet
@@ -247,8 +251,20 @@ if (args.includes('--http')) {
   }
 
   let connectPageHtml: Buffer | null = null;
+  let connectPageCsp = "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self'; font-src 'self'; connect-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'";
   try {
     connectPageHtml = readFileSync(join(webOutDir, 'oauth', 'connect.html'));
+    const html = connectPageHtml.toString();
+    const hashes: string[] = [];
+    for (const match of html.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/g)) {
+      const content = match[1];
+      if (content.trim()) {
+        hashes.push(`'sha256-${createHash('sha256').update(content).digest('base64')}'`);
+      }
+    }
+    if (hashes.length > 0) {
+      connectPageCsp = `default-src 'none'; script-src 'self' ${hashes.join(' ')}; style-src 'self' 'unsafe-inline'; img-src 'self'; font-src 'self'; connect-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'`;
+    }
   } catch {
     console.error('[onesource] WARNING: web/out/oauth/connect.html not found — run npm run build:web');
   }
@@ -350,14 +366,18 @@ if (args.includes('--http')) {
     }
 
     // Health check
-    if (req.method === 'GET' && path === '/health') {
+    if ((req.method === 'GET' || req.method === 'HEAD') && path === '/health') {
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({
-        status: 'ok',
-        server: 'onesource-mcp',
-        version: VERSION,
-        tools: toolCount,
-      }));
+      if (req.method === 'GET') {
+        res.end(JSON.stringify({
+          status: 'ok',
+          server: 'onesource-mcp',
+          version: VERSION,
+          tools: toolCount,
+        }));
+      } else {
+        res.end();
+      }
       return;
     }
 
@@ -387,7 +407,7 @@ if (args.includes('--http')) {
         'Content-Type': 'text/html; charset=utf-8',
         'Cache-Control': 'no-store',
         'X-Content-Type-Options': 'nosniff',
-        'Content-Security-Policy': "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; connect-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
+        'Content-Security-Policy': connectPageCsp,
       });
       res.end(connectPageHtml);
       return;
@@ -410,6 +430,20 @@ if (args.includes('--http')) {
         return;
       }
       serveStaticFile(res, fontPath);
+      return;
+    }
+
+    // GET /_next/static/* — JS/CSS chunks for the OAuth connect page
+    if (req.method === 'GET' && path.startsWith('/_next/static/')) {
+      const relativePath = path.slice('/_next/static/'.length);
+      const nextStaticDir = resolvePath(webOutDir, '_next', 'static');
+      const filePath = resolvePath(nextStaticDir, relativePath);
+      if (!filePath.startsWith(nextStaticDir + '/') && filePath !== nextStaticDir) {
+        res.writeHead(403, { 'Content-Type': 'text/plain' });
+        res.end('Forbidden');
+        return;
+      }
+      serveStaticFile(res, filePath);
       return;
     }
 
@@ -491,6 +525,18 @@ if (args.includes('--http')) {
       res.end(JSON.stringify({
         jsonrpc: '2.0',
         error: { code: -32600, message: 'Invalid API key format' },
+        id: null,
+      }));
+      return;
+    }
+
+    // Reject oversized bodies before creating a server (SDK reads body internally)
+    const contentLength = parseInt(req.headers['content-length'] ?? '0', 10);
+    if (contentLength > 65536) {
+      res.writeHead(413, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        jsonrpc: '2.0',
+        error: { code: -32000, message: 'Request body too large (max 64KB)' },
         id: null,
       }));
       return;
