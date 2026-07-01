@@ -42,7 +42,7 @@ This is a **unified meta-package** (`@one-source/mcp`) that combines two indepen
 
 **stdio** (default): single server instance, analytics flush on SIGINT. Used by Claude Desktop, Cursor, Claude Code.
 
-**HTTP** (`--http` flag): per-request server creation (stateless), but shared `analytics`, `client`, and `instructions` singletons across requests. Health check at `GET /health`. Railway deployment uses this mode.
+**HTTP** (`--http` flag): per-request server creation (stateless), but shared `analytics`, `client`, and `instructions` singletons across requests. Health check at `GET /health`. This is the mode the hosted server at `mcp.onesource.io` runs in — see [Deploying to production](#deploying-to-production-mcponesourceio).
 
 ### Authentication
 
@@ -76,6 +76,16 @@ It publishes `@one-source/api-mcp` and `@one-source/mcp` in the required order,
 refreshes this repo's `@one-source/api-mcp` dependency, bumps `server.json`, and
 runs `mcp-publisher publish` — so the steps below normally happen for you.
 
+Run it from the `sre-services` repo, logged in to npm:
+
+```bash
+npm login                                          # publishing needs an authenticated npm session
+node scripts/release-mcp.mjs <version>             # e.g. 5.8.2 — bumps + publishes both packages in order
+node scripts/release-mcp.mjs <version> --dry-run   # preview the plan; no mutations, no publish
+```
+
+The script prompts at each step, so you can stop and back out mid-run if something looks off.
+
 Manual fallback (registry-only fixes, or when the script can't run) — after `npm publish`:
 
 1. Update version fields in `server.json` (both `version` and `packages[].version`)
@@ -84,3 +94,20 @@ Manual fallback (registry-only fixes, or when the script can't run) — after `n
 4. Glama auto-syncs via `glama.json` maintainer config
 
 The `mcp-publisher` binary and `key.pem` are gitignored.
+
+## Deploying to production (mcp.onesource.io)
+
+The hosted HTTP server runs on AWS EKS, managed by ArgoCD. Its deploy config lives in the **`sre-services`** repo under `mcp/` (`build/Dockerfile`, `deploy/base/*.yaml`, `deploy/argocd-app.yaml`), not here. This repo only produces the npm package the container installs.
+
+That last point is the one that trips people up: the container builds from the published npm package (`npm install -g @one-source/mcp@<MCP_VERSION>` in `sre-services/mcp/build/Dockerfile`), so the hosted server and the `npx` package are the same artifact. **Every change — including HTTP-only changes — needs an npm publish to reach production.** Merging to `develop` here deploys nothing on its own; ArgoCD watches `sre-services`, not this repo.
+
+To ship a release to production:
+
+1. Merge code changes to `develop` (this repo).
+2. Log in to npm (`npm login`), then from `sre-services` run `node scripts/release-mcp.mjs <version>` (add `--dry-run` to preview). This publishes both packages to npm and the MCP Registry — see [MCP Registry publishing](#mcp-registry-publishing) for detail.
+3. In `sre-services/mcp/build/Dockerfile`, bump **both** `MCP_VERSION` and `API_MCP_VERSION` to the new version, then commit. This is the deploy trigger.
+4. That commit touches `mcp/build/**`, firing the `build-mcp.yaml` workflow. It builds the image, pushes it to ECR, and auto-commits the new image SHA into `mcp/deploy/base/deployment.yaml`.
+5. Confirm the auto-pin landed in `deployment.yaml`. Pin it by hand only if the workflow's pin step exhausted its retries.
+6. ArgoCD auto-syncs and rolls out. Verify with `curl https://mcp.onesource.io/health` — it should report the new version.
+
+`release-mcp.mjs` covers npm and the MCP Registry only; it does not touch the Dockerfile or the k8s manifests. The `MCP_VERSION` / `API_MCP_VERSION` bump in step 3 is a separate manual step, and it is what actually moves a published version onto the cluster.
