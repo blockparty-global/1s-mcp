@@ -1,0 +1,9 @@
+# This file exists on purpose. Without an .npmignore, npm falls back to
+# .gitignore, which ignores web/out/ (the built Next.js OAuth connect frontend).
+# That stripped web/out/ out of the published tarball even though package.json's
+# "files" array lists it — so the hosted HTTP server shipped without the connect
+# page and /oauth/connect returned 503.
+#
+# What actually gets published is controlled by the "files" whitelist in
+# package.json (dist/, web/out/, README.md, skills/, LICENSE). This .npmignore is
+# intentionally minimal so it does not re-exclude web/out/.
