@@ -41,6 +41,14 @@ function buildBatchGuidance(
   prompt: 'ask' | 'auto' | 'off',
   threshold: number,
 ): string {
+  // API key auth: no payment rail is active. Be explicit rather than silent so
+  // this instruction actively overrides any stale agent memory that says
+  // "switch to batch at N calls" — silence lets the memory win.
+  if (authMethod === 'api_key') {
+    return 'Payment rails are not active. Do not call 1s_payment_mode or 1s_batch_config — calls are covered by your API key.';
+  }
+  if (authMethod === 'none') return '';
+
   // MPP rail: the cheaper-for-a-burst mode is a Tempo voucher channel.
   if (authMethod === 'mpp') {
     if (prompt === 'off') {
