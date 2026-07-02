@@ -67,6 +67,10 @@ On startup, `cli.ts` checks the npm registry for the latest version (3s timeout,
 | `ONESOURCE_ANALYTICS` | Analytics backend: `noop`, `stderr`, or `dashboard` |
 | `PORT` | HTTP server port (default 3000) |
 | `BUG_REPORT_ENDPOINT` | Override bug report POST URL |
+| `VALKEY_URL` | HTTP mode only. When set, OAuth flow state (authState, pendingCode, CSRF cookies, rate limits) lives in a shared Valkey store instead of per-process memory, so the server runs correctly on ≥2 replicas. Unset → in-memory (single-process). On startup the server connects + PINGs; if it fails, it refuses to start (fail loud, redacted error). |
+| `VALKEY_PASSWORD` | Password for an authenticated Valkey instance (paired with `VALKEY_URL`). |
+
+**Multi-replica note:** the hosted server may run on ≥2 replicas only when the image is ≥5.9.0 **and** `VALKEY_URL` points at a live Valkey — any pod can then serve any step of the OAuth flow. Without `VALKEY_URL` the server must stay single-replica (per-process state does not cross pods). See the "OAuth Multi-Replica" phase in `testing.md` for the cross-pod verification procedure.
 
 ## MCP Registry publishing
 

@@ -150,6 +150,7 @@ if (args.includes('--http')) {
   const { createClientFromEnv } = await import('@one-source/api-mcp/client');
   const { handleOAuthMetadata, handleAuthorize, handleToken, resolveBearer } = await import('./oauth.js');
   const { handleConnectInit, handleConnectSubmit } = await import('./connect-page.js');
+  const { InMemoryStore, ValkeyStore, redactRedisUrl, checkRateLimitInMap } = await import('./session-store.js');
   const { readFileSync } = await import('node:fs');
   const { join, resolve: resolvePath, extname } = await import('node:path');
   const { createHash } = await import('node:crypto');
@@ -277,6 +278,30 @@ if (args.includes('--http')) {
     console.error('[onesource] WARNING: web/out/oauth/connect.html not found — run npm run build:web');
   }
 
+  // ── Session store ──────────────────────────────────────────────────────────
+  // OAuth flow state (authState, pendingCode, stateCookies, rate limits) lives in
+  // a shared store so ≥2 replicas can each serve any step of the flow. Selected
+  // by VALKEY_URL: set → ValkeyStore (Valkey-backed, cross-pod); unset → the
+  // original per-process InMemoryStore (stdio/npx/local dev behave exactly as before).
+  const valkeyUrl = process.env.VALKEY_URL?.trim();
+  let store: import('./session-store.js').SessionStore;
+  if (valkeyUrl) {
+    try {
+      // connect() awaits connect + PING; throws with a REDACTED message on failure.
+      store = await ValkeyStore.connect(valkeyUrl, process.env.VALKEY_PASSWORD || undefined);
+      console.error(`[onesource] session store: Valkey (${redactRedisUrl(valkeyUrl)})`);
+    } catch (err) {
+      // FAIL STARTUP loudly — never fall back to in-memory in Valkey mode
+      // (that would reintroduce cross-pod split-brain). The message is already
+      // redacted by ValkeyStore.connect; never print the raw URL/password.
+      console.error(`[onesource] FATAL: could not connect to Valkey — refusing to start. ${err instanceof Error ? err.message : String(err)}`);
+      process.exit(1);
+    }
+  } else {
+    store = new InMemoryStore();
+    console.error('[onesource] session store: in-memory (single-process; set VALKEY_URL for multi-replica HA)');
+  }
+
   // Per-IP rate limiter for unauthenticated OAuth endpoints.
   // TRUSTED_PROXY=true: use rightmost X-Forwarded-For (appended by ALB/Railway).
   // Without it: use socket IP directly to prevent XFF spoofing.
@@ -284,6 +309,12 @@ if (args.includes('--http')) {
   const submitRateLimitMap = new Map<string, { count: number; resetAt: number }>();
   const RATE_LIMIT_WINDOW_MS = 60_000;
   const RATE_LIMIT_MAX_REQ = 20;
+  // Ceiling used ONLY in the degraded fallback (Valkey INCR failed). The
+  // per-process map is not shared, so across N replicas the effective aggregate
+  // is FALLBACK_MAX_REQ×N. We pick 5 (vs the normal 20) so a multi-replica
+  // aggregate during an outage stays conservative — e.g. 4 replicas → 20 total,
+  // matching the intended shared limit rather than 80. Applied to both buckets.
+  const FALLBACK_MAX_REQ = 5;
   const RATE_LIMIT_MAX_IPS = 10_000;
   const TRUSTED_PROXY = process.env.TRUSTED_PROXY === 'true';
 
@@ -313,25 +344,43 @@ if (args.includes('--http')) {
     return req.socket.remoteAddress ?? 'unknown';
   }
 
-  function checkRateLimit(ip: string, map: Map<string, { count: number; resetAt: number }>): boolean {
+
+  // Log a "rate limiter degraded" message at most once per window so the open-ish
+  // window is observable (per plan §5.3) without flooding logs.
+  let rateLimiterDegradedLoggedAt = 0;
+  function logRateLimiterDegraded(reason: string): void {
     const now = Date.now();
-    const entry = map.get(ip);
-    if (!entry) {
-      if (map.size >= RATE_LIMIT_MAX_IPS) {
-        for (const [k, v] of map) if (v.resetAt < now) map.delete(k);
-        if (map.size >= RATE_LIMIT_MAX_IPS) return false;
-      }
-      map.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
-      return true;
+    if (now - rateLimiterDegradedLoggedAt >= RATE_LIMIT_WINDOW_MS) {
+      rateLimiterDegradedLoggedAt = now;
+      console.error(`[onesource] WARNING: rate limiter degraded — store unavailable, falling back to per-process limiting (${reason})`);
     }
-    if (entry.resetAt < now) {
-      entry.count = 1;
-      entry.resetAt = now + RATE_LIMIT_WINDOW_MS;
-      return true;
+  }
+
+  /**
+   * Global rate limiting via the store (INCR). On a store error, fall back to the
+   * per-process limiter (degraded mode) rather than going fully unlimited — this
+   * bounds abuse of connect-submit, the one unauthenticated endpoint that makes an
+   * outbound validateApiKey() call. `bucket` namespaces the two rate-limit domains.
+   * Returns true if the request is allowed.
+   */
+  async function checkRateLimitStore(
+    ip: string,
+    bucket: 'auth' | 'submit',
+    fallbackMap: Map<string, { count: number; resetAt: number }>,
+  ): Promise<boolean> {
+    try {
+      const { count } = await store.incrRate(`${bucket}:${ip}`, RATE_LIMIT_WINDOW_MS);
+      return count <= RATE_LIMIT_MAX_REQ;
+    } catch (err) {
+      logRateLimiterDegraded(err instanceof Error ? err.message : String(err));
+      // Degraded: per-process map is not shared across replicas, so use the
+      // lower FALLBACK_MAX_REQ ceiling to keep the N-replica aggregate tight.
+      return checkRateLimitInMap(ip, fallbackMap, {
+        maxReq: FALLBACK_MAX_REQ,
+        windowMs: RATE_LIMIT_WINDOW_MS,
+        maxIps: RATE_LIMIT_MAX_IPS,
+      });
     }
-    if (entry.count >= RATE_LIMIT_MAX_REQ) return false;
-    entry.count++;
-    return true;
   }
 
   const httpServer = createServer(async (req, res) => {
@@ -339,12 +388,12 @@ if (args.includes('--http')) {
 
     // POST /oauth/token — no CORS headers (server-to-server endpoint; RFC 6749 §4.1.3)
     if (req.method === 'POST' && path === '/oauth/token') {
-      if (!checkRateLimit(getClientIp(req), submitRateLimitMap)) {
+      if (!(await checkRateLimitStore(getClientIp(req), 'submit', submitRateLimitMap))) {
         res.writeHead(429, { 'Retry-After': '60', 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
         res.end(JSON.stringify({ error: 'invalid_request', error_description: 'too many requests' }));
         return;
       }
-      try { await handleToken(req, res); } catch {
+      try { await handleToken(store, req, res); } catch {
         if (!res.headersSent) {
           res.writeHead(500, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
           res.end(JSON.stringify({ error: 'server_error' }));
@@ -396,12 +445,19 @@ if (args.includes('--http')) {
 
     // OAuth authorization — rate-limited (unauthenticated, writes to authState Map)
     if (req.method === 'GET' && path === '/oauth/authorize') {
-      if (!checkRateLimit(getClientIp(req), authRateLimitMap)) {
+      if (!(await checkRateLimitStore(getClientIp(req), 'auth', authRateLimitMap))) {
         res.writeHead(429, { 'Retry-After': '60', 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ jsonrpc: '2.0', error: { code: -32000, message: 'Too many requests' }, id: null }));
         return;
       }
-      handleAuthorize(req, res); return;
+      // Store-write failure (auth-critical) → fail closed with 503.
+      try { await handleAuthorize(store, req, res); } catch {
+        if (!res.headersSent) {
+          res.writeHead(503, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+          res.end(JSON.stringify({ error: 'temporarily_unavailable' }));
+        }
+      }
+      return;
     }
 
     // GET /oauth/connect — serve the Next.js login page (static export)
@@ -457,25 +513,36 @@ if (args.includes('--http')) {
 
     // GET /api/oauth/connect-init — issue CSRF cookie; rate-limited
     if (req.method === 'GET' && path === '/api/oauth/connect-init') {
-      if (!checkRateLimit(getClientIp(req), submitRateLimitMap)) {
+      if (!(await checkRateLimitStore(getClientIp(req), 'submit', submitRateLimitMap))) {
         res.writeHead(429, { 'Retry-After': '60', 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
         res.end(JSON.stringify({ error: 'too_many_requests' }));
         return;
       }
-      handleConnectInit(req, res); return;
+      // Store-write failure (auth-critical) → fail closed with 503.
+      try { await handleConnectInit(store, req, res); } catch {
+        if (!res.headersSent) {
+          res.writeHead(503, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+          res.end(JSON.stringify({ error: 'server_error' }));
+        }
+      }
+      return;
     }
 
     // POST /api/oauth/connect-submit — validate key, issue auth code; rate-limited
     if (req.method === 'POST' && path === '/api/oauth/connect-submit') {
-      if (!checkRateLimit(getClientIp(req), submitRateLimitMap)) {
+      if (!(await checkRateLimitStore(getClientIp(req), 'submit', submitRateLimitMap))) {
         res.writeHead(429, { 'Retry-After': '60', 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
         res.end(JSON.stringify({ error: 'too_many_requests' }));
         return;
       }
-      try { await handleConnectSubmit(req, res); } catch {
+      // A store error thrown out of the handler (getStateCookie, or a
+      // non-CapacityError out of issueCode) is transient → 503 retryable,
+      // matching the sibling /authorize and connect-init routes. Genuine client
+      // errors are already answered inside the handler as 4xx and never throw.
+      try { await handleConnectSubmit(store, req, res); } catch {
         if (!res.headersSent) {
-          res.writeHead(500, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
-          res.end(JSON.stringify({ error: 'server_error' }));
+          res.writeHead(503, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+          res.end(JSON.stringify({ error: 'temporarily_unavailable' }));
         }
       }
       return;
