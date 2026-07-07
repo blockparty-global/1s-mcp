@@ -8,13 +8,13 @@ import {
 } from 'node:crypto';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { readBody } from './http-utils.js';
+import { CapacityError, type SessionStore } from './session-store.js';
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
 const ALLOWED_REDIRECT_HOSTS = ['claude.ai', 'www.claude.ai'];
 const JWT_TTL_SECONDS = 30 * 86400; // 30 days
 const STATE_TTL_MS = 120_000;       // 120 s — consent window (headroom for validateApiKey)
-const MAX_PENDING = 1000;           // hard cap on in-flight sessions; excess → 503
 
 const OAUTH_METADATA = JSON.stringify({
   issuer: 'https://mcp.onesource.io',
@@ -49,43 +49,9 @@ export function isOAuthConfigured(): boolean {
   return jwtSignKey !== null && aesKey !== null;
 }
 
-/** Returns true if `state` is in the authState map and has not expired. Non-consuming check. */
-export function hasAuthState(state: string): boolean {
-  const entry = authState.get(state);
-  if (!entry) return false;
-  if (entry.expiresAt < Date.now()) {
-    authState.delete(state);
-    return false;
-  }
-  return true;
-}
-
-// ── In-memory state ──────────────────────────────────────────────────────────
-
-interface AuthStateEntry {
-  codeChallenge: string;
-  redirectUri: string;
-  clientId: string;
-  clientState?: string;
-  expiresAt: number;
-}
-
-interface PendingCodeEntry {
-  encryptedApiKey: string;
-  codeChallenge: string;
-  redirectUri: string;
-  clientId: string;
-  expiresAt: number;
-}
-
-const authState = new Map<string, AuthStateEntry>();
-const pendingCode = new Map<string, PendingCodeEntry>();
-
-function sweepMap<V extends { expiresAt: number }>(map: Map<string, V>): void {
-  const now = Date.now();
-  for (const [key, val] of map) {
-    if (val.expiresAt < now) map.delete(key);
-  }
+/** Returns true if `state` is in the store and has not expired. Non-consuming check. */
+export async function hasAuthState(store: SessionStore, state: string): Promise<boolean> {
+  return (await store.getAuthState(state)) !== null;
 }
 
 // ── AES-256-GCM helpers ──────────────────────────────────────────────────────
@@ -167,7 +133,7 @@ export function handleOAuthMetadata(_req: IncomingMessage, res: ServerResponse):
 }
 
 /** Validates PKCE params, stores state, redirects to /login. */
-export function handleAuthorize(req: IncomingMessage, res: ServerResponse): void {
+export async function handleAuthorize(store: SessionStore, req: IncomingMessage, res: ServerResponse): Promise<void> {
   if (!jwtSignKey) { serverError(res); return; }
 
   const params = new URL(req.url ?? '/', 'https://x').searchParams;
@@ -216,24 +182,28 @@ export function handleAuthorize(req: IncomingMessage, res: ServerResponse): void
   }
 
   const internalState = randomBytes(16).toString('base64url');
-  sweepMap(authState);
-  if (authState.size >= MAX_PENDING) {
-    oauthError(res, 503, 'temporarily_unavailable', 'too many pending sessions'); return;
+  try {
+    await store.setAuthState(internalState, {
+      codeChallenge,
+      redirectUri,
+      clientId,
+      clientState: clientState ?? undefined,
+      expiresAt: Date.now() + STATE_TTL_MS,
+    }, STATE_TTL_MS);
+  } catch (err) {
+    // InMemoryStore capacity overflow → the original 503; a store error also 503s (fail closed).
+    if (err instanceof CapacityError) {
+      oauthError(res, 503, 'temporarily_unavailable', 'too many pending sessions'); return;
+    }
+    throw err; // Valkey/store error — the route wrapper turns this into a 503.
   }
-  authState.set(internalState, {
-    codeChallenge,
-    redirectUri,
-    clientId,
-    clientState: clientState ?? undefined,
-    expiresAt: Date.now() + STATE_TTL_MS,
-  });
 
   res.writeHead(302, { Location: `/oauth/connect?state=${encodeURIComponent(internalState)}`, 'Cache-Control': 'no-store' });
   res.end();
 }
 
 /** PKCE token exchange — issues a signed JWT containing the encrypted API key. */
-export async function handleToken(req: IncomingMessage, res: ServerResponse): Promise<void> {
+export async function handleToken(store: SessionStore, req: IncomingMessage, res: ServerResponse): Promise<void> {
   if (!jwtSignKey) { serverError(res); return; }
 
   let params: URLSearchParams;
@@ -271,14 +241,13 @@ export async function handleToken(req: IncomingMessage, res: ServerResponse): Pr
     oauthError(res, 400, 'invalid_request', 'code_verifier does not meet RFC 7636 requirements'); return;
   }
 
-  const entry = pendingCode.get(code);
-  if (!entry || entry.expiresAt < Date.now()) {
-    pendingCode.delete(code);
+  // Single-use consume via GETDEL — one atomic op; returns the entry once, then
+  // null. An expired entry returns null too (native PX in Valkey; expiry check
+  // in InMemoryStore). A store error here bubbles to the route wrapper (503).
+  const entry = await store.takePendingCode(code);
+  if (!entry) {
     oauthError(res, 400, 'invalid_grant'); return;
   }
-
-  // Single-use: consume on first presentation regardless of validation outcome
-  pendingCode.delete(code);
 
   // PKCE verification — timingSafeEqual requires equal-length buffers
   const expectedChallenge = createHash('sha256')
@@ -328,32 +297,35 @@ export async function handleToken(req: IncomingMessage, res: ServerResponse): Pr
  * the redirect URI so the login handler can build the redirect URL.
  * Returns null if the state is unknown or expired.
  */
-export function issueCode(
+export async function issueCode(
+  store: SessionStore,
   state: string,
   apiKey: string,
-): { code: string; redirectUri: string; clientState?: string } | null {
+): Promise<{ code: string; redirectUri: string; clientState?: string } | null> {
   if (!aesKey) return null;
 
-  const entry = authState.get(state);
-  if (!entry || entry.expiresAt < Date.now()) {
-    authState.delete(state);
-    return null;
-  }
-
-  authState.delete(state); // single-use
+  // CRITICAL: consume authState with a SINGLE takeAuthState (GETDEL) and derive
+  // everything from that one return value. Never getAuthState-then-takeAuthState —
+  // that reintroduces a TOCTOU where two concurrent callers both read before
+  // either deletes. This one op is the cross-pod single-use guarantee.
+  const entry = await store.takeAuthState(state);
+  if (!entry) return null; // unknown / expired / already consumed
 
   const encryptedApiKey = encryptApiKey(apiKey);
   const code = randomBytes(32).toString('base64url');
 
-  sweepMap(pendingCode);
-  if (pendingCode.size >= MAX_PENDING) return null;
-  pendingCode.set(code, {
+  // A capacity overflow (InMemoryStore) or store error propagates to the caller.
+  // Because takeAuthState already consumed authState above, the caller can no
+  // longer re-check hasAuthState to distinguish expiry from capacity — so
+  // issueCode itself throws CapacityError for the "user can retry" 503 path and
+  // returns null only for the genuine unknown/expired/consumed case.
+  await store.setPendingCode(code, {
     encryptedApiKey,
     codeChallenge: entry.codeChallenge,
     redirectUri: entry.redirectUri,
     clientId: entry.clientId,
     expiresAt: Date.now() + STATE_TTL_MS,
-  });
+  }, STATE_TTL_MS);
 
   return { code, redirectUri: entry.redirectUri, clientState: entry.clientState };
 }

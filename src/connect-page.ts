@@ -1,12 +1,12 @@
-import { randomBytes, timingSafeEqual } from 'node:crypto';
+import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { issueCode, isOAuthConfigured, hasAuthState } from './oauth.js';
 import { readBody } from './http-utils.js';
+import { CapacityError, type SessionStore } from './session-store.js';
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
 const COOKIE_TTL_MS = 60_000;
-const MAX_STATE_COOKIES = 1000;
 
 // Must exceed the time for a slow validateApiKey call so format failures and
 // API rejections produce indistinguishable response times.
@@ -20,16 +20,17 @@ const JSON_HEADERS = {
   'Cache-Control': 'no-store',
 } as const;
 
-// ── Browser-binding cookie Map ───────────────────────────────────────────────
-
-const stateCookies = new Map<string, { token: Buffer; expiresAt: number }>();
-
-setInterval(() => {
-  const now = Date.now();
-  for (const [k, v] of stateCookies) if (v.expiresAt < now) stateCookies.delete(k);
-}, COOKIE_TTL_MS).unref();
-
 // ── Helpers ──────────────────────────────────────────────────────────────────
+
+/**
+ * Hashes a raw CSRF cookie token to the value stored in the session store.
+ * We persist only SHA256(token) — never the forgeable raw token — so a store
+ * read reveals a hash, not the live secret. Verification hashes the incoming
+ * cookie and timingSafeEqual-compares against the stored hash.
+ */
+function hashCookieToken(token: Buffer): string {
+  return createHash('sha256').update(token).digest('hex');
+}
 
 function jsonError(res: ServerResponse, status: number, error: string): void {
   res.writeHead(status, JSON_HEADERS);
@@ -59,7 +60,7 @@ async function validateApiKey(candidate: string): Promise<'valid' | 'invalid' | 
  * Verifies the state exists in the auth session, issues a browser-binding CSRF cookie,
  * and returns { ok: true }. The cookie must be present on the subsequent connect-submit call.
  */
-export function handleConnectInit(req: IncomingMessage, res: ServerResponse): void {
+export async function handleConnectInit(store: SessionStore, req: IncomingMessage, res: ServerResponse): Promise<void> {
   if (!isOAuthConfigured()) {
     jsonError(res, 503, 'server_error'); return;
   }
@@ -71,30 +72,29 @@ export function handleConnectInit(req: IncomingMessage, res: ServerResponse): vo
     jsonError(res, 400, 'invalid_state'); return;
   }
 
-  if (!hasAuthState(state)) {
+  if (!(await hasAuthState(store, state))) {
     jsonError(res, 400, 'invalid_state'); return;
   }
 
-  // SEC-02: if a valid entry already exists for this state, don't overwrite it.
-  // A second call (attacker) cannot replace the victim's cookie token.
-  const existing = stateCookies.get(state);
-  if (existing && existing.expiresAt > Date.now()) {
+  // SEC-02: if a valid entry already exists for this state, don't overwrite it
+  // (non-consuming peek). A second call (attacker) cannot replace the victim's
+  // cookie token.
+  const existing = await store.getStateCookie(state);
+  if (existing !== null) {
     res.writeHead(200, JSON_HEADERS);
     res.end(JSON.stringify({ ok: true }));
     return;
   }
 
-  if (stateCookies.size >= MAX_STATE_COOKIES && !stateCookies.has(state)) {
-    // ADV-01: sweep expired entries before giving up — may free space.
-    const now = Date.now();
-    for (const [k, v] of stateCookies) if (v.expiresAt < now) stateCookies.delete(k);
-    if (stateCookies.size >= MAX_STATE_COOKIES && !stateCookies.has(state)) {
-      jsonError(res, 503, 'server_busy'); return;
-    }
-  }
-
   const cookieToken = randomBytes(16);
-  stateCookies.set(state, { token: cookieToken, expiresAt: Date.now() + COOKIE_TTL_MS });
+  try {
+    // Store only SHA256(token) — never the raw forgeable value.
+    await store.setStateCookie(state, hashCookieToken(cookieToken), COOKIE_TTL_MS);
+  } catch (err) {
+    // InMemoryStore capacity overflow → the original 503; a store error also 503s.
+    if (err instanceof CapacityError) { jsonError(res, 503, 'server_busy'); return; }
+    throw err; // Valkey/store error — route wrapper turns this into a 503.
+  }
 
   // Production (TRUSTED_PROXY=true, behind ALB): always Secure.
   // Local dev (plain HTTP): read XFP with correct string parsing (not Array.isArray).
@@ -123,7 +123,7 @@ export function handleConnectInit(req: IncomingMessage, res: ServerResponse): vo
  * C-01 fix: the cookie entry is only deleted after issueCode() succeeds.
  * On key validation failure the cookie stays alive so the user can retry.
  */
-export async function handleConnectSubmit(req: IncomingMessage, res: ServerResponse): Promise<void> {
+export async function handleConnectSubmit(store: SessionStore, req: IncomingMessage, res: ServerResponse): Promise<void> {
   if (!isOAuthConfigured()) {
     jsonError(res, 503, 'server_error'); return;
   }
@@ -156,14 +156,19 @@ export async function handleConnectSubmit(req: IncomingMessage, res: ServerRespo
   }
 
   // Cookie binding — prevents CSRF; the cookie was issued by handleConnectInit.
+  // Non-consuming peek (C-01: only consume after issueCode succeeds). We store
+  // SHA256(token), so verify by hashing the incoming cookie and comparing.
   const cookieHeader = req.headers['cookie'] ?? '';
   const cookieMatch = /(?:^|;\s*)connect_state=([0-9a-f]{32})(?=\s*(?:;|$))/.exec(cookieHeader);
   const browserToken = cookieMatch ? Buffer.from(cookieMatch[1]!, 'hex') : null;
-  const storedEntry = stateCookies.get(state);
-  const cookieValid = browserToken !== null
-    && storedEntry !== undefined
-    && storedEntry.expiresAt > Date.now()
-    && timingSafeEqual(browserToken, storedEntry.token);
+  const storedHash = await store.getStateCookie(state);
+  let cookieValid = false;
+  if (browserToken !== null && storedHash !== null) {
+    const incomingHash = Buffer.from(hashCookieToken(browserToken), 'hex');
+    const storedHashBuf = Buffer.from(storedHash, 'hex');
+    cookieValid = incomingHash.length === storedHashBuf.length
+      && timingSafeEqual(incomingHash, storedHashBuf);
+  }
 
   if (!cookieValid) {
     jsonError(res, 400, 'session_expired'); return;
@@ -195,21 +200,37 @@ export async function handleConnectSubmit(req: IncomingMessage, res: ServerRespo
     jsonError(res, 401, 'invalid_key'); return;
   }
 
-  // Issue auth code — consumes the authState entry atomically.
-  // issueCode deletes the authState entry on expiry, so checking hasAuthState
-  // after a null return correctly distinguishes expiry (false) from capacity (true).
-  const result = issueCode(state, apiKey);
-  if (!result) {
-    if (!hasAuthState(state)) {
-      stateCookies.delete(state);
-      jsonError(res, 400, 'session_expired'); return;
-    }
-    // authState still present — pendingCode at capacity; user can retry.
-    jsonError(res, 503, 'server_busy'); return;
+  // Best-effort cookie cleanup for terminal failures AFTER issueCode may have
+  // consumed authState. Keeps C-01 all-or-nothing: once authState is gone the
+  // state cookie must not linger to its 60s TTL. Never let cleanup throw over
+  // the original error/response.
+  const stateStr = state;
+  async function bestEffortDropCookie(): Promise<void> {
+    try { await store.takeStateCookie(stateStr); } catch { /* ignore — cleanup only */ }
   }
 
-  // C-01 fix: delete cookie only after issueCode succeeds.
-  stateCookies.delete(state);
+  // Issue auth code — consumes the authState entry with a single GETDEL.
+  // issueCode returns null only for the genuine unknown/expired/consumed case,
+  // and throws CapacityError for the "pendingCode at capacity, user can retry"
+  // 503 path — because it has already consumed authState, the caller can no
+  // longer re-peek hasAuthState to distinguish the two.
+  let result: Awaited<ReturnType<typeof issueCode>>;
+  try {
+    result = await issueCode(store, state, apiKey);
+  } catch (err) {
+    // authState may already be consumed → drop the now-orphaned cookie.
+    await bestEffortDropCookie();
+    if (err instanceof CapacityError) { jsonError(res, 503, 'server_busy'); return; }
+    throw err; // store error — route wrapper 503s.
+  }
+  if (!result) {
+    // Unknown / expired / already-consumed authState — session is gone.
+    await bestEffortDropCookie();
+    jsonError(res, 400, 'session_expired'); return;
+  }
+
+  // C-01: consume the cookie only after issueCode succeeds.
+  await store.takeStateCookie(state);
 
   let location: URL;
   try {

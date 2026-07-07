@@ -770,6 +770,70 @@ Connect an MCP client to `http://localhost:3000/` and run `1s_setup_check` to ve
 
 ---
 
+## Phase 8a — OAuth Multi-Replica (shared session store)
+
+Verifies the hosted OAuth flow works across ≥2 replicas via a shared Valkey session store. Without `VALKEY_URL`, the server uses the per-process in-memory store (single-replica behavior, unchanged) — this phase only applies when testing the Valkey path.
+
+**Prerequisites:**
+- Docker (for a local Valkey)
+- `ONESOURCE_JWT_SECRET` set (same value for every instance — this is what makes JWTs/encrypted payloads cross-pod)
+- A valid OneSource API key to complete the connect step
+
+**Setup — one Valkey, two server instances:**
+```bash
+# 1. Start a local Valkey
+docker run -d --name mcp-valkey -p 6379:6379 valkey/valkey:8-alpine
+
+# 2. Start instance A (pod A) on :3000
+VALKEY_URL=redis://localhost:6379 ONESOURCE_JWT_SECRET=<hex> \
+  npx -y @one-source/mcp@latest --http --port=3000
+
+# 3. Start instance B (pod B) on :3001, same Valkey + same secret
+VALKEY_URL=redis://localhost:6379 ONESOURCE_JWT_SECRET=<hex> \
+  npx -y @one-source/mcp@latest --http --port=3001
+```
+On startup each instance must log `session store: Valkey (...)` (password redacted). If Valkey is unreachable, the instance must log `FATAL: could not connect to Valkey — refusing to start` and exit — it must NOT fall back to in-memory.
+
+**Test 1 — authState + stateCookies cross pods (drive `/authorize` + connect-init on A, connect-submit on B):**
+```bash
+# Use one shared cookie jar across both ports.
+JAR=$(mktemp)
+# authorize on A → follow to /oauth/connect?state=<S>; capture <S>
+curl -sD - -c "$JAR" "http://localhost:3000/oauth/authorize?response_type=code&client_id=c&redirect_uri=https://claude.ai/cb&code_challenge=$(head -c32 /dev/urandom | basenc --base64url | tr -d '=' | head -c43)&code_challenge_method=S256"
+# connect-init on A (issues the CSRF cookie into the jar)
+curl -s -c "$JAR" -b "$JAR" "http://localhost:3000/api/oauth/connect-init?state=<S>"
+# connect-submit on B — proves authState + the CSRF cookie hash are visible on pod B
+curl -s -b "$JAR" -X POST "http://localhost:3001/api/oauth/connect-submit" \
+  -H 'Content-Type: application/json' -d '{"state":"<S>","apiKey":"<valid-key>"}'
+# → expect {"location":"https://claude.ai/cb?code=<CODE>&state=..."}
+```
+
+**Test 2 — pendingCode crosses pods (drive connect-submit on A, `/token` on B):**
+```bash
+# Repeat authorize + connect-init + connect-submit on A to mint <CODE> with a known <VERIFIER>.
+# Then exchange the code on B:
+curl -s -X POST "http://localhost:3001/oauth/token" \
+  -H 'Content-Type: application/json' \
+  -d '{"grant_type":"authorization_code","code":"<CODE>","code_verifier":"<VERIFIER>","redirect_uri":"https://claude.ai/cb"}'
+# → expect {"access_token":"eyJ...","token_type":"Bearer","expires_in":...}
+```
+> **Caveat:** curl reuses the `Path=/api/oauth` cookie across ports where a browser would not across origins. This validates the *store* (cross-pod state), not browser origin behavior.
+
+**Test 3 — store-down (fail closed + degraded rate limiting):**
+```bash
+docker stop mcp-valkey   # kill Valkey mid-session
+```
+- `/oauth/authorize`, connect-init, connect-submit, and `/token` must return **503 / invalid_grant** (fail closed) — never a silent in-memory fallback.
+- The rate limiter must degrade to per-process (not go unlimited) and log `rate limiter degraded` once per window.
+
+**Test 4 — single-use / replay across pods:** re-submit the same `<CODE>` on the other pod → second attempt must return `invalid_grant` (GETDEL consumed it on first use).
+
+**Test 5 — TTL expiry:** wait >120s, then exchange the code → `invalid_grant` (native `PX` expiry).
+
+Cleanup: `docker rm -f mcp-valkey`.
+
+---
+
 ## Phase 9 — x402 End-to-End (Real Payments)
 
 Verifies that x402 payments are actually being processed — USDC is spent from the wallet, not just that tools return data. Run this with a dedicated test wallet funded with a small amount of USDC on Base. Do not use a primary wallet.
