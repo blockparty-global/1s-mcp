@@ -40,9 +40,9 @@ npx -y @one-source/mcp@latest --http
 npx -y @one-source/mcp@latest --http --port=8080
 ```
 
-Then connect your MCP client to `http://localhost:8080/`.
+Then connect your MCP client to `http://localhost:3000/` (or your `--port` value, e.g. `8080` in the second example above).
 
-Health check: `GET http://localhost:8080/health`
+Health check: `GET http://localhost:3000/health` (substitute your port).
 
 ## Tools (30)
 
@@ -138,7 +138,7 @@ Blockchain API tools require authentication. Three options are available — if 
 1. Go to [app.onesource.io](https://app.onesource.io) and create an account.
 2. Subscribe to a developer plan (Stripe checkout).
 3. Navigate to **API Keys** and generate a key.
-4. Copy the key — it starts with `sk`_.
+4. Copy the key — it starts with `sk_`.
 
 #### Claude Code
 
@@ -461,7 +461,7 @@ Every time you release a new npm version, update the MCP Registry:
 
 ### Glama
 
-Glama auto-syncs from the GitHub repo daily. No manual steps needed after a release — just make sure changes are pushed to `main`. The `glama.json` file in the repo root controls ownership. Manual re-sync is available from the [Glama admin panel](https://glama.ai/mcp/servers) after claiming the server.
+Glama auto-syncs from the GitHub repo daily. No manual steps needed after a release — just make sure changes are pushed to `develop` (the default branch). The `glama.json` file in the repo root controls ownership. Manual re-sync is available from the [Glama admin panel](https://glama.ai/mcp/servers) after claiming the server.
 
 ## Privacy Policy
 
