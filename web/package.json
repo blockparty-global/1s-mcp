@@ -5,7 +5,7 @@
   "scripts": {
     "generate-design-tokens": "node --import tsx generate-design-tokens/index.ts",
     "dev": "npm run generate-design-tokens && next dev",
-    "prebuild": "rm -rf out",
+    "prebuild": "node -e \"require('fs').rmSync('out',{recursive:true,force:true})\"",
     "build": "npm run generate-design-tokens && next build",
     "start": "next start"
   },
