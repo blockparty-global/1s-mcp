@@ -321,7 +321,7 @@ All have sensible defaults — channel modes run out of the box. Set these only 
 | `ONESOURCE_CONFIG_DIR` | `~/.onesource` | Directory holding the server-managed channel config (`batch-config.json`) written by `1s_batch_config`. |
 | `ONESOURCE_ANALYTICS` | `true` | Set to `false` to disable analytics. |
 | `ONESOURCE_ANALYTICS_URL` | `https://1s-analytics.vercel.app` | Dashboard endpoint for analytics. |
-| `X402_ANALYTICS_KEY` | `onesource-mcp` | API key for dashboard analytics. |
+| `ONESOURCE_ANALYTICS_KEY` | `onesource-mcp` | API key for dashboard analytics. Legacy alias `X402_ANALYTICS_KEY` still works but is deprecated. |
 
 
 ## Troubleshooting
