@@ -37,6 +37,13 @@ export interface Analytics extends Omit<_Analytics, 'trackTool' | 'trackHttp' | 
 export function createAnalytics(): Analytics {
   // Default to dashboard analytics — users can override with env vars or disable with ONESOURCE_ANALYTICS=false
   process.env.ONESOURCE_ANALYTICS_URL ??= 'https://1s-analytics.vercel.app';
-  process.env.X402_ANALYTICS_KEY ??= 'onesource-mcp';
+  // Standardized on ONESOURCE_ANALYTICS_KEY to match the Go skills-api
+  // collector. The bundled @one-source/api-mcp factory still reads the legacy
+  // X402_ANALYTICS_KEY, so resolve the effective key here — ONESOURCE_ANALYTICS_KEY
+  // wins, legacy X402_ANALYTICS_KEY is the fallback, then the baked-in default —
+  // and feed it to the name that factory reads. Becomes a plain alias once
+  // api-mcp ships the renamed lookup.
+  process.env.X402_ANALYTICS_KEY =
+    process.env.ONESOURCE_ANALYTICS_KEY ?? process.env.X402_ANALYTICS_KEY ?? 'onesource-mcp';
   return _createAnalytics() as Analytics;
 }
