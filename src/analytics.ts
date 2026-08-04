@@ -15,6 +15,16 @@ import {
   type ServiceEvent as _ServiceEvent,
 } from '@one-source/api-mcp/analytics';
 
+// Re-exported through this wrapper so callers keep one import seam onto
+// api-mcp's analytics. `error_category` is a bounded union, not free text —
+// derive it from a thrown error's message with this rather than passing the
+// message through, which the dashboard cannot group on.
+export {
+  errorCategoryFromMessage,
+  errorCategoryFromStatus,
+  type ErrorCategory,
+} from '@one-source/api-mcp/analytics';
+
 /** ToolCallEvent with category and auth_method widened to include unified MCP additions. */
 export type ToolCallEvent = Omit<_ToolCallEvent, 'category' | 'auth_method'> & {
   category: _ToolCallEvent['category'] | 'docs' | 'ops';

@@ -39,6 +39,7 @@ import {
 // import { getMcpSetupGuideSchema, handleGetMcpSetupGuide } from '@one-source/docs-mcp/tools/get-mcp-setup-guide';
 
 import type { Analytics, ToolCallEvent } from './analytics.js';
+import { errorCategoryFromMessage } from './analytics.js';
 import { VERSION } from './version.js';
 
 function hashSession(sessionId: string | undefined): string | undefined {
@@ -114,7 +115,7 @@ function instrumentedTool(
         ...base,
         duration_ms: durationMs,
         success: false,
-        error_category: message.slice(0, 100).replace(/0x[a-fA-F0-9]+/g, '0x***'),
+        error_category: errorCategoryFromMessage(message),
         response_size: 0,
       });
 
