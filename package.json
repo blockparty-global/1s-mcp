@@ -1,7 +1,7 @@
 {
   "name": "@one-source/mcp",
   "mcpName": "io.onesource/mcp",
-  "version": "5.9.1",
+  "version": "5.9.2",
   "type": "module",
   "description": "Unified MCP server for OneSource — 30 tools for blockchain data, with x402 (USDC on Base) and MPP (Tempo) pay-per-call payment rails",
   "bin": {
