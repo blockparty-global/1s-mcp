@@ -113,10 +113,11 @@ No authentication required.
 All blockchain API tools accept an optional `network` parameter:
 
 
-| Network    | Description                |
-| ---------- | -------------------------- |
-| `ethereum` | Ethereum mainnet (default) |
-| `sepolia`  | Ethereum Sepolia testnet   |
+| Network     | Description                                                     |
+| ----------- | --------------------------------------------------------------- |
+| `ethereum`  | Ethereum mainnet (default)                                      |
+| `sepolia`   | Ethereum Sepolia testnet                                        |
+| `robinhood` | Robinhood Chain, chain 4663 (Arbitrum Orbit L2) — live-RPC only |
 
 
 ## Authentication
