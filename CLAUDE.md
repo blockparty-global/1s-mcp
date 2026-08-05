@@ -19,7 +19,13 @@ npm run build && npm run validate        # confirm build is clean
 
 The script updates `package.json`, `server.json` (both fields), `.claude-plugin/plugin.json`, and `.claude-plugin/marketplace.json`. Use `--dry-run` to preview without writing.
 
-There is no test suite — validation is done manually per `testing.md`.
+## Testing
+
+```bash
+npm test   # runs build:tsc then vitest — dist/cli.js must exist before the suite runs
+```
+
+The suite includes end-to-end HTTP transport tests (`src/http-transport.test.ts`) that spawn a real subprocess and POST to it; these require a successful `build:tsc`. Unit tests for `http-utils` run without a subprocess. `npm run validate` only checks tool registration in-process and never opens a socket — it is a separate CI job.
 
 ## Architecture
 
