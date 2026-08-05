@@ -19,7 +19,37 @@ npm run build && npm run validate        # confirm build is clean
 
 The script updates `package.json`, `server.json` (both fields), `.claude-plugin/plugin.json`, and `.claude-plugin/marketplace.json`. Use `--dry-run` to preview without writing.
 
-There is no test suite — validation is done manually per `testing.md`.
+## Tests
+
+```bash
+npm test            # build:tsc, then vitest run
+npm run test:watch  # vitest in watch mode
+npm run validate    # in-process tool-registration checks; never opens a socket
+```
+
+`.github/workflows/ci.yml` runs `validate` and `test` as two independent required
+checks on every PR to `develop`/`main`, in parallel rather than one behind the other.
+
+| Layer | Where | Covers |
+|---|---|---|
+| Unit | `src/auth-header.test.ts` | Bearer parsing: scheme case, whitespace, absent/non-Bearer/empty, repeated header |
+| Unit | `src/http-utils.test.ts` | The body reader: chunk reassembly, the byte cap on both sides, no partial resolve when the cap trips mid-stream, stream errors, stream left exhausted for later readers |
+| Unit | `src/session-store.test.ts` | Single-use consume (in-memory and Valkey `GETDEL`), concurrent double-submit yielding exactly one winner, CSRF cookie hashing, rate-limit windows and TTL preservation, capacity caps, fail-closed on corrupt entries, URL redaction |
+| Integration | `src/http-transport.test.ts` | Spawns the built `dist/cli.js` as a real subprocess and POSTs over a real socket: `initialize` handshake, `tools/list`, `-32700` on malformed JSON, and the 64KB cap on both sides plus a chunked body |
+| Registration | `scripts/validate-mcp.mjs` | `TOOL_META` coverage in both directions, SDK read-back of annotations, tool count, `server.json`, no deprecated `server.tool()` |
+
+The integration test exists because of todo 036: for five weeks the hosted server
+answered `-32700 Parse error` to every POST while `GET /health` stayed green. It
+drives a real subprocess instead of importing the handler because the bug lived in
+how the Node request stream was consumed, and only a real socket reproduces that.
+**Never treat `/health` as evidence that the transport works** — that applies to
+probes and manual checks as much as to tests.
+
+Still manual, per `testing.md`: install/uninstall cycles (Phase 7), auth edge cases
+(Phase 6), OAuth multi-replica (Phase 8a), and the x402 payment and refund phases
+(9–11, which spend real funds; Phase 11 is destructive). The suite boots in auth
+mode `none` with analytics off, so it proves the transport works — not that tools
+return correct data.
 
 ## Architecture
 
