@@ -35,3 +35,9 @@ jobs:
 
       - name: Validate MCP health
         run: npm run validate
+
+      # validate only inspects tool registration in-process — it never opens a
+      # socket. The suite is what exercises the HTTP transport end to end, which is
+      # how the 5.8.2 POST regression got five weeks of green CI.
+      - name: Test
+        run: npm test
