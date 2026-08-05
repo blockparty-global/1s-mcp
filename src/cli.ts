@@ -151,6 +151,7 @@ if (args.includes('--http')) {
   const { handleOAuthMetadata, handleAuthorize, handleToken, resolveBearer } = await import('./oauth.js');
   const { handleConnectInit, handleConnectSubmit } = await import('./connect-page.js');
   const { InMemoryStore, ValkeyStore, redactRedisUrl, checkRateLimitInMap } = await import('./session-store.js');
+  const { readBody, BodyTooLargeError } = await import('./http-utils.js');
   const { readFileSync } = await import('node:fs');
   const { join, resolve: resolvePath, extname } = await import('node:path');
   const { createHash } = await import('node:crypto');
@@ -618,25 +619,38 @@ if (args.includes('--http')) {
       return;
     }
 
-    // Hard cap that also covers chunked / missing-Content-Length requests, which
-    // parse to 0 above and would otherwise stream unbounded into the SDK's own
-    // reader. req is an EventEmitter, so this listener counts bytes alongside
-    // handleRequest's reader and tears down the request the moment it crosses 64KB.
-    let received = 0;
-    req.on('data', (chunk: Buffer) => {
-      received += chunk.length;
-      if (received > 65536) {
-        if (!res.headersSent) {
+    // Read the body ourselves so the cap also covers chunked / missing-Content-Length
+    // requests, which parse to 0 above and would otherwise stream unbounded into the
+    // SDK's own reader. This read CONSUMES the stream, so the parsed result must be
+    // handed to handleRequest below as its third `parsedBody` argument — the SDK can
+    // no longer read the body itself. Two readers is not an option: the first one wins
+    // and the other sees an exhausted stream.
+    let parsedBody: unknown;
+    try {
+      const raw = await readBody(req, 65536);
+      parsedBody = JSON.parse(raw);
+    } catch (err) {
+      if (!res.headersSent) {
+        if (err instanceof BodyTooLargeError) {
           res.writeHead(413, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({
             jsonrpc: '2.0',
             error: { code: -32000, message: 'Request body too large (max 64KB)' },
             id: null,
           }));
+        } else {
+          // Malformed JSON, or the client went away mid-body. Same wire shape the
+          // SDK would have produced for unparseable input.
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({
+            jsonrpc: '2.0',
+            error: { code: -32700, message: 'Parse error: Invalid JSON' },
+            id: null,
+          }));
         }
-        req.destroy();
       }
-    });
+      return;
+    }
 
     // Always create a fresh client per request — avoids concurrent mutation of a shared
     // client's onHttpEvent handler when multiple unauthenticated requests overlap.
@@ -668,7 +682,7 @@ if (args.includes('--http')) {
 
     try {
       await server.connect(httpTransport);
-      await httpTransport.handleRequest(req, res);
+      await httpTransport.handleRequest(req, res, parsedBody);
     } catch {
       if (!res.headersSent) {
         res.writeHead(500, { 'Content-Type': 'application/json' });

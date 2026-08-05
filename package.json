@@ -27,7 +27,7 @@
     "build:tsc": "tsc",
     "build:web": "cd web && npm run build",
     "dev:http": "npm run build:tsc && node --env-file-if-exists=.env dist/cli.js --http",
-    "test": "vitest run",
+    "test": "npm run build:tsc && vitest run",
     "test:watch": "vitest",
     "bump-version": "node scripts/bump-version.mjs",
     "validate": "node scripts/validate-mcp.mjs",
