@@ -36,8 +36,30 @@ jobs:
       - name: Validate MCP health
         run: npm run validate
 
-      # validate only inspects tool registration in-process — it never opens a
-      # socket. The suite is what exercises the HTTP transport end to end, which is
-      # how the 5.8.2 POST regression got five weeks of green CI.
+  # Separate job, so it reports as its own required status check and runs in
+  # parallel with the build rather than behind it. `validate` only inspects tool
+  # registration in-process and never opens a socket — this suite is what
+  # exercises the HTTP transport end to end, which is how the 5.8.2 POST
+  # regression got five weeks of green CI.
+  #
+  # Deliberately leaner than `validate`: no `npm ci --prefix web` and no
+  # `npm run build`. `npm test` runs `build:tsc` itself, and the suite passes with
+  # web/out absent (the server's only read of it is in a try/catch that warns, and
+  # no test touches the static routes). Verified by running the suite with web/out
+  # moved aside: 54/54.
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+
+      - uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af  # v4.1.0
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
       - name: Test
         run: npm test
