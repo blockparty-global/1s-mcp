@@ -34,7 +34,8 @@
     "publish:npm": "npm publish --access public",
     "prepack": "node -e \"fs=require('fs');fs.copyFileSync('README.md','README.repo.md');fs.copyFileSync('README.npm.md','README.md')\"",
     "postpack": "node -e \"fs=require('fs');fs.renameSync('README.repo.md','README.md')\"",
-    "prepare": "tsc"
+    "prepare": "tsc",
+    "check-versions": "node scripts/check-versions.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.27.1",
