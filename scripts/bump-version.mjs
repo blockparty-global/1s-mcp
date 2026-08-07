@@ -2,11 +2,9 @@
 /**
  * Version bump script.
  *
- * Updates the version in all four places that must stay in sync:
- *   - package.json
- *   - server.json (top-level version + packages[0].version)
- *   - .claude-plugin/plugin.json
- *   - .claude-plugin/marketplace.json
+ * Updates the version everywhere it is written. The list of places lives in
+ * version-targets.mjs, shared with check-versions.mjs so the CI guard cannot
+ * fall behind this script.
  *
  * Run: npm run bump-version -- <new-version>
  *      npm run bump-version -- 5.5.0
@@ -18,6 +16,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import { VERSION_TARGETS } from './version-targets.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = join(__dirname, '..');
@@ -46,39 +45,27 @@ function writeJson(rel, data) {
   writeFileSync(path, JSON.stringify(data, null, 2) + '\n', 'utf8');
 }
 
-function bump(rel, updater) {
-  const data = readJson(rel);
+function bump(target) {
+  const data = readJson(target.file);
   const before = JSON.stringify(data);
-  updater(data);
+  target.set(data, newVersion);
   const changed = JSON.stringify(data) !== before;
 
   if (dryRun) {
-    const oldVersion = JSON.parse(before).version ?? JSON.parse(before).plugins?.[0]?.version ?? '?';
-    console.log(`[dry-run] ${rel}: ${oldVersion} → ${newVersion}`);
+    const oldVersion = target.get(JSON.parse(before))[0] ?? '?';
+    console.log(`[dry-run] ${target.file}: ${oldVersion} → ${newVersion}`);
     return;
   }
 
-  writeJson(rel, data);
-  console.log(`updated  ${rel}`);
+  writeJson(target.file, data);
+  console.log(`updated  ${target.file}`);
   return changed;
 }
 
-bump('package.json', (d) => {
-  d.version = newVersion;
-});
-
-bump('server.json', (d) => {
-  d.version = newVersion;
-  d.packages[0].version = newVersion;
-});
-
-bump('.claude-plugin/plugin.json', (d) => {
-  d.version = newVersion;
-});
-
-bump('.claude-plugin/marketplace.json', (d) => {
-  d.plugins[0].version = newVersion;
-});
+// checkOnly targets (package-lock.json) are written by `npm install`, not here.
+for (const target of VERSION_TARGETS.filter((t) => !t.checkOnly)) {
+  bump(target);
+}
 
 if (dryRun) {
   console.log('\n[dry-run] no files were written');
