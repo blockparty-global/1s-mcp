@@ -16,6 +16,26 @@ permissions:
   contents: read
 
 jobs:
+  # The version is written in six files and eight places. Three of them sat at
+  # 5.9.0 while package.json moved through 5.10.0, 5.10.1 and 5.10.2 — so the
+  # plugin marketplace entry and the desktop-extension manifest advertised a
+  # version three releases stale, and nothing failed. Its own job so it reports
+  # as a distinct status check and finishes in seconds, ahead of the build.
+  #
+  # No dependency install: the script reads JSON with the Node stdlib only.
+  versions:
+    name: Check version sync
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+
+      - uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af  # v4.1.0
+        with:
+          node-version: '20'
+
+      - name: Check version sync
+        run: npm run check-versions
+
   validate:
     name: Build and validate MCP
     runs-on: ubuntu-latest
@@ -28,10 +48,38 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci && npm ci --prefix web
 
       - name: Build
         run: npm run build
 
       - name: Validate MCP health
         run: npm run validate
+
+  # Separate job, so it reports as its own required status check and runs in
+  # parallel with the build rather than behind it. `validate` only inspects tool
+  # registration in-process and never opens a socket — this suite is what
+  # exercises the HTTP transport end to end, which is how the 5.8.2 POST
+  # regression got five weeks of green CI.
+  #
+  # Deliberately leaner than `validate`: no `npm ci --prefix web` and no
+  # `npm run build`. `npm test` runs `build:tsc` itself, and the suite passes with
+  # web/out absent (the server's only read of it is in a try/catch that warns, and
+  # no test touches the static routes). Verified by running the suite with web/out
+  # moved aside: 54/54.
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+
+      - uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af  # v4.1.0
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Test
+        run: npm test

@@ -15,6 +15,16 @@ import {
   type ServiceEvent as _ServiceEvent,
 } from '@one-source/api-mcp/analytics';
 
+// Re-exported through this wrapper so callers keep one import seam onto
+// api-mcp's analytics. `error_category` is a bounded union, not free text —
+// derive it from a thrown error's message with this rather than passing the
+// message through, which the dashboard cannot group on.
+export {
+  errorCategoryFromMessage,
+  errorCategoryFromStatus,
+  type ErrorCategory,
+} from '@one-source/api-mcp/analytics';
+
 /** ToolCallEvent with category and auth_method widened to include unified MCP additions. */
 export type ToolCallEvent = Omit<_ToolCallEvent, 'category' | 'auth_method'> & {
   category: _ToolCallEvent['category'] | 'docs' | 'ops';
@@ -37,6 +47,13 @@ export interface Analytics extends Omit<_Analytics, 'trackTool' | 'trackHttp' | 
 export function createAnalytics(): Analytics {
   // Default to dashboard analytics — users can override with env vars or disable with ONESOURCE_ANALYTICS=false
   process.env.ONESOURCE_ANALYTICS_URL ??= 'https://1s-analytics.vercel.app';
-  process.env.X402_ANALYTICS_KEY ??= 'onesource-mcp';
+  // Standardized on ONESOURCE_ANALYTICS_KEY to match the Go skills-api
+  // collector. The bundled @one-source/api-mcp factory still reads the legacy
+  // X402_ANALYTICS_KEY, so resolve the effective key here — ONESOURCE_ANALYTICS_KEY
+  // wins, legacy X402_ANALYTICS_KEY is the fallback, then the baked-in default —
+  // and feed it to the name that factory reads. Becomes a plain alias once
+  // api-mcp ships the renamed lookup.
+  process.env.X402_ANALYTICS_KEY =
+    process.env.ONESOURCE_ANALYTICS_KEY ?? process.env.X402_ANALYTICS_KEY ?? 'onesource-mcp';
   return _createAnalytics() as Analytics;
 }

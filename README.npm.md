@@ -108,6 +108,7 @@ All blockchain API tools accept an optional `network` parameter:
 |---------|-------------|
 | `ethereum` | Ethereum mainnet (default) |
 | `sepolia` | Ethereum Sepolia testnet |
+| `robinhood` | Robinhood Chain, chain 4663 (Arbitrum Orbit L2) — live-RPC only |
 
 ## Authentication
 
@@ -301,7 +302,7 @@ All have sensible defaults — channel modes run out of the box. Set these only 
 ## Links
 
 - [GitHub Repository](https://github.com/blockparty-global/1s-mcp)
-- [OneSource Documentation](https://docs.onesource.io)
+- [OneSource Documentation](https://docs.onesource.io/getting-started/mcp/install)
 - [Report an Issue](https://github.com/blockparty-global/1s-mcp/issues)
 
 ## License

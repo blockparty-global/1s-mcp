@@ -13,6 +13,7 @@ import { createHash } from 'node:crypto';
 import { z } from 'zod';
 
 import type { Analytics, ToolCallEvent } from './analytics.js';
+import { errorCategoryFromMessage } from './analytics.js';
 import { VERSION } from './version.js';
 
 /** Default bug report endpoint (analytics dashboard). */
@@ -154,7 +155,7 @@ export function registerBugReportTool(opts: RegisterBugReportToolOptions): numbe
           ...base,
           duration_ms: durationMs,
           success: false,
-          error_category: message.slice(0, 100).replace(/0x[a-fA-F0-9]+/g, '0x***'),
+          error_category: errorCategoryFromMessage(message),
           response_size: 0,
         });
 

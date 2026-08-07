@@ -40,9 +40,9 @@ npx -y @one-source/mcp@latest --http
 npx -y @one-source/mcp@latest --http --port=8080
 ```
 
-Then connect your MCP client to `http://localhost:8080/`.
+Then connect your MCP client to `http://localhost:3000/` (or your `--port` value, e.g. `8080` in the second example above).
 
-Health check: `GET http://localhost:8080/health`
+Health check: `GET http://localhost:3000/health` (substitute your port).
 
 ## Tools (30)
 
@@ -113,10 +113,11 @@ No authentication required.
 All blockchain API tools accept an optional `network` parameter:
 
 
-| Network    | Description                |
-| ---------- | -------------------------- |
-| `ethereum` | Ethereum mainnet (default) |
-| `sepolia`  | Ethereum Sepolia testnet   |
+| Network     | Description                                                     |
+| ----------- | --------------------------------------------------------------- |
+| `ethereum`  | Ethereum mainnet (default)                                      |
+| `sepolia`   | Ethereum Sepolia testnet                                        |
+| `robinhood` | Robinhood Chain, chain 4663 (Arbitrum Orbit L2) — live-RPC only |
 
 
 ## Authentication
@@ -138,7 +139,7 @@ Blockchain API tools require authentication. Three options are available — if 
 1. Go to [app.onesource.io](https://app.onesource.io) and create an account.
 2. Subscribe to a developer plan (Stripe checkout).
 3. Navigate to **API Keys** and generate a key.
-4. Copy the key — it starts with `sk`_.
+4. Copy the key — it starts with `sk_`.
 
 #### Claude Code
 
@@ -322,7 +323,7 @@ All have sensible defaults — channel modes run out of the box. Set these only 
 | `ONESOURCE_CONFIG_DIR` | `~/.onesource` | Directory holding the server-managed channel config (`batch-config.json`) written by `1s_batch_config`. |
 | `ONESOURCE_ANALYTICS` | `true` | Set to `false` to disable analytics. |
 | `ONESOURCE_ANALYTICS_URL` | `https://1s-analytics.vercel.app` | Dashboard endpoint for analytics. |
-| `X402_ANALYTICS_KEY` | `onesource-mcp` | API key for dashboard analytics. |
+| `ONESOURCE_ANALYTICS_KEY` | `onesource-mcp` | API key for dashboard analytics. Legacy alias `X402_ANALYTICS_KEY` still works but is deprecated. |
 
 
 ## Troubleshooting
@@ -462,7 +463,11 @@ Every time you release a new npm version, update the MCP Registry:
 
 ### Glama
 
-Glama auto-syncs from the GitHub repo daily. No manual steps needed after a release — just make sure changes are pushed to `main`. The `glama.json` file in the repo root controls ownership. Manual re-sync is available from the [Glama admin panel](https://glama.ai/mcp/servers) after claiming the server.
+Glama auto-syncs from the GitHub repo daily. No manual steps needed after a release — just make sure changes are pushed to `develop` (the default branch). The `glama.json` file in the repo root controls ownership. Manual re-sync is available from the [Glama admin panel](https://glama.ai/mcp/servers) after claiming the server.
+
+## Privacy Policy
+
+Use of this extension connects to the OneSource API. See the [OneSource Privacy Policy](https://onesource.io/privacy-policy) for details on how data is handled.
 
 ## License
 

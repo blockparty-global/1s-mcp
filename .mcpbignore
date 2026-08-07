@@ -1,0 +1,22 @@
+# Sensitive files
+key.pem
+.claude/settings.local.json
+.env.local
+
+
+# Large binaries and build artifacts
+mcp-publisher
+
+# Internal docs
+.claude/
+CLAUDE.md
+plan.md
+docs/
+testing.md
+scripts/
+
+# CI config
+.github/
+
+# Output file
+*.mcpb

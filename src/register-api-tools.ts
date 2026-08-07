@@ -12,6 +12,7 @@ import { createHash } from 'node:crypto';
 import { allTools } from '@one-source/api-mcp/tools';
 import { createClientFromEnv, type OneSourceClient } from '@one-source/api-mcp/client';
 import type { Analytics } from './analytics.js';
+import { errorCategoryFromMessage } from './analytics.js';
 import { VERSION } from './version.js';
 
 const RO: ToolAnnotations = Object.freeze({ readOnlyHint: true, destructiveHint: false });
@@ -88,11 +89,19 @@ export function registerApiTools(
       backend_latency_ms: event.backend_latency_ms,
       x402_required: event.x402_required,
       timestamp: new Date().toISOString(),
+      version: VERSION,
       source: 'unified',
     });
   };
 
-  for (const tool of allTools) {
+  // 1s_payment_mode and 1s_refund operate on the module-level x402 singleton,
+  // which is stdio-only. In HTTP mode multiple users share one process and cannot
+  // own that singleton, so these tools must not be registered.
+  const tools = transport === 'http'
+    ? allTools.filter(t => t.name !== '1s_payment_mode' && t.name !== '1s_refund')
+    : allTools;
+
+  for (const tool of tools) {
     const meta = TOOL_META[tool.name];
     server.registerTool(
       tool.name,
@@ -125,6 +134,7 @@ export function registerApiTools(
             backend_latency_ms: event.backend_latency_ms,
             x402_required: event.x402_required,
             timestamp: new Date().toISOString(),
+            version: VERSION,
             session_id: sessionHash,
             source: 'unified',
           });
@@ -181,7 +191,7 @@ export function registerApiTools(
             timestamp: new Date().toISOString(),
             duration_ms: durationMs,
             success: false,
-            error_category: message.slice(0, 100).replace(/0x[a-fA-F0-9]+/g, '0x***'),
+            error_category: errorCategoryFromMessage(message),
             network,
             input_params: inputKeys,
             response_size: 0,

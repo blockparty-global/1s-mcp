@@ -5,6 +5,80 @@
 
 ---
 
+## Test Run — 2026-06-11
+
+**Tester:** Claude Code (automated via MCP tool calls in-session)  
+**Auth:** API key (`sk_28a••••••`) — detected by `1s_setup_check`, accepted by backend  
+**Transport:** stdio  
+**Version:** 5.4.2 (latest)
+
+### Summary
+
+| Phase | Tests | Pass | Fail | Blocked |
+|-------|-------|------|------|---------|
+| Phase 2 — Setup Check | 1 | 1 | 0 | 0 |
+| Phase 3 — Chain Utility Tools | 13 | 13 | 0 | 0 |
+| Phase 4 — Live Chain Tools | 12 | 12 | 0 | 0 |
+| Phase 5 — Bug Reporting | 1 | 1 | 0 | 0 |
+| Phase 6 — Auth Edge Cases | manual | — | — | — |
+| Phase 7 — Install/Uninstall Cycles | manual | — | — | — |
+| Phase 8 — HTTP Mode | manual | — | — | — |
+| Phase 9 — x402 End-to-End | manual | — | — | — |
+| Phase 10 — Batch Config | manual | — | — | — |
+| Phase 11 — Refund | manual | — | — | — |
+
+**Result: All automated phases passed (27/27 tests).**
+
+### Phase 2 — Setup Check
+
+| Test | Tool | Result | Notes |
+|------|------|--------|-------|
+| 1 | `1s_setup_check` | ✅ PASS | Version 5.4.2 (latest). Auth: Configured (API key). Backend: Reachable. Transport: stdio. Bug reporting: Enabled. Both env vars set — API key takes priority. |
+
+### Phase 3 — Chain Utility Tools
+
+| Test | Tool | Result | Notes |
+|------|------|--------|-------|
+| 2 | `1s_network_info` | ✅ PASS | chain_id: 0x1, block: 0x181fd82 (25,297,794), gas price: 0x97b461a |
+| 3 | `1s_ens_resolve` (forward) | ✅ PASS | vitalik.eth → 0xd8da6bf26964af9d7eed9e03e53415d37aa96045 |
+| 4 | `1s_ens_resolve` (reverse) | ✅ PASS | 0xd8dA6BF...96045 → vitalik.eth |
+| 5 | `1s_nonce` | ✅ PASS | 0x1708 (5,896 txs sent) |
+| 6 | `1s_contract_code` | ✅ PASS | USDC proxy bytecode returned (2,187 bytes), is_contract: true |
+| 7 | `1s_proxy_detect` | ✅ PASS | proxy_type: slot0, impl: 0xfcb19e6a322b27c06842a71e8c725399f049ae3a |
+| 8 | `1s_storage_read` | ✅ PASS | slot 0 → 0x000...fcb19e6a... (impl address packed in slot) |
+| 9 | `1s_estimate_gas` | ✅ PASS | 0x5208 = 21,000 gas (simple ETH transfer) |
+| 10 | `1s_simulate_call` | ✅ PASS | name() returned hex encoding of "USD Coin" |
+| 11 | `1s_pending_block` | ✅ PASS | Returned pending block (truncated >100K chars as documented); hash, miner, transactions present |
+| 12 | `1s_tx_receipt` | ✅ PASS | status: 0x1 (success), gasUsed: 0x5208, blockNumber: 0xb443 |
+| 12a | `1s_block_number` | ✅ PASS | 0x181fd82 (25,297,794) |
+| 12b | `1s_block_by_number` | ✅ PASS | Block 19,000,000 — hash, miner, 130 txs, withdrawals returned |
+| 12c | `1s_chain_id` | ✅ PASS | 0x1 (Ethereum mainnet) |
+
+### Phase 4 — Live Chain Tools
+
+| Test | Tool | Result | Notes |
+|------|------|--------|-------|
+| 13 | `1s_erc20_balance_live` | ✅ PASS | Vitalik USDC balance: 31,127,137 raw units (31.127137 USDC) |
+| 14 | `1s_multi_balance_live` | ✅ PASS | ETH + USDC returned in one call |
+| 15 | `1s_total_supply_live` | ✅ PASS | USDC total supply: ~51,462,338,351 USDC |
+| 16 | `1s_allowance_live` | ✅ PASS | Allowance: 0 (no approval granted — valid result) |
+| 17 | `1s_contract_info_live` | ✅ PASS | BAYC: ERC721, ERC165 interfaces confirmed, name: BoredApeYachtClub |
+| 18 | `1s_nft_owner_live` | ✅ PASS | BAYC #1 owner: 0x46efbaedc92067e6d60e84ed6395099723252496 |
+| 19 | `1s_nft_metadata_live` | ✅ PASS | ipfs URI resolved; traits: Mouth (Grin), Fur (Robot), Eyes (Blue Beams) |
+| 20 | `1s_erc721_tokens_live` | ✅ PASS | Vitalik owns BAYC #940 (balance: 1) |
+| 21 | `1s_erc1155_balance_live` | ✅ PASS | Parallel card balance: 0 (valid result) |
+| 22 | `1s_erc20_transfers_live` | ✅ PASS | 0 results for Vitalik in latest block (no matching transfers — valid) |
+| 23 | `1s_events_live` | ✅ PASS | 49 USDC Transfer events returned from latest block |
+| 24 | `1s_tx_details_live` | ✅ PASS | tx + receipt returned; status: 0x1, gasUsed: 0x5208, from/to confirmed |
+
+### Phase 5 — Bug Reporting
+
+| Test | Tool | Result | Notes |
+|------|------|--------|-------|
+| 25 | `1s_report_bug` | ✅ PASS | Submission confirmed: "Bug report sent to the OneSource team." |
+
+---
+
 ## Test Run — 2026-06-10
 
 **Tester:** Claude Code (automated via MCP tool calls in-session)  
@@ -693,6 +767,70 @@ Expected response:
 ```
 
 Connect an MCP client to `http://localhost:3000/` and run `1s_setup_check` to verify transport shows `http`.
+
+---
+
+## Phase 8a — OAuth Multi-Replica (shared session store)
+
+Verifies the hosted OAuth flow works across ≥2 replicas via a shared Valkey session store. Without `VALKEY_URL`, the server uses the per-process in-memory store (single-replica behavior, unchanged) — this phase only applies when testing the Valkey path.
+
+**Prerequisites:**
+- Docker (for a local Valkey)
+- `ONESOURCE_JWT_SECRET` set (same value for every instance — this is what makes JWTs/encrypted payloads cross-pod)
+- A valid OneSource API key to complete the connect step
+
+**Setup — one Valkey, two server instances:**
+```bash
+# 1. Start a local Valkey
+docker run -d --name mcp-valkey -p 6379:6379 valkey/valkey:8-alpine
+
+# 2. Start instance A (pod A) on :3000
+VALKEY_URL=redis://localhost:6379 ONESOURCE_JWT_SECRET=<hex> \
+  npx -y @one-source/mcp@latest --http --port=3000
+
+# 3. Start instance B (pod B) on :3001, same Valkey + same secret
+VALKEY_URL=redis://localhost:6379 ONESOURCE_JWT_SECRET=<hex> \
+  npx -y @one-source/mcp@latest --http --port=3001
+```
+On startup each instance must log `session store: Valkey (...)` (password redacted). If Valkey is unreachable, the instance must log `FATAL: could not connect to Valkey — refusing to start` and exit — it must NOT fall back to in-memory.
+
+**Test 1 — authState + stateCookies cross pods (drive `/authorize` + connect-init on A, connect-submit on B):**
+```bash
+# Use one shared cookie jar across both ports.
+JAR=$(mktemp)
+# authorize on A → follow to /oauth/connect?state=<S>; capture <S>
+curl -sD - -c "$JAR" "http://localhost:3000/oauth/authorize?response_type=code&client_id=c&redirect_uri=https://claude.ai/cb&code_challenge=$(head -c32 /dev/urandom | basenc --base64url | tr -d '=' | head -c43)&code_challenge_method=S256"
+# connect-init on A (issues the CSRF cookie into the jar)
+curl -s -c "$JAR" -b "$JAR" "http://localhost:3000/api/oauth/connect-init?state=<S>"
+# connect-submit on B — proves authState + the CSRF cookie hash are visible on pod B
+curl -s -b "$JAR" -X POST "http://localhost:3001/api/oauth/connect-submit" \
+  -H 'Content-Type: application/json' -d '{"state":"<S>","apiKey":"<valid-key>"}'
+# → expect {"location":"https://claude.ai/cb?code=<CODE>&state=..."}
+```
+
+**Test 2 — pendingCode crosses pods (drive connect-submit on A, `/token` on B):**
+```bash
+# Repeat authorize + connect-init + connect-submit on A to mint <CODE> with a known <VERIFIER>.
+# Then exchange the code on B:
+curl -s -X POST "http://localhost:3001/oauth/token" \
+  -H 'Content-Type: application/json' \
+  -d '{"grant_type":"authorization_code","code":"<CODE>","code_verifier":"<VERIFIER>","redirect_uri":"https://claude.ai/cb"}'
+# → expect {"access_token":"eyJ...","token_type":"Bearer","expires_in":...}
+```
+> **Caveat:** curl reuses the `Path=/api/oauth` cookie across ports where a browser would not across origins. This validates the *store* (cross-pod state), not browser origin behavior.
+
+**Test 3 — store-down (fail closed + degraded rate limiting):**
+```bash
+docker stop mcp-valkey   # kill Valkey mid-session
+```
+- `/oauth/authorize`, connect-init, connect-submit, and `/token` must return **503 / invalid_grant** (fail closed) — never a silent in-memory fallback.
+- The rate limiter must degrade to per-process (not go unlimited) and log `rate limiter degraded` once per window.
+
+**Test 4 — single-use / replay across pods:** re-submit the same `<CODE>` on the other pod → second attempt must return `invalid_grant` (GETDEL consumed it on first use).
+
+**Test 5 — TTL expiry:** wait >120s, then exchange the code → `invalid_grant` (native `PX` expiry).
+
+Cleanup: `docker rm -f mcp-valkey`.
 
 ---
 

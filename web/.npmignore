@@ -1,0 +1,4 @@
+# Present so npm does NOT fall back to web/.gitignore, which ignores /out/.
+# The built static export in web/out/ must ship in the npm tarball so the hosted
+# HTTP server can serve /oauth/connect. Empty rule set = ignore nothing here;
+# the package.json "files" whitelist decides what ships.

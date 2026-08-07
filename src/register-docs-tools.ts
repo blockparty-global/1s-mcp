@@ -39,11 +39,32 @@ import {
 // import { getMcpSetupGuideSchema, handleGetMcpSetupGuide } from '@one-source/docs-mcp/tools/get-mcp-setup-guide';
 
 import type { Analytics, ToolCallEvent } from './analytics.js';
+import { errorCategoryFromMessage } from './analytics.js';
 import { VERSION } from './version.js';
 
 function hashSession(sessionId: string | undefined): string | undefined {
   if (!sessionId) return undefined;
   return createHash('sha256').update(sessionId).digest('hex').slice(0, 16);
+}
+
+/**
+ * Which service a tool registered in this file reports under.
+ *
+ * This file registers two different kinds of tool, and they belong to
+ * different services. The documentation tools (commented out below) are the
+ * docs MCP surface. The two live tools — `1s_setup_check` and
+ * `1s_batch_config` — are operational tooling for the MCP server itself: free,
+ * unauthenticated, and nothing to do with documentation.
+ *
+ * Reporting those two as `onesource-docs` put MCP-server configuration traffic
+ * onto the analytics dashboard's Docs MCP surface, so that surface measured
+ * two unrelated things and neither number meant what its label said.
+ *
+ * Keyed off the category the call site already passes, which is the same
+ * pairing `register-bug-report-tool.ts` uses for `1s_report_bug`.
+ */
+export function serviceForToolCategory(category: ToolCallEvent['category']): string {
+  return category === 'ops' ? 'onesource-ops' : 'onesource-docs';
 }
 
 /**
@@ -80,7 +101,7 @@ function instrumentedTool(
 
     const base: Omit<ToolCallEvent, 'success' | 'response_size' | 'error_category' | 'duration_ms'> = {
       type: 'tool_call',
-      service: 'onesource-docs',
+      service: serviceForToolCategory(category),
       tool: name,
       category,
       timestamp: new Date().toISOString(),
@@ -114,7 +135,7 @@ function instrumentedTool(
         ...base,
         duration_ms: durationMs,
         success: false,
-        error_category: message.slice(0, 100).replace(/0x[a-fA-F0-9]+/g, '0x***'),
+        error_category: errorCategoryFromMessage(message),
         response_size: 0,
       });
 
