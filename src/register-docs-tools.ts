@@ -331,7 +331,7 @@ export function registerDocsTools(opts: RegisterDocsToolsOptions): number {
       parts.push(`- **Active payment mode:** \`${payInfo.mode}\``);
       if (x402Enabled) parts.push(`- **x402 batch channel:** ${payInfo.x402.batchAvailable ? 'available' : '**unavailable** — channel scheme failed to init (check `X402_RPC_URL`, then restart)'}`);
       if (mppEnabled) parts.push(`- **MPP session channel:** ${payInfo.mpp.sessionAvailable ? 'available' : '**unavailable** — Tempo channel failed to init (check `MPP_RPC_URL`, then restart)'}`);
-      parts.push(`- **Channel preferences:** autonomy \`${prefs.prompt}\`, threshold \`${prefs.threshold}\`, x402 deposit ×\`${prefs.depositMultiplier}\`, MPP max deposit \`${prefs.mppMaxDeposit}\` ${persisted ? `— saved to \`${batchConfigPath()}\`` : '— defaults (not yet saved)'}`);
+      parts.push(`- **Channel preferences:** autonomy \`${prefs.prompt}\`, threshold \`${prefs.threshold}\`, x402 deposit ×\`${prefs.depositMultiplier}\`, MPP deposit ×\`${prefs.mppDepositMultiplier}\` (cap \`${prefs.mppMaxDeposit}\`) ${persisted ? `— saved to \`${batchConfigPath()}\`` : '— defaults (not yet saved)'}`);
       if (bothSet) parts.push('- ⚠️ **Both an API key and a wallet key are set.** The API key wins; the wallet key is ignored. Resolve this in Decision 1.');
       parts.push('');
 
@@ -366,7 +366,8 @@ export function registerDocsTools(opts: RegisterDocsToolsOptions): number {
       parts.push('## Decision 4 — Your Tempo wallet (MPP settings)  _(only if using MPP)_');
       parts.push('Walk through these (the pay-per-call vs. channel choice is made once for both rails in Decision 5, so don\'t ask it here):');
       parts.push(`- **Wallet key (\`MPP_PRIVATE_KEY\`)** _(restart, secret)_ — the crypto wallet that pays; it must hold **USDC.e or pathUSD on the Tempo network**.${mppEnabled ? ' One is already set — ask **keep / rotate (use a different wallet) / remove**.' : ' None set yet — ask if they want to add one.'} If they keep it, move on. To add or rotate: per Rule 6, **never take the key in chat** — the startup command carries \`MPP_PRIVATE_KEY=<your-key>\` for them to fill in their own terminal.`);
-      parts.push(`- **Deposit cap for channel mode (\`MPP_MAX_DEPOSIT\`)** _(live; advanced — fine to skip)_ — only matters if they pick \`mpp-session\` in Decision 5. It caps how much is held in the up-front refundable deposit at once (always reclaimable with \`1s_refund\`). **DEFAULT: 1.** Currently \`${prefs.mppMaxDeposit}\`. Most people leave this alone; to change: \`1s_batch_config { "mpp_max_deposit": "1" }\`.`);
+      parts.push(`- **Deposit size for channel mode (\`MPP_DEPOSIT_MULTIPLIER\`)** _(live; advanced — fine to skip)_ — only matters if they pick \`mpp-session\` in Decision 5. Sets how big the up-front refundable deposit is (= call price × this number, capped by \`MPP_MAX_DEPOSIT\`); the Tempo analog of x402's deposit multiplier. **DEFAULT: 10.** Currently \`${prefs.mppDepositMultiplier}\`. Most people leave this alone; to change: \`1s_batch_config { "mpp_deposit_multiplier": N }\` (min ${MIN_DEPOSIT_MULTIPLIER}).`);
+      parts.push(`- **Deposit cap for channel mode (\`MPP_MAX_DEPOSIT\`)** _(live; advanced — fine to skip)_ — only matters if they pick \`mpp-session\` in Decision 5. The ceiling on the price-sized deposit above (always reclaimable with \`1s_refund\`). **DEFAULT: 1.** Currently \`${prefs.mppMaxDeposit}\`. Most people leave this alone; to change: \`1s_batch_config { "mpp_max_deposit": "1" }\`.`);
       parts.push('- **Tempo connection (`MPP_RPC_URL`)** _(restart; ⚠️ advanced users only)_ — **DEFAULT: OneSource\'s built-in public Tempo RPC, which works out of the box — recommend leaving this as-is.** Only change it if the user knowingly runs their own Tempo RPC endpoint. If they don\'t know what an RPC is, keep the default and skip it.');
       parts.push('');
 
@@ -470,7 +471,7 @@ export function registerDocsTools(opts: RegisterDocsToolsOptions): number {
     'View or change payment preferences and save them so they persist across restarts — no MCP config editing or restart required. ' +
       'Call with no arguments to see current settings. ' +
       'Set "prompt" (ask/auto/off — agent autonomy when switching to a cheaper channel mode), "threshold" (anticipated calls before a channel is worth it), ' +
-      '"deposit_multiplier" (x402 channel deposit = call price × this; applies to the next channel opened), "mpp_max_deposit" (MPP session channel deposit cap, in tokens), ' +
+      '"deposit_multiplier" (x402 channel deposit = call price × this; applies to the next channel opened), "mpp_deposit_multiplier" (MPP session channel deposit = call price × this), "mpp_max_deposit" (MPP session channel deposit cap, in tokens), ' +
       'or "mode" (the default rail+scheme — x402-exact / x402-batch / mpp-charge / mpp-session — also switched live for this session). ' +
       'Pass "reset": true to restore defaults. With an API key, calls are covered by your plan.',
     {
@@ -480,8 +481,10 @@ export function registerDocsTools(opts: RegisterDocsToolsOptions): number {
         .describe('Anticipated call count at/above which a channel mode is worth considering. Default 5.'),
       deposit_multiplier: z.number().min(MIN_DEPOSIT_MULTIPLIER).optional()
         .describe(`x402 channel deposit = call price × this multiplier. Minimum ${MIN_DEPOSIT_MULTIPLIER}. Applies to the next channel opened.`),
+      mpp_deposit_multiplier: z.number().min(MIN_DEPOSIT_MULTIPLIER).optional()
+        .describe(`MPP session channel deposit = call price × this multiplier (capped by mpp_max_deposit). Minimum ${MIN_DEPOSIT_MULTIPLIER}. The Tempo analog of deposit_multiplier; applies to the next Tempo channel opened.`),
       mpp_max_deposit: z.string().optional()
-        .describe('MPP session channel max deposit, in human token units (e.g. "1"). Applies to the next Tempo channel opened.'),
+        .describe('MPP session channel deposit ceiling, in human token units (e.g. "1"). Applies to the next Tempo channel opened.'),
       mode: z.enum(['x402-exact', 'x402-batch', 'mpp-charge', 'mpp-session']).optional()
         .describe('Default payment rail+scheme the session starts in. Also switched live for the current session when that rail is active.'),
       reset: z.boolean().optional()
@@ -533,6 +536,11 @@ function handleBatchConfig(
     const v = coerceMultiplier(input.deposit_multiplier);
     if (v) patch.depositMultiplier = v;
     else errors.push(`deposit_multiplier must be a number ≥ ${MIN_DEPOSIT_MULTIPLIER} (got ${JSON.stringify(input.deposit_multiplier)})`);
+  }
+  if (input.mpp_deposit_multiplier !== undefined) {
+    const v = coerceMultiplier(input.mpp_deposit_multiplier);
+    if (v) patch.mppDepositMultiplier = v;
+    else errors.push(`mpp_deposit_multiplier must be a number ≥ ${MIN_DEPOSIT_MULTIPLIER} (got ${JSON.stringify(input.mpp_deposit_multiplier)})`);
   }
   if (input.mpp_max_deposit !== undefined) {
     const v = coerceMaxDeposit(input.mpp_max_deposit);
@@ -598,7 +606,8 @@ function renderBatchConfig(
   lines.push(`- Autonomy (prompt): \`${prefs.prompt}\``);
   lines.push(`- "Many" threshold: \`${prefs.threshold}\``);
   lines.push(`- x402 deposit multiplier: \`${prefs.depositMultiplier}\``);
-  lines.push(`- MPP session max deposit: \`${prefs.mppMaxDeposit}\``);
+  lines.push(`- MPP deposit multiplier: \`${prefs.mppDepositMultiplier}\``);
+  lines.push(`- MPP session max deposit (cap): \`${prefs.mppMaxDeposit}\``);
 
   if (modeNote) lines.push('', modeNote);
 

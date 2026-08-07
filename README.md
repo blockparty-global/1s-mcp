@@ -278,7 +278,7 @@ Instead of the `env` config block, you can set any of these variables as a shell
 By default each paid call signs one payment per call (`x402-exact` on Base, `mpp-charge` on Tempo). For a burst of calls, open a **payment channel** — one on-chain deposit funds many off-chain calls, settled together — which is cheaper than paying per call:
 
 - **x402 (Base):** switch to `x402-batch` with `1s_payment_mode { "mode": "x402-batch" }` (or `X402_PAYMENT_MODE=batch`). The first call deposits `price × X402_DEPOSIT_MULTIPLIER` (default 10).
-- **MPP (Tempo):** switch to `mpp-session` with `1s_payment_mode { "mode": "mpp-session" }` (or `MPP_PAYMENT_MODE=session`). The first call deposits up to `MPP_MAX_DEPOSIT` (default 1).
+- **MPP (Tempo):** switch to `mpp-session` with `1s_payment_mode { "mode": "mpp-session" }` (or `MPP_PAYMENT_MODE=session`). The first call deposits `price × MPP_DEPOSIT_MULTIPLIER` (default 10), capped by `MPP_MAX_DEPOSIT` (default 1).
 
 Reclaim the unused balance any time with the `1s_refund` tool (works for both rails); the residual is always recoverable on-chain. An idle x402 channel also auto-refunds after a few hours, and an MPP session settles automatically on clean shutdown.
 
@@ -315,7 +315,8 @@ All have sensible defaults — channel modes run out of the box. Set these only 
 | `X402_CHANNEL_DIR` | — | Directory to persist batch channel state across restarts. Unset = in-memory (channel lost on restart). |
 | `X402_CHANNEL_SALT` | zero | Batch mode: 32-byte hex salt to derive the starting channel id. The client auto-rotates to the next salt when a channel is exhausted or refunded. |
 | `MPP_PAYMENT_MODE` | `charge` | Initial MPP scheme: `charge` (per-call) or `session` (Tempo voucher channel). Switch in-session with `1s_payment_mode`. |
-| `MPP_MAX_DEPOSIT` | `1` | Session mode: max USDC.e / pathUSD locked per Tempo voucher channel. Unused balance is reclaimable via `1s_refund`. |
+| `MPP_DEPOSIT_MULTIPLIER` | `10` | Session mode: Tempo channel deposit = call price × this multiplier (min 3), capped by `MPP_MAX_DEPOSIT`. The MPP analog of `X402_DEPOSIT_MULTIPLIER`. |
+| `MPP_MAX_DEPOSIT` | `1` | Session mode: ceiling on the price-sized deposit per Tempo voucher channel. Unused balance is reclaimable via `1s_refund`. |
 | `MPP_RPC_URL` | Tempo default | Tempo RPC endpoint used to submit channel deposits in session mode. |
 | `X402_BATCH_PROMPT` | `ask` | How the agent handles switching to a channel mode (both rails): `ask` (confirm before switching), `auto` (switch on its own), or `off` (only switch when explicitly asked). |
 | `X402_BATCH_THRESHOLD` | `5` | Number of anticipated calls in a session at/above which the agent considers a channel mode (both rails). Advisory — the agent estimates the call count; it is not a hard runtime counter. |
