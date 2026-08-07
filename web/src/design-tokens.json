@@ -1,0 +1,333 @@
+{
+  "tokens": {
+    "colors": {
+      "dataGreen.10": "rgba(25, 223, 174, 0.1)",
+      "dataGreen.15": "rgba(25, 223, 174, 0.15)",
+      "dataGreen.25": "rgba(25, 223, 174, 0.25)",
+      "dataGreen.30": "rgba(25, 223, 174, 0.3)",
+      "dataGreenLight": "#E8FAF5",
+      "dataGreenBright": "#5FF6CC",
+      "dataGreen": "#19DFAE",
+      "midDataGreen": "#2AD19F",
+      "blockstream": {
+        "60": "#00272C",
+        "100": "#071F21"
+      },
+      "darkGreen": "#071F21",
+      "midnightGreen": "#003235",
+      "midnightGreenLight": "#03514E",
+      "nightGreen": "#034C51",
+      "deepGreen": "#00272C",
+      "midnightGreen.50": "rgba(0, 50, 53, 0.5)",
+      "darkGreen.25": "rgba(7, 31, 33, 0.25)",
+      "darkGreen.30": "rgba(7, 31, 33, 0.3)",
+      "darkGreen.50": "rgba(7, 31, 33, 0.5)",
+      "darkGreen.60": "rgba(7, 31, 33, 0.6)",
+      "darkGreen.80": "rgba(7, 31, 33, 0.8)",
+      "darkGreen.90": "rgba(7, 31, 33, 0.9)",
+      "dataGreen25OnDarkGreen": "#0b4f45",
+      "white": "#FFFFFF",
+      "syncLight": "#F9F5F1",
+      "whiteNode": "#FFFFFF",
+      "cloudSync": "#F2EAE2",
+      "desertSand": "#F9F5F1",
+      "desertSand.25": "rgba(249, 245, 241, 0.25)",
+      "desertSand.30": "rgba(249, 245, 241, 0.30)",
+      "desertSand.80": "rgba(249, 245, 241, 0.8)",
+      "desertSand.50": "rgba(249, 245, 241, 0.5)",
+      "ivoryDust": "#ECE0D4",
+      "almondCream": "#F2EAE2",
+      "toastedOat": "#E5D3C3",
+      "toastedOat.35": "rgba(229, 211, 195, 0.35)",
+      "nodePulse": "#D1A8D5",
+      "deepLedger": "#361A3D",
+      "hashCore": "#311D19",
+      "beaconSignal": "#EF992F",
+      "browserUiDarkBg": "#3D3D3D",
+      "blueGray": "#8CC4F2",
+      "roseBrown": "#E59B7B",
+      "darkBrown": "#311D19",
+      "darkBrown.30": "rgba(49, 29, 25, 0.3)",
+      "darkBrown.80": "rgba(49, 29, 25, 0.8)",
+      "darkBrown.4": "rgba(49, 29, 25, 0.04)",
+      "yellowGold": "#EBC800",
+      "goldenSunset": "#EF992F",
+      "lightOrchid": "#D1A8D5",
+      "orchid": "#C678DD",
+      "purple": "#B84DFF",
+      "darkOrchid": "#BD6AC5",
+      "darkPurple": "#482251",
+      "darkerPurple": "#361A3D",
+      "blue": "#19BADF",
+      "darkBlue": "#185F99",
+      "denimBlue": "#8CC4F2",
+      "teal": "#19DFAE",
+      "lime": "#9DDF19",
+      "lemonYellow": "#F6E36D",
+      "yellow": "#DFC419",
+      "orange": "#E59B7B",
+      "persimmon": "#C63131",
+      "burgundy": "#350001",
+      "darkBurgundy": "#2D1901",
+      "linearGradient": {
+        "toastedOat": "linear-gradient(0deg, #E5D3C3 0%, #E5D3C3 100%)",
+        "blockstream": "linear-gradient(30deg, #071F21 30%, #071F21 100%)",
+        "black": "linear-gradient(30deg, #000000 100%)",
+        "tealBlue": "linear-gradient(30deg, #092A2C 100%)",
+        "aquaBlue": "linear-gradient(30deg, #19BDBF 25%, #19DFAE 30%)",
+        "limeGreen": "linear-gradient(30deg, #9DDF19 100%)",
+        "beaconSignal": "linear-gradient(10deg, #EF992F 100%)",
+        "deepBlue": "linear-gradient(30deg, #00252B 100%)",
+        "navyBlue": "linear-gradient(30deg, #03323A 100%)",
+        "midnightBlue": "linear-gradient(30deg, #04404A 100%)",
+        "forestGreen": "linear-gradient(30deg, #0A2F31 100%)",
+        "brownDark": "linear-gradient(30deg, #2D1901 100%)",
+        "deepLedger": "linear-gradient(30deg, #361A3D 100%)",
+        "nodePulse": "linear-gradient(30deg, #D1A8D5 100%)",
+        "grayDark": "linear-gradient(30deg, #9B9BA1 100%)",
+        "lavender": "linear-gradient(25deg, #BD6AC5 100%)",
+        "plum": "linear-gradient(25deg, #D1A8D5 100%)",
+        "rosePink": "linear-gradient(25deg, #E08185 100%)",
+        "beaconSignal25": "linear-gradient(25deg, #EF992F 100%)",
+        "yellowGreen": "linear-gradient(25deg, #F6E36D 100%)",
+        "syncLight": "linear-gradient(25deg, #F9F5F1 100%)"
+      },
+      "gray.50": "#f9f9f9",
+      "gray.100": "#f2f2f2",
+      "gray.200": "#e5e5e5",
+      "gray.300": "#d4d4d4",
+      "gray.400": "#a3a3a3",
+      "gray.500": "#737373",
+      "gray.600": "#525252",
+      "gray.700": "#404040",
+      "gray.800": "#262626",
+      "gray.900": "#171717",
+      "blueShades.50": "#eff6ff",
+      "blueShades.100": "#dbeafe",
+      "blueShades.200": "#bfdbfe",
+      "blueShades.300": "#93c5fd",
+      "blueShades.400": "#60a5fa",
+      "blueShades.500": "#3b82f6",
+      "blueShades.600": "#2563eb",
+      "blueShades.700": "#1d4ed8",
+      "blueShades.800": "#1e40af",
+      "blueShades.900": "#1e3a8a"
+    },
+    "typography": {
+      "fonts": {
+        "stacks": {
+          "heading": "\"Mabry Medium Pro\", sans-serif",
+          "body": "\"Figtree\", ui-sans-serif, system-ui, sans-serif",
+          "mono": "\"MonaspaceNeon\", monospace"
+        },
+        "families": {
+          "MabryMediumPro": "\"Mabry Medium Pro\"",
+          "Figtree": "\"Figtree\"",
+          "MonaspaceNeon": "\"MonaspaceNeon\""
+        },
+        "weights": {
+          "MabryMediumPro": [
+            500
+          ],
+          "Figtree": [
+            300,
+            500,
+            600
+          ],
+          "MonaspaceNeon": [
+            500,
+            600
+          ]
+        },
+        "files": {
+          "MabryMediumPro": {
+            "500": {
+              "ttf": "/fonts/mabry-medium-pro-web.ttf"
+            }
+          },
+          "Figtree": {
+            "300": {
+              "ttf": "/fonts/Figtree-VariableFont_wght.ttf"
+            },
+            "500": {
+              "ttf": "/fonts/Figtree-VariableFont_wght.ttf"
+            },
+            "600": {
+              "ttf": "/fonts/Figtree-VariableFont_wght.ttf"
+            }
+          },
+          "MonaspaceNeon": {
+            "500": {
+              "woff2": "/fonts/MonaspaceNeonVarVF-wght-wdth-slnt.woff2",
+              "woff": "/fonts/MonaspaceNeonVarVF-wght-wdth-slnt.woff"
+            },
+            "600": {
+              "woff2": "/fonts/MonaspaceNeonVarVF-wght-wdth-slnt.woff2",
+              "woff": "/fonts/MonaspaceNeonVarVF-wght-wdth-slnt.woff"
+            }
+          }
+        },
+        "display": {
+          "MabryMediumPro": "swap",
+          "Figtree": "swap",
+          "MonaspaceNeon": "swap"
+        },
+        "styles": {
+          "MabryMediumPro": {
+            "500": "normal"
+          },
+          "Figtree": {
+            "300": "normal",
+            "500": "normal",
+            "600": "normal"
+          },
+          "MonaspaceNeon": {
+            "500": "normal",
+            "600": "normal"
+          }
+        }
+      },
+      "fontSizes": {
+        "2xs": "10px",
+        "xs": "12px",
+        "sm": "14px",
+        "md": "16px",
+        "lg": "20px",
+        "xl": "37px",
+        "2xl": "48px",
+        "3xl": "56px",
+        "4xl": "60px",
+        "5xl": "76px",
+        "6xl": "81px",
+        "7xl": "120px",
+        "8xl": "144px",
+        "9xl": "176px"
+      },
+      "fontWeights": {
+        "light": 300,
+        "normal": 400,
+        "medium": 500,
+        "semibold": 600,
+        "bold": 700
+      }
+    },
+    "space": {
+      "0": "0px",
+      "1": "4px",
+      "2": "8px",
+      "3": "12px",
+      "4": "16px",
+      "5": "20px",
+      "6": "24px",
+      "8": "32px",
+      "10": "40px",
+      "12": "48px",
+      "13": "56px",
+      "16": "64px",
+      "20": "80px",
+      "24": "96px",
+      "28": "120px",
+      "30": "132px",
+      "32": "140px",
+      "40": "160px",
+      "48": "180px",
+      "56": "200px",
+      "64": "220px",
+      "72": "240px",
+      "80": "260px",
+      "0.5": "0.5px",
+      "2xs": "2px",
+      "xs": "4px",
+      "sm": "8px",
+      "md": "16px",
+      "lg": "32px",
+      "xl": "48px",
+      "2xl": "64px",
+      "3xl": "80px",
+      "4xl": "96px"
+    },
+    "breakpoints": {
+      "xs": "25em",
+      "sm": "30em",
+      "sm2": "40em",
+      "md": "48em",
+      "md2": "853px",
+      "lg": "62em",
+      "xl": "80em",
+      "2xl": "96em"
+    },
+    "borders": {
+      "none": "none",
+      "thin": "1px solid",
+      "medium": "1.5px solid",
+      "thick": "2px solid",
+      "extraThick": "4.2px solid"
+    },
+    "sizes": {
+      "container": {
+        "3xs": "106px",
+        "2xs": "275px",
+        "xs": "320px",
+        "sm": "480px",
+        "md": "660px",
+        "lg": "1002px",
+        "xl": "1200px",
+        "2xl": "1344px",
+        "3xl": "1440px"
+      }
+    },
+    "animations": {
+      "pulsate-green": {
+        "0%": {
+          "filter": "drop-shadow(0 0 3px rgba(221,250,120, 0))"
+        },
+        "40%": {
+          "filter": "drop-shadow(0 0 3px rgba(221,250,120, 1))"
+        },
+        "60%": {
+          "filter": "drop-shadow(0 0 3px rgba(221,250,120, 1))"
+        },
+        "100%": {
+          "filter": "drop-shadow(0 0 3px rgba(221,250,120, 0))"
+        }
+      }
+    },
+    "transitions": {
+      "property": {
+        "common": "background-color, border-color, color, fill, stroke, opacity, box-shadow, transform",
+        "colors": "color, background-color, border-color, text-decoration-color, fill, stroke",
+        "opacity": "opacity",
+        "shadow": "box-shadow",
+        "transform": "transform"
+      },
+      "timingFunction": {
+        "default": "cubic-bezier(0.4, 0, 0.2, 1)",
+        "linear": "linear",
+        "in": "cubic-bezier(0.4, 0, 1, 1)",
+        "out": "cubic-bezier(0, 0, 0.2, 1)",
+        "in-out": "cubic-bezier(0.4, 0, 0.2, 1)"
+      },
+      "duration": {
+        "fast": "100ms",
+        "normal": "200ms",
+        "slow": "300ms"
+      }
+    },
+    "shadows": {
+      "sm": "0 1px 2px 0 rgb(0 0 0 / 0.05)",
+      "base": "0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)",
+      "md": "0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)",
+      "lg": "0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)",
+      "xl": "0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)",
+      "2xl": "0 25px 50px -12px rgb(0 0 0 / 0.25)",
+      "inner": "inset 0 2px 4px 0 rgb(0 0 0 / 0.05)",
+      "none": "none"
+    },
+    "config": {
+      "cssVarPrefix": "oneSource",
+      "initialColorMode": "dark",
+      "useSystemColorMode": false
+    }
+  },
+  "timestamp": "2026-07-07T19:59:11.820Z"
+}

@@ -1,0 +1,72 @@
+{
+  "manifest_version": "0.3",
+  "name": "onesource-mcp",
+  "display_name": "OneSource",
+  "version": "5.10.2",
+  "description": "30 blockchain tools for Claude — 25 live data queries (ERC-20 and NFT balances, transaction details, contract info, gas estimation, event queries across EVM networks), plus 3 setup tools and 2 x402 payment controls.",
+  "author": {
+    "name": "BlockParty",
+    "url": "https://github.com/blockparty-global"
+  },
+  "homepage": "https://mcp.onesource.io",
+  "documentation": "https://docs.onesource.io/getting-started/mcp/install",
+  "support": "https://github.com/blockparty-global/1s-mcp/issues",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/blockparty-global/1s-mcp"
+  },
+  "license": "Apache-2.0",
+  "keywords": [
+    "blockchain",
+    "ethereum",
+    "web3",
+    "x402",
+    "nft",
+    "erc20",
+    "mcp"
+  ],
+  "privacy_policies": [
+    "https://onesource.io/privacy-policy"
+  ],
+  "tools_generated": true,
+  "server": {
+    "type": "node",
+    "entry_point": "dist/cli.js",
+    "mcp_config": {
+      "command": "node",
+      "args": [
+        "${__dirname}/dist/cli.js"
+      ],
+      "env": {
+        "ONESOURCE_API_KEY": "${user_config.ONESOURCE_API_KEY}",
+        "X402_PRIVATE_KEY": "${user_config.X402_PRIVATE_KEY}"
+      }
+    }
+  },
+  "user_config": {
+    "ONESOURCE_API_KEY": {
+      "type": "string",
+      "title": "API Key",
+      "description": "Your OneSource API key from app.onesource.io",
+      "sensitive": true,
+      "required": false
+    },
+    "X402_PRIVATE_KEY": {
+      "type": "string",
+      "title": "x402 Private Key",
+      "description": "Hex private key for x402 micropayment authentication (alternative to API key)",
+      "sensitive": true,
+      "required": false
+    }
+  },
+  "compatibility": {
+    "platforms": [
+      "darwin",
+      "win32",
+      "linux"
+    ],
+    "runtimes": {
+      "node": ">=18"
+    }
+  }
+}

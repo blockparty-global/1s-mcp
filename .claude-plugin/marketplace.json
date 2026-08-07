@@ -11,14 +11,15 @@
       "name": "onesource",
       "source": "./",
       "description": "30 tools for live blockchain queries via x402 micropayments",
-      "version": "5.4.4",
+      "version": "5.10.2",
       "category": "blockchain",
       "tags": [
         "blockchain",
         "ethereum",
         "web3",
         "x402",
-        "mcp"
+        "mcp",
+        "mpp"
       ]
     }
   ]
