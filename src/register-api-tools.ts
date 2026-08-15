@@ -49,6 +49,39 @@ export const TOOL_META: Record<string, { title: string; annotations: ToolAnnotat
   '1s_tx_receipt':           { title: 'Transaction Receipt',      annotations: RO },
 });
 
+/**
+ * Sentence appended to a tool's upstream description for endpoints whose REST
+ * response can include a `warnings` array (sre-services PR #551): when the
+ * server could not fetch one of that response's optional fields, `warnings`
+ * names it, and any field left missing or false for that reason describes an
+ * unknown rather than a confirmed answer.
+ *
+ * `1s_erc721_tokens_live` gets its own wording because its optional field is
+ * the token list itself, so a warning means the list is incomplete rather
+ * than "some other field is unknown."
+ *
+ * Descriptions otherwise come verbatim from `tool.description` in
+ * `@one-source/api-mcp` (see CLAUDE.md's Architecture section) — this repo
+ * doesn't fork the tool implementations. The addendum lives here rather than
+ * upstream because it documents the `@one-source/mcp` response contract
+ * specifically, and adding it doesn't require an api-mcp publish.
+ */
+const WARNINGS_NOTE =
+  'Optional fields the response could not confirm are listed in warnings; a field that is missing or false for that reason is unknown for this response, not a confirmed answer.';
+
+const TOKEN_LIST_WARNINGS_NOTE =
+  'If warnings lists the token collection, the returned tokens are an incomplete set, not the full holdings for that address.';
+
+const DESCRIPTION_NOTE: Record<string, string> = Object.freeze({
+  '1s_erc20_balance_live': WARNINGS_NOTE,
+  '1s_allowance_live': WARNINGS_NOTE,
+  '1s_total_supply_live': WARNINGS_NOTE,
+  '1s_contract_info_live': WARNINGS_NOTE,
+  '1s_proxy_detect': WARNINGS_NOTE,
+  '1s_multi_balance_live': WARNINGS_NOTE,
+  '1s_erc721_tokens_live': TOKEN_LIST_WARNINGS_NOTE,
+});
+
 function hashSession(sessionId: string | undefined): string | undefined {
   if (!sessionId) return undefined;
   return createHash('sha256').update(sessionId).digest('hex').slice(0, 16);
@@ -103,11 +136,13 @@ export function registerApiTools(
 
   for (const tool of tools) {
     const meta = TOOL_META[tool.name];
+    const note = DESCRIPTION_NOTE[tool.name];
+    const description = note ? `${tool.description} ${note}` : tool.description;
     server.registerTool(
       tool.name,
       {
         title: meta?.title ?? tool.name,
-        description: tool.description,
+        description,
         inputSchema: tool.schema,
         annotations: meta?.annotations ?? RO,
       },
