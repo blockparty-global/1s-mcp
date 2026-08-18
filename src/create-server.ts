@@ -1,9 +1,11 @@
 /**
  * Unified MCP Server Factory
  *
- * Creates a single McpServer named 'onesource' with all 30 tools
- * (27 API incl. payment-mode + 1 setup check + 1 batch config + 1 bug report)
- * by delegating to the register modules.
+ * Creates a single McpServer named 'onesource' with all 38 tools
+ * (27 API incl. payment-mode + 8 documentation + 1 setup check + 1 batch config
+ * + 1 bug report) by delegating to the register modules.
+ *
+ * Two of the API tools are stdio-only, so an HTTP server registers 36.
  */
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
@@ -15,8 +17,6 @@ import { createAnalytics, type Analytics } from './analytics.js';
 import { VERSION } from './version.js';
 
 export interface CreateServerOptions {
-  // /** Pre-loaded docs content (avoids re-reading files per request in HTTP mode). */
-  // docsData?: LoadedData;
   /** Override the default analytics instance (for sharing across HTTP requests). */
   analytics?: Analytics;
   /** Override the default API client (for sharing across HTTP requests). */
@@ -65,7 +65,6 @@ export function createMcpServer(opts?: CreateServerOptions): CreateServerResult 
     server,
     analytics,
     transport,
-    // data: opts?.docsData,
     authMethod: opts?.authMethod,
     x402Address: opts?.x402Address,
   });
@@ -80,6 +79,5 @@ export function createMcpServer(opts?: CreateServerOptions): CreateServerResult 
   return { server, analytics, client, toolCount: apiCount + docsCount + bugCount };
 }
 
-// export { loadData, type LoadedData };
 export { VERSION };
 export { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';

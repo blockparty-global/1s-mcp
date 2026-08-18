@@ -1,7 +1,7 @@
 # OneSource MCP — Full Testing Flow
 **Version:** 5.4.0  
 **Date:** 2026-06-09  
-**Purpose:** End-to-end verification of all 30 tools from a clean install.
+**Purpose:** End-to-end verification of all 38 tools from a clean install.
 
 ---
 
@@ -1062,7 +1062,7 @@ Call 1s_refund
 | Chain utility tools | Returns structured data | Error or empty response |
 | Live chain tools | Returns data or valid empty result | Unhandled error or crash |
 | Bug reporting | Returns submission confirmation | Error or no response |
-| Tool count | 30 tools available | Fewer or more |
+| Tool count | 38 tools available (36 over HTTP — `1s_payment_mode` and `1s_refund` are stdio-only) | Fewer or more |
 | HTTP health check | `{"tools":30}` | Wrong count or 500 |
 
 ---

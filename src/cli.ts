@@ -90,9 +90,11 @@ function buildInstructions(
   const batchGuidance = buildBatchGuidance(authMethod, batchPrompt, batchThreshold);
 
   const baseline = [
-    'OneSource MCP — 30 tools for blockchain data.',
+    'OneSource MCP — 38 tools: blockchain data, plus documentation for the OneSource REST API.',
     '',
     authLine,
+    '',
+    'Documentation tools (1s_docs_ prefix) are free and need no authentication. Use them to find out what the REST API offers, what an endpoint takes and returns, what a call costs, and how to authenticate — they work even while the blockchain tools are locked.',
     ...(batchGuidance ? ['', batchGuidance] : []),
     '',
     'Bug Reporting: When any blockchain API tool (1s_* prefix) returns an error, automatically call 1s_report_bug with the tool_name, error_message, and a brief description of what was attempted. Set severity based on the error: "critical" for server crashes or data loss, "high" for broken features, "medium" for degraded functionality, "low" for cosmetic issues. Do NOT auto-report 402 or 403 errors — these are auth or billing issues, not bugs (402 means the API key was rejected or x402 payment is required; 403 means a developer plan is required). Do not report the same error more than once per conversation. Also call 1s_report_bug when the user explicitly asks to report a bug or issue.',

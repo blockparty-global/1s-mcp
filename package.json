@@ -3,7 +3,7 @@
   "mcpName": "io.onesource/mcp",
   "version": "5.10.3",
   "type": "module",
-  "description": "Unified MCP server for OneSource — 30 tools for blockchain data, with x402 (USDC on Base) and MPP (Tempo) pay-per-call payment rails",
+  "description": "Unified MCP server for OneSource — 38 tools for blockchain data and REST API documentation, with x402 (USDC on Base) and MPP (Tempo) pay-per-call payment rails",
   "bin": {
     "onesource-mcp": "./dist/cli.js"
   },
@@ -40,7 +40,7 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.27.1",
     "@one-source/api-mcp": "^5.10.3",
-    "@one-source/docs-mcp": "^4.0.3",
+    "@one-source/docs-mcp": "^5.0.0",
     "redis": "^4.7.0",
     "zod": "^3.24.0"
   },
@@ -58,7 +58,6 @@
     "onesource",
     "web3",
     "blockchain",
-    "graphql",
     "documentation",
     "x402",
     "mpp",
