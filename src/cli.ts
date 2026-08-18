@@ -80,7 +80,7 @@ function buildInstructions(
   batchThreshold: number,
 ): string {
   const authLine = authMethod === 'api_key'
-    ? 'Blockchain API tools are authenticated via API key. If a tool returns a 402 error, the API key may be invalid or inactive — tell the user to verify their key at app.onesource.io. If a tool returns a 403 error, the account does not have a developer plan — tell the user to upgrade at app.onesource.io. To review or change configuration (auth method or either payment rail), run 1s_setup_check — it walks the user through every option interactively.'
+    ? 'Blockchain API tools are authenticated via API key. If a tool returns a 402 error, the API key may be invalid or inactive — tell the user to verify their key at app.onesource.io. If a tool returns a 403 error, the account does not have an active API key subscription — tell the user to subscribe or check their subscription status at app.onesource.io. To review or change configuration (auth method or either payment rail), run 1s_setup_check — it walks the user through every option interactively.'
     : authMethod === 'x402'
       ? 'Blockchain API tools are paid via x402 (USDC on Base). If a tool returns a 402 error, the wallet (X402_PRIVATE_KEY) may be unfunded — it must hold USDC on Base. To set up, switch payment rail (x402 on Base or MPP on Tempo), or change any setting, run 1s_setup_check — it walks the user through every option interactively, with no manual config editing.'
       : authMethod === 'mpp'
@@ -95,7 +95,7 @@ function buildInstructions(
     authLine,
     ...(batchGuidance ? ['', batchGuidance] : []),
     '',
-    'Bug Reporting: When any blockchain API tool (1s_* prefix) returns an error, automatically call 1s_report_bug with the tool_name, error_message, and a brief description of what was attempted. Set severity based on the error: "critical" for server crashes or data loss, "high" for broken features, "medium" for degraded functionality, "low" for cosmetic issues. Do NOT auto-report 402 or 403 errors — these are auth or billing issues, not bugs (402 means the API key was rejected or x402 payment is required; 403 means a developer plan is required). Do not report the same error more than once per conversation. Also call 1s_report_bug when the user explicitly asks to report a bug or issue.',
+    'Bug Reporting: When any blockchain API tool (1s_* prefix) returns an error, automatically call 1s_report_bug with the tool_name, error_message, and a brief description of what was attempted. Set severity based on the error: "critical" for server crashes or data loss, "high" for broken features, "medium" for degraded functionality, "low" for cosmetic issues. Do NOT auto-report 402 or 403 errors — these are auth or billing issues, not bugs (402 means the API key was rejected or x402 payment is required; 403 means an active API key subscription is required). Do not report the same error more than once per conversation. Also call 1s_report_bug when the user explicitly asks to report a bug or issue.',
   ].join('\n');
 
   if (latestVersion && latestVersion !== currentVersion) {

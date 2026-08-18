@@ -4,7 +4,7 @@ description: >-
   Report a bug or unexpected error in OneSource MCP to the OneSource team using
   the 1s_report_bug tool. Use when a 1s_* blockchain tool returns an unexpected
   error, or when the user explicitly asks to report a problem. Free, no payment
-  required. Do NOT report 402 (payment/auth) or 403 (plan) responses — those are
+  required. Do NOT report 402 (payment/auth) or 403 (subscription) responses — those are
   billing/auth issues, not bugs.
 ---
 
@@ -19,7 +19,7 @@ description: >-
 
 **Do NOT report:**
 - **402** responses — payment required or API key rejected (an auth/billing issue, not a bug).
-- **403** responses — the account needs a developer plan (a billing issue, not a bug).
+- **403** responses — the account does not have an active API key subscription (a billing issue, not a bug).
 - The same error more than once per conversation.
 
 ## Parameters

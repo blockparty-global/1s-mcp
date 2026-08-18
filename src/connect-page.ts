@@ -44,7 +44,7 @@ async function validateApiKey(candidate: string): Promise<'valid' | 'invalid' | 
       headers: { Authorization: `Bearer ${candidate}` },
       signal: AbortSignal.timeout(5000),
     });
-    // 200 → valid key; 403 → valid key, no dev plan (user can still connect)
+    // 200 → valid key; 403 → valid key, inactive subscription (user can still connect)
     if (r.status === 200 || r.status === 403) return 'valid';
     if (r.status >= 500) return 'error';
     return 'invalid';
