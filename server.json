@@ -3,7 +3,7 @@
   "name": "io.onesource/mcp",
   "description": "38 tools for blockchain data, live chain queries, and REST API documentation",
   "title": "OneSource MCP",
-  "version": "5.10.3",
+  "version": "5.11.0",
   "websiteUrl": "https://mcp.onesource.io",
   "privacyPolicyUrl": "https://onesource.io/privacy-policy",
   "repository": {
@@ -14,7 +14,7 @@
     {
       "registryType": "npm",
       "identifier": "@one-source/mcp",
-      "version": "5.10.3",
+      "version": "5.11.0",
       "transport": {
         "type": "stdio"
       },
