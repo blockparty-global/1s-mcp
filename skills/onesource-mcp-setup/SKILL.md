@@ -77,7 +77,7 @@ Choose one option. If both are set, API key takes priority.
 ### Option A: API Key
 
 1. Go to [app.onesource.io](https://app.onesource.io) and create an account.
-2. Subscribe to a developer plan (Stripe checkout).
+2. Complete the API key subscription through Stripe checkout.
 3. Navigate to **API Keys** and generate a key.
 4. Copy the key — it starts with `sk_`.
 
@@ -309,7 +309,8 @@ If you authenticate with x402, you can pay per call (`exact`, default) or open a
 | Problem | Solution |
 |---------|----------|
 | `1s_setup_check` shows "Not configured" | Most common cause: config was changed but the MCP server wasn't reloaded. Run `/reload-plugins` in Claude Code, or restart Claude Desktop / Cursor. If the key still isn't reaching the server, try setting it as an environment variable directly — see **Alternative: Set the Key as an Environment Variable** above. |
-| `1s_setup_check` shows API key configured but tools return 402 | The key may be invalid or the account may not have a developer plan. Verify the key at app.onesource.io. |
+| `1s_setup_check` shows API key configured but tools return 402 | The key may be invalid or inactive. Verify the key at app.onesource.io. |
+| `1s_setup_check` shows API key configured but tools return 403 | The account does not have an active API key subscription. Subscribe or check the subscription status at app.onesource.io. |
 | "MCP server onesource already exists" error | Run `claude mcp remove onesource` first, then re-add it with your updated config. |
 | Config changed but nothing happened | Run `/reload-plugins` in Claude Code to reload MCP servers, then `/mcp` to check connection status. |
 | Tool returns HTTP 402 error (x402 path) | x402 is not configured, or the wallet has insufficient USDC on Base. Check `1s_setup_check` for wallet address and balance. |

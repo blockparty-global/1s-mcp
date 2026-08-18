@@ -1073,7 +1073,7 @@ Call 1s_refund
 - **Empty token list** — valid; the address may not own those NFTs
 - **Allowance = 0** — valid; no approval has been granted
 - **402 with no auth** — expected; configure auth to proceed
-- **403 with API key** — key is valid but account needs a developer plan
+- **403 with API key** — key is valid but the account does not have an active API key subscription
 
 ---
 
