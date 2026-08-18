@@ -1,6 +1,6 @@
 # @one-source/mcp
 
-Unified MCP server for [OneSource](https://docs.onesource.io) — 30 tools for blockchain data and live chain queries in a single server.
+Unified MCP server for [OneSource](https://docs.onesource.io) — 38 tools for blockchain data, live chain queries, and REST API documentation in a single server.
 
 > **What is MCP?** The [Model Context Protocol](https://modelcontextprotocol.io) lets AI assistants call tools and access data sources. This server exposes both the OneSource blockchain API and its documentation as tools.
 
@@ -44,7 +44,7 @@ Then connect your MCP client to `http://localhost:3000/`.
 
 Health check: `GET http://localhost:3000/health`
 
-## Tools (30)
+## Tools (38)
 
 ### Blockchain API — Live Chain (12 tools)
 
@@ -89,6 +89,21 @@ RPC only.
 |------|-------------|
 | `1s_payment_mode` | View or switch the payment rail + scheme across all four modes: `x402-exact` / `x402-batch` (USDC on Base) and `mpp-charge` / `mpp-session` (USDC.e / pathUSD on Tempo). `batch` and `session` open a channel that funds many calls. |
 | `1s_refund` | Reclaim an open payment channel's unspent deposit on demand — works for both an x402 `batch` channel (Base) and an MPP `session` voucher channel (Tempo) |
+
+### Documentation (8 tools)
+
+No authentication required. These answer from a documentation corpus bundled with the server, so they cost nothing and work even before a payment method is configured. They share their names with the standalone `@one-source/docs-mcp` server, which serves the same corpus.
+
+| Tool | Description |
+|------|-------------|
+| `1s_search_docs` | Keyword search across the OneSource developer documentation |
+| `1s_get_api_overview` | What the REST API covers — operation count, tags, networks, payment protocols |
+| `1s_list_endpoints` | Every REST endpoint with method, path, price, and summary; filter by tag |
+| `1s_get_endpoint_reference` | One endpoint in full — parameters, request body, example response, price, curl |
+| `1s_search_use_cases` | Find the right endpoint from a plain-language description of the task |
+| `1s_list_networks` | Networks the REST API routes, as declared by its published spec |
+| `1s_get_payment_info` | Price range, payment rails, and pay-to address; per-endpoint when given one |
+| `1s_get_authentication_guide` | How to authenticate to the REST API and which method to choose |
 
 ### Setup & Ops (3 tools)
 

@@ -1,8 +1,18 @@
 /**
- * Register docs tools from @one-source/docs-mcp onto a shared McpServer.
+ * Register documentation tools from @one-source/docs-mcp, plus the server's own
+ * operational tools, onto a shared McpServer.
  *
- * NOTE: Docs tools are temporarily disabled (product not yet released).
- * Code is commented out for easy re-enable. Only 1s_setup_check remains active.
+ * The documentation tools describe the OneSource REST API: what it covers, what
+ * each endpoint takes and returns, what a call costs, and how to authenticate.
+ * They read a corpus bundled inside the docs package, so they are free,
+ * unauthenticated, read-only and stateless — which is why they are registered
+ * on both transports. The wallet and singleton tools are not; see
+ * `register-api-tools.ts` for that gate and the reason for it.
+ *
+ * The tool names match the ones @one-source/docs-mcp uses when it runs
+ * standalone. That is deliberate: the documentation corpus these tools search
+ * documents those names, so a second name for the same tool would put this
+ * server permanently at odds with the docs it serves.
  */
 
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
@@ -26,17 +36,15 @@ import {
   type BatchPrefs,
 } from './batch-prefs.js';
 
-// import { loadData, type LoadedData } from '@one-source/docs-mcp';
-// import { searchDocsSchema, handleSearchDocs } from '@one-source/docs-mcp/tools/search-docs';
-// import { getQueryReferenceSchema, handleGetQueryReference } from '@one-source/docs-mcp/tools/get-query-reference';
-// import { getTypeDefinitionSchema, handleGetTypeDefinition } from '@one-source/docs-mcp/tools/get-type-definition';
-// import { listExamplesSchema, handleListExamples } from '@one-source/docs-mcp/tools/list-examples';
-// import { listSupportedChainsSchema, handleListSupportedChains } from '@one-source/docs-mcp/tools/list-supported-chains';
-// import { getFilterReferenceSchema, handleGetFilterReference } from '@one-source/docs-mcp/tools/get-filter-reference';
-// import { getPaginationGuideSchema, handleGetPaginationGuide } from '@one-source/docs-mcp/tools/get-pagination-guide';
-// import { getSchemaOverviewSchema, handleGetSchemaOverview } from '@one-source/docs-mcp/tools/get-schema-overview';
-// import { getAuthenticationGuideSchema, handleGetAuthenticationGuide } from '@one-source/docs-mcp/tools/get-authentication-guide';
-// import { getMcpSetupGuideSchema, handleGetMcpSetupGuide } from '@one-source/docs-mcp/tools/get-mcp-setup-guide';
+import { loadData, type LoadedData } from '@one-source/docs-mcp';
+import { searchDocsSchema, handleSearchDocs } from '@one-source/docs-mcp/tools/search-docs';
+import { getApiOverviewSchema, handleGetApiOverview } from '@one-source/docs-mcp/tools/get-api-overview';
+import { listEndpointsSchema, handleListEndpoints } from '@one-source/docs-mcp/tools/list-endpoints';
+import { getEndpointReferenceSchema, handleGetEndpointReference } from '@one-source/docs-mcp/tools/get-endpoint-reference';
+import { searchUseCasesSchema, handleSearchUseCases } from '@one-source/docs-mcp/tools/search-use-cases';
+import { listNetworksSchema, handleListNetworks } from '@one-source/docs-mcp/tools/list-networks';
+import { getPaymentInfoSchema, handleGetPaymentInfo } from '@one-source/docs-mcp/tools/get-payment-info';
+import { getAuthenticationGuideSchema, handleGetAuthenticationGuide } from '@one-source/docs-mcp/tools/get-authentication-guide';
 
 import type { Analytics, ToolCallEvent } from './analytics.js';
 import { errorCategoryFromMessage } from './analytics.js';
@@ -51,10 +59,9 @@ function hashSession(sessionId: string | undefined): string | undefined {
  * Which service a tool registered in this file reports under.
  *
  * This file registers two different kinds of tool, and they belong to
- * different services. The documentation tools (commented out below) are the
- * docs MCP surface. The two live tools — `1s_setup_check` and
- * `1s_batch_config` — are operational tooling for the MCP server itself: free,
- * unauthenticated, and nothing to do with documentation.
+ * different services. The documentation tools are the docs MCP surface.
+ * `1s_setup_check` and `1s_batch_config` are operational tooling for the MCP
+ * server itself: free, unauthenticated, and nothing to do with documentation.
  *
  * Reporting those two as `onesource-docs` put MCP-server configuration traffic
  * onto the analytics dashboard's Docs MCP surface, so that surface measured
@@ -147,12 +154,136 @@ function instrumentedTool(
   });
 }
 
+/**
+ * Documentation corpus, loaded on first use and reused for the life of the
+ * process.
+ *
+ * `loadData` reads every bundled documentation file and builds a search index
+ * over it. Doing that while registering tools would charge the cost to sessions
+ * that never ask a documentation question — and in HTTP mode, where the unified
+ * server is rebuilt for every request, it would be charged again on each one.
+ * Memoizing here makes it once per process, shared by all eight tools.
+ */
+let corpus: LoadedData | undefined;
+function docs(): LoadedData {
+  corpus ??= loadData();
+  return corpus;
+}
+
+/**
+ * A documentation tool as this server exposes it.
+ *
+ * Names match @one-source/docs-mcp exactly and are a stable contract with
+ * clients. Descriptions are written here rather than reused from that package
+ * so each one can say how the tool relates to the others this server exposes —
+ * which of the 38 to reach for is a question only the unified server can answer.
+ *
+ * Handlers re-parse their input through the tool's own schema. The SDK has
+ * already validated it against that same schema, so the parse only narrows the
+ * type — but it earns its keep by removing every unchecked cast from the table.
+ */
+interface DocsToolSpec {
+  name: string;
+  title: string;
+  description: string;
+  inputSchema: z.ZodRawShape;
+  handler: (input: Record<string, unknown>) => string;
+}
+
+const DOCS_TOOLS: DocsToolSpec[] = [
+  {
+    name: '1s_search_docs',
+    title: 'Search Docs',
+    description:
+      'Search the OneSource developer documentation by keyword and return the best-matching sections. ' +
+      'Use this for conceptual questions — getting started, guides, concepts, how-tos. ' +
+      'For the parameters and response of one specific endpoint, use 1s_get_endpoint_reference instead. Free, no authentication required.',
+    inputSchema: searchDocsSchema.shape,
+    handler: (input) => handleSearchDocs(searchDocsSchema.parse(input), docs().index),
+  },
+  {
+    name: '1s_get_api_overview',
+    title: 'API Overview',
+    description:
+      'High-level summary of the OneSource REST API: how many operations it exposes, the tags they are grouped under, ' +
+      'the networks it routes, the payment protocols it accepts, and a handful of sample endpoints. ' +
+      'Start here when you do not yet know what the API covers. Free, no authentication required.',
+    inputSchema: getApiOverviewSchema.shape,
+    handler: (input) => handleGetApiOverview(getApiOverviewSchema.parse(input), docs().api),
+  },
+  {
+    name: '1s_list_endpoints',
+    title: 'List Endpoints',
+    description:
+      'List OneSource REST API endpoints with their method, path, per-call price, and a one-line summary. ' +
+      'Pass a tag to narrow the list to one area of the API. Free, no authentication required.',
+    inputSchema: listEndpointsSchema.shape,
+    handler: (input) => handleListEndpoints(listEndpointsSchema.parse(input), docs().api),
+  },
+  {
+    name: '1s_get_endpoint_reference',
+    title: 'Endpoint Reference',
+    description:
+      'Full reference for a single OneSource REST API endpoint: parameters, request body, example response, price, ' +
+      'use cases, and a ready-to-run curl command. Accepts an operation ID or a path. ' +
+      'Use 1s_list_endpoints or 1s_search_use_cases first if you do not know which endpoint you need. Free, no authentication required.',
+    inputSchema: getEndpointReferenceSchema.shape,
+    handler: (input) => handleGetEndpointReference(getEndpointReferenceSchema.parse(input), docs().api),
+  },
+  {
+    name: '1s_search_use_cases',
+    title: 'Find Endpoint by Task',
+    description:
+      'Find the OneSource REST API endpoints that fit a task described in plain language ' +
+      '(for example "check who owns an NFT" or "decode a transaction"). ' +
+      'Use this when you know what you want to do but not which endpoint does it. Free, no authentication required.',
+    inputSchema: searchUseCasesSchema.shape,
+    handler: (input) => handleSearchUseCases(searchUseCasesSchema.parse(input), docs().api),
+  },
+  {
+    name: '1s_list_networks',
+    title: 'Documented Networks',
+    description:
+      'List the networks the OneSource REST API can route to, as declared by its published specification, ' +
+      'and how to select one on a call. This is the documented roster; 1s_network_info queries a chain live. Free, no authentication required.',
+    inputSchema: listNetworksSchema.shape,
+    handler: (input) => handleListNetworks(listNetworksSchema.parse(input), docs().api),
+  },
+  {
+    name: '1s_get_payment_info',
+    title: 'Pricing & Payment',
+    description:
+      'Pricing and payment protocols for the OneSource REST API — which rails it accepts, the price range per call, ' +
+      'and the recipient address. Pass an endpoint for that endpoint\'s specific price. ' +
+      'This describes what the API charges; 1s_batch_config changes what this server pays with. Free, no authentication required.',
+    inputSchema: getPaymentInfoSchema.shape,
+    handler: (input) => handleGetPaymentInfo(getPaymentInfoSchema.parse(input), docs().api),
+  },
+  {
+    name: '1s_get_authentication_guide',
+    title: 'Authentication Guide',
+    description:
+      'How to authenticate to the OneSource REST API — an API key from a subscription, x402 (USDC on Base), ' +
+      'or MPP (USDC.e or pathUSD on Tempo) — and how to choose between them. ' +
+      'This covers calling the REST API directly; to configure this MCP server, call 1s_setup_check. Free, no authentication required.',
+    inputSchema: getAuthenticationGuideSchema.shape,
+    handler: (input) => handleGetAuthenticationGuide(getAuthenticationGuideSchema.parse(input)),
+  },
+];
+
+/**
+ * The documentation tool roster, in registration order.
+ *
+ * Exported so the build-time validator and the tests assert against the same
+ * list the server registers from, rather than against a copy that can drift out
+ * of agreement with it.
+ */
+export const DOCS_TOOL_NAMES: readonly string[] = DOCS_TOOLS.map((tool) => tool.name);
+
 export interface RegisterDocsToolsOptions {
   server: McpServer;
   analytics: Analytics;
   transport?: 'stdio' | 'http';
-  // /** Pre-loaded docs data (avoids re-reading files per request in HTTP mode). */
-  // data?: LoadedData;
   /** Active authentication method, determined at startup. */
   authMethod?: 'api_key' | 'x402' | 'mpp' | 'none';
   /** Payer wallet address (x402 on Base or MPP on Tempo), when paying via a wallet. */
@@ -164,79 +295,24 @@ export interface RegisterDocsToolsOptions {
  */
 export function registerDocsTools(opts: RegisterDocsToolsOptions): number {
   const { server, analytics, transport } = opts;
-  // const { sections, index, schema } = opts.data ?? loadData();
 
-  // instrumentedTool(server, analytics, transport,
-  //   'search_docs',
-  //   'Search OneSource documentation by keyword. Returns the top 5 matching sections.',
-  //   searchDocsSchema.shape,
-  //   (input) => handleSearchDocs(input, index),
-  // );
-
-  // instrumentedTool(server, analytics, transport,
-  //   'get_query_reference',
-  //   'Get full reference for a OneSource root GraphQL query — arguments, filters, return type. There are 12 root queries: address, addresses, block, blocks, contract, contracts, nft, nfts, token, tokens, transaction, transactions.',
-  //   getQueryReferenceSchema.shape,
-  //   (input) => handleGetQueryReference(input, schema),
-  // );
-
-  // instrumentedTool(server, analytics, transport,
-  //   'get_type_definition',
-  //   'Get the schema definition for a GraphQL type, enum, scalar, input, or interface. Returns fields, values, and descriptions.',
-  //   getTypeDefinitionSchema.shape,
-  //   (input) => handleGetTypeDefinition(input, schema),
-  // );
-
-  // instrumentedTool(server, analytics, transport,
-  //   'list_examples',
-  //   'List or search working GraphQL examples. Without a topic, returns a summary of all available examples. With a topic, returns full example content matching that keyword.',
-  //   listExamplesSchema.shape,
-  //   (input) => handleListExamples(input, sections),
-  // );
-
-  // instrumentedTool(server, analytics, transport,
-  //   'list_supported_chains',
-  //   'List all blockchain networks supported by OneSource with endpoint URLs.',
-  //   listSupportedChainsSchema.shape,
-  //   () => handleListSupportedChains(),
-  // );
-
-  // instrumentedTool(server, analytics, transport,
-  //   'get_filter_reference',
-  //   'Get all filter fields and operators for a list query (e.g. transactions, tokens).',
-  //   getFilterReferenceSchema.shape,
-  //   (input) => handleGetFilterReference(input, schema),
-  // );
-
-  // instrumentedTool(server, analytics, transport,
-  //   'get_pagination_guide',
-  //   'Get the cursor-based pagination pattern with examples for a list query.',
-  //   getPaginationGuideSchema.shape,
-  //   (input) => handleGetPaginationGuide(input, schema),
-  // );
-
-  // instrumentedTool(server, analytics, transport,
-  //   'get_schema_overview',
-  //   'Get a high-level summary of the entire GraphQL schema — all queries, types, enums, and scalars.',
-  //   getSchemaOverviewSchema.shape,
-  //   () => handleGetSchemaOverview(schema),
-  // );
-
-  // instrumentedTool(server, analytics, transport,
-  //   'get_authentication_guide',
-  //   'Get the authentication guide — API key format, endpoints, headers, and common mistakes.',
-  //   getAuthenticationGuideSchema.shape,
-  //   () => handleGetAuthenticationGuide(),
-  // );
-
-  // instrumentedTool(server, analytics, transport,
-  //   'get_mcp_setup_guide',
-  //   'Get the MCP installation and setup guide — quickstart, per-client instructions, authentication (API key or x402), configuration, and individual MCP packages. Use the topic parameter to focus on a specific area.',
-  //   getMcpSetupGuideSchema.shape,
-  //   (input) => handleGetMcpSetupGuide(input, sections),
-  // );
-
+  // Documentation tools go on both transports: they are read-only, stateless,
+  // and free, so nothing about them is unsafe to share across tenants on the
+  // HTTP server. The tools that are gated to stdio are the ones that mutate
+  // process-level payment state — see register-api-tools.ts.
   let count = 0;
+  for (const tool of DOCS_TOOLS) {
+    instrumentedTool(server, analytics, transport,
+      tool.name,
+      tool.description,
+      tool.inputSchema,
+      tool.handler,
+      'docs',
+      { title: tool.title, readOnlyHint: true, destructiveHint: false },
+    );
+    count++;
+  }
+
   const authMethod = opts.authMethod;
   const x402Address = opts.x402Address;
   instrumentedTool(server, analytics, transport,
@@ -619,5 +695,3 @@ function renderBatchConfig(
 
   return lines.join('\n');
 }
-
-// export { loadData, type LoadedData };

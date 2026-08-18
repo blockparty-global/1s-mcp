@@ -28,6 +28,7 @@ const packageJson = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'))
 
 const { createMcpServer } = await import(pathToFileURL(join(root, 'dist/create-server.js')).href);
 const { TOOL_META } = await import(pathToFileURL(join(root, 'dist/register-api-tools.js')).href);
+const { DOCS_TOOL_NAMES } = await import(pathToFileURL(join(root, 'dist/register-docs-tools.js')).href);
 const { allTools } = await import('@one-source/api-mcp/tools');
 
 // Proxy absorbs any method the SDK or future analytics interface may call during registration.
@@ -188,6 +189,26 @@ for (const line of callLines) {
   fail('check-6', `deprecated server.tool() call found — ${line.trim()}`);
 }
 
+// Check 8 — Documentation tool roster
+// The documentation tools take their names from @one-source/docs-mcp so the
+// docs corpus and the server agree on what they are called. That puts them in
+// the same namespace as the api-mcp tools: if upstream ever ships a tool with
+// one of these names, McpServer.registerTool throws on the duplicate and the
+// only clue is an SDK error mid-registration. Assert the disjointness here so
+// the failure names the collision instead.
+if (!Array.isArray(DOCS_TOOL_NAMES) || DOCS_TOOL_NAMES.length === 0) {
+  fail('check-8', 'DOCS_TOOL_NAMES is missing or empty — register-docs-tools.js no longer exports the roster');
+} else {
+  for (const name of DOCS_TOOL_NAMES) {
+    if (!registered[name]) {
+      fail('check-8', `${name} — in DOCS_TOOL_NAMES but not registered after createMcpServer()`);
+    }
+    if (apiToolNameSet.has(name)) {
+      fail('check-8', `${name} — documentation tool name collides with an api-mcp tool; one would shadow the other`);
+    }
+  }
+}
+
 // Check 7 — Description minimum length
 for (const [name, reg] of Object.entries(registered)) {
   if (reg.enabled === false) continue;
@@ -206,4 +227,4 @@ if (failures.length > 0) {
   process.exit(1);
 }
 
-console.log(`[validate-mcp] OK — ${registeredCount} tools validated (9 checks passed)`);
+console.log(`[validate-mcp] OK — ${registeredCount} tools validated (10 checks passed)`);
