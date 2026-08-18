@@ -1,7 +1,7 @@
 /**
  * The tools registered in register-docs-tools.ts span two analytics surfaces.
  *
- * The `1s_docs_*` tools are the documentation surface. `1s_setup_check` and
+ * The documentation tools are the documentation surface. `1s_setup_check` and
  * `1s_batch_config` are operational tooling for the MCP server — free,
  * unauthenticated, and unrelated to documentation. They used to report as
  * `onesource-docs`, which put MCP-server configuration traffic onto the
@@ -11,24 +11,18 @@
  * The corresponding dashboard-side mapping lives in 1s-analytics
  * src/lib/services.ts (SERVICE_TO_SURFACE).
  */
-import { describe, it, expect, vi, afterAll } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { createMcpServer } from './create-server.js';
-import { registerDocsTools, serviceForToolCategory } from './register-docs-tools.js';
-import { closeDocsBridge } from './docs-bridge.js';
+import { DOCS_TOOL_NAMES, registerDocsTools, serviceForToolCategory } from './register-docs-tools.js';
 import type { Analytics, ToolCallEvent } from './analytics.js';
 
-/** Every documentation tool this server exposes. */
-const DOCS_TOOL_NAMES = [
-  '1s_docs_search',
-  '1s_docs_api_overview',
-  '1s_docs_list_endpoints',
-  '1s_docs_endpoint_reference',
-  '1s_docs_search_use_cases',
-  '1s_docs_networks',
-  '1s_docs_payment_info',
-  '1s_docs_auth_guide',
-];
+/**
+ * The roster is imported rather than restated, so these tests cannot drift into
+ * asserting a set of tools the server no longer registers. This one assertion
+ * anchors it: adding or removing a tool must be a deliberate edit here too.
+ */
+const EXPECTED_DOCS_TOOL_COUNT = 8;
 
 /** Operational tools registered alongside them by the same module. */
 const OPS_TOOL_NAMES = ['1s_setup_check', '1s_batch_config'];
@@ -38,10 +32,6 @@ const OPS_TOOL_NAMES = ['1s_setup_check', '1s_batch_config'];
  * process-level payment singleton, which no single HTTP caller can own.
  */
 const WALLET_TOOL_NAMES = ['1s_payment_mode', '1s_refund'];
-
-afterAll(async () => {
-  await closeDocsBridge();
-});
 
 function stubAnalytics(events: ToolCallEvent[]): Analytics {
   return {
@@ -129,6 +119,14 @@ describe('registered tool analytics', () => {
 });
 
 describe('documentation tools', () => {
+  it('exposes the expected roster', () => {
+    expect(DOCS_TOOL_NAMES).toHaveLength(EXPECTED_DOCS_TOOL_COUNT);
+    // Names are shared with the standalone @one-source/docs-mcp server so the
+    // bundled docs corpus, which names these tools, stays accurate here too.
+    expect(DOCS_TOOL_NAMES).toContain('1s_search_docs');
+    expect(DOCS_TOOL_NAMES).toContain('1s_get_endpoint_reference');
+  });
+
   it('registers every docs tool on stdio', () => {
     const names = registeredToolNames('stdio');
     for (const name of DOCS_TOOL_NAMES) {
@@ -154,9 +152,9 @@ describe('documentation tools', () => {
 
   it('answers a keyword search with matching documentation sections', async () => {
     const events = await captureToolEvents({
-      '1s_docs_search': { query: 'authentication' },
+      '1s_search_docs': { query: 'authentication' },
     });
-    const event = events.find((e) => e.tool === '1s_docs_search');
+    const event = events.find((e) => e.tool === '1s_search_docs');
     expect(event).toBeDefined();
     expect(event!.success).toBe(true);
     expect(event!.response_size).toBeGreaterThan(0);
@@ -165,25 +163,25 @@ describe('documentation tools', () => {
 
   it('answers an endpoint reference lookup for a real endpoint', async () => {
     const events = await captureToolEvents({
-      '1s_docs_endpoint_reference': { endpoint: '/api/chain/network-info' },
+      '1s_get_endpoint_reference': { endpoint: '/api/chain/network-info' },
     });
-    const event = events.find((e) => e.tool === '1s_docs_endpoint_reference');
+    const event = events.find((e) => e.tool === '1s_get_endpoint_reference');
     expect(event).toBeDefined();
     expect(event!.success).toBe(true);
     expect(event!.response_size).toBeGreaterThan(0);
   });
 
   /**
-   * The docs package reports a failed call in-band — an `isError` result
-   * carrying an explanatory message — rather than by throwing. If the bridge
-   * passed that through as an ordinary result, every failure would land on the
-   * dashboard as a success.
+   * Handlers narrow their input by re-parsing it through the tool's own schema.
+   * That parse is what turns bad input into a thrown error the instrumentation
+   * can see; without it a malformed argument would reach the upstream handler
+   * as an unchecked cast and whatever came back would be logged as a success.
    */
   it('records a rejected input as a failure, not a success', async () => {
     const events = await captureToolEvents({
-      '1s_docs_endpoint_reference': { endpoint: 42 },
+      '1s_get_endpoint_reference': { endpoint: 42 },
     });
-    const event = events.find((e) => e.tool === '1s_docs_endpoint_reference');
+    const event = events.find((e) => e.tool === '1s_get_endpoint_reference');
     expect(event).toBeDefined();
     expect(event!.success).toBe(false);
   });

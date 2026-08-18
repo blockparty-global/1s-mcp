@@ -92,18 +92,18 @@ RPC only.
 
 ### Documentation (8 tools)
 
-No authentication required. These answer from a documentation corpus bundled with the server, so they cost nothing and work even before a payment method is configured.
+No authentication required. These answer from a documentation corpus bundled with the server, so they cost nothing and work even before a payment method is configured. They share their names with the standalone `@one-source/docs-mcp` server, which serves the same corpus.
 
 | Tool | Description |
 |------|-------------|
-| `1s_docs_search` | Keyword search across the OneSource developer documentation |
-| `1s_docs_api_overview` | What the REST API covers — operation count, tags, networks, payment protocols |
-| `1s_docs_list_endpoints` | Every REST endpoint with method, path, price, and summary; filter by tag |
-| `1s_docs_endpoint_reference` | One endpoint in full — parameters, request body, example response, price, curl |
-| `1s_docs_search_use_cases` | Find the right endpoint from a plain-language description of the task |
-| `1s_docs_networks` | Networks the REST API routes, as declared by its published spec |
-| `1s_docs_payment_info` | Price range, payment rails, and pay-to address; per-endpoint when given one |
-| `1s_docs_auth_guide` | How to authenticate to the REST API and which method to choose |
+| `1s_search_docs` | Keyword search across the OneSource developer documentation |
+| `1s_get_api_overview` | What the REST API covers — operation count, tags, networks, payment protocols |
+| `1s_list_endpoints` | Every REST endpoint with method, path, price, and summary; filter by tag |
+| `1s_get_endpoint_reference` | One endpoint in full — parameters, request body, example response, price, curl |
+| `1s_search_use_cases` | Find the right endpoint from a plain-language description of the task |
+| `1s_list_networks` | Networks the REST API routes, as declared by its published spec |
+| `1s_get_payment_info` | Price range, payment rails, and pay-to address; per-endpoint when given one |
+| `1s_get_authentication_guide` | How to authenticate to the REST API and which method to choose |
 
 ### Setup & Ops (3 tools)
 

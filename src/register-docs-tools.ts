@@ -9,8 +9,10 @@
  * on both transports. The wallet and singleton tools are not; see
  * `register-api-tools.ts` for that gate and the reason for it.
  *
- * The handlers themselves live in @one-source/docs-mcp and are reached through
- * `docs-bridge.ts` — see that file for why a bridge is needed at all.
+ * The tool names match the ones @one-source/docs-mcp uses when it runs
+ * standalone. That is deliberate: the documentation corpus these tools search
+ * documents those names, so a second name for the same tool would put this
+ * server permanently at odds with the docs it serves.
  */
 
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
@@ -34,7 +36,15 @@ import {
   type BatchPrefs,
 } from './batch-prefs.js';
 
-import { callDocsTool } from './docs-bridge.js';
+import { loadData, type LoadedData } from '@one-source/docs-mcp';
+import { searchDocsSchema, handleSearchDocs } from '@one-source/docs-mcp/tools/search-docs';
+import { getApiOverviewSchema, handleGetApiOverview } from '@one-source/docs-mcp/tools/get-api-overview';
+import { listEndpointsSchema, handleListEndpoints } from '@one-source/docs-mcp/tools/list-endpoints';
+import { getEndpointReferenceSchema, handleGetEndpointReference } from '@one-source/docs-mcp/tools/get-endpoint-reference';
+import { searchUseCasesSchema, handleSearchUseCases } from '@one-source/docs-mcp/tools/search-use-cases';
+import { listNetworksSchema, handleListNetworks } from '@one-source/docs-mcp/tools/list-networks';
+import { getPaymentInfoSchema, handleGetPaymentInfo } from '@one-source/docs-mcp/tools/get-payment-info';
+import { getAuthenticationGuideSchema, handleGetAuthenticationGuide } from '@one-source/docs-mcp/tools/get-authentication-guide';
 
 import type { Analytics, ToolCallEvent } from './analytics.js';
 import { errorCategoryFromMessage } from './analytics.js';
@@ -49,7 +59,7 @@ function hashSession(sessionId: string | undefined): string | undefined {
  * Which service a tool registered in this file reports under.
  *
  * This file registers two different kinds of tool, and they belong to
- * different services. The `1s_docs_*` tools are the docs MCP surface.
+ * different services. The documentation tools are the docs MCP surface.
  * `1s_setup_check` and `1s_batch_config` are operational tooling for the MCP
  * server itself: free, unauthenticated, and nothing to do with documentation.
  *
@@ -145,120 +155,130 @@ function instrumentedTool(
 }
 
 /**
+ * Documentation corpus, loaded on first use and reused for the life of the
+ * process.
+ *
+ * `loadData` reads every bundled documentation file and builds a search index
+ * over it. Doing that while registering tools would charge the cost to sessions
+ * that never ask a documentation question — and in HTTP mode, where the unified
+ * server is rebuilt for every request, it would be charged again on each one.
+ * Memoizing here makes it once per process, shared by all eight tools.
+ */
+let corpus: LoadedData | undefined;
+function docs(): LoadedData {
+  corpus ??= loadData();
+  return corpus;
+}
+
+/**
  * A documentation tool as this server exposes it.
  *
- * `name` is the contract with clients and must stay stable; `upstream` is the
- * name the same tool carries inside @one-source/docs-mcp and is free to drift.
- * Descriptions are written here rather than reused from the docs package so the
- * unified server can say how each tool relates to the others it exposes.
+ * Names match @one-source/docs-mcp exactly and are a stable contract with
+ * clients. Descriptions are written here rather than reused from that package
+ * so each one can say how the tool relates to the others this server exposes —
+ * which of the 38 to reach for is a question only the unified server can answer.
+ *
+ * Handlers re-parse their input through the tool's own schema. The SDK has
+ * already validated it against that same schema, so the parse only narrows the
+ * type — but it earns its keep by removing every unchecked cast from the table.
  */
 interface DocsToolSpec {
   name: string;
-  upstream: string;
   title: string;
   description: string;
   inputSchema: z.ZodRawShape;
+  handler: (input: Record<string, unknown>) => string;
 }
 
 const DOCS_TOOLS: DocsToolSpec[] = [
   {
-    name: '1s_docs_search',
-    upstream: '1s_search_docs',
+    name: '1s_search_docs',
     title: 'Search Docs',
     description:
       'Search the OneSource developer documentation by keyword and return the best-matching sections. ' +
       'Use this for conceptual questions — getting started, guides, concepts, how-tos. ' +
-      'For the parameters and response of one specific endpoint, use 1s_docs_endpoint_reference instead. Free, no authentication required.',
-    inputSchema: {
-      query: z.string().min(1).max(500)
-        .describe('Keywords to match against the documentation (e.g. "rate limits", "pagination").'),
-    },
+      'For the parameters and response of one specific endpoint, use 1s_get_endpoint_reference instead. Free, no authentication required.',
+    inputSchema: searchDocsSchema.shape,
+    handler: (input) => handleSearchDocs(searchDocsSchema.parse(input), docs().index),
   },
   {
-    name: '1s_docs_api_overview',
-    upstream: '1s_get_api_overview',
+    name: '1s_get_api_overview',
     title: 'API Overview',
     description:
       'High-level summary of the OneSource REST API: how many operations it exposes, the tags they are grouped under, ' +
       'the networks it routes, the payment protocols it accepts, and a handful of sample endpoints. ' +
       'Start here when you do not yet know what the API covers. Free, no authentication required.',
-    inputSchema: {},
+    inputSchema: getApiOverviewSchema.shape,
+    handler: (input) => handleGetApiOverview(getApiOverviewSchema.parse(input), docs().api),
   },
   {
-    name: '1s_docs_list_endpoints',
-    upstream: '1s_list_endpoints',
+    name: '1s_list_endpoints',
     title: 'List Endpoints',
     description:
       'List OneSource REST API endpoints with their method, path, per-call price, and a one-line summary. ' +
       'Pass a tag to narrow the list to one area of the API. Free, no authentication required.',
-    inputSchema: {
-      tag: z.string().max(64).optional()
-        .describe('Optional tag to filter by (e.g. "nft", "erc20", "ens"). Case-insensitive.'),
-      limit: z.number().int().min(1).max(50).optional()
-        .describe('Maximum number of endpoints to return. Default 25.'),
-    },
+    inputSchema: listEndpointsSchema.shape,
+    handler: (input) => handleListEndpoints(listEndpointsSchema.parse(input), docs().api),
   },
   {
-    name: '1s_docs_endpoint_reference',
-    upstream: '1s_get_endpoint_reference',
+    name: '1s_get_endpoint_reference',
     title: 'Endpoint Reference',
     description:
       'Full reference for a single OneSource REST API endpoint: parameters, request body, example response, price, ' +
       'use cases, and a ready-to-run curl command. Accepts an operation ID or a path. ' +
-      'Use 1s_docs_list_endpoints or 1s_docs_search_use_cases first if you do not know which endpoint you need. Free, no authentication required.',
-    inputSchema: {
-      endpoint: z.string().min(1).max(200)
-        .describe('An operation ID or a path — for example "chainAllowance" or "/api/chain/allowance".'),
-    },
+      'Use 1s_list_endpoints or 1s_search_use_cases first if you do not know which endpoint you need. Free, no authentication required.',
+    inputSchema: getEndpointReferenceSchema.shape,
+    handler: (input) => handleGetEndpointReference(getEndpointReferenceSchema.parse(input), docs().api),
   },
   {
-    name: '1s_docs_search_use_cases',
-    upstream: '1s_search_use_cases',
+    name: '1s_search_use_cases',
     title: 'Find Endpoint by Task',
     description:
       'Find the OneSource REST API endpoints that fit a task described in plain language ' +
       '(for example "check who owns an NFT" or "decode a transaction"). ' +
       'Use this when you know what you want to do but not which endpoint does it. Free, no authentication required.',
-    inputSchema: {
-      query: z.string().min(1).max(500)
-        .describe('Plain-language description of what you are trying to do.'),
-      limit: z.number().int().min(1).max(20).optional()
-        .describe('Maximum number of endpoints to return. Default 5.'),
-    },
+    inputSchema: searchUseCasesSchema.shape,
+    handler: (input) => handleSearchUseCases(searchUseCasesSchema.parse(input), docs().api),
   },
   {
-    name: '1s_docs_networks',
-    upstream: '1s_list_networks',
+    name: '1s_list_networks',
     title: 'Documented Networks',
     description:
       'List the networks the OneSource REST API can route to, as declared by its published specification, ' +
       'and how to select one on a call. This is the documented roster; 1s_network_info queries a chain live. Free, no authentication required.',
-    inputSchema: {},
+    inputSchema: listNetworksSchema.shape,
+    handler: (input) => handleListNetworks(listNetworksSchema.parse(input), docs().api),
   },
   {
-    name: '1s_docs_payment_info',
-    upstream: '1s_get_payment_info',
+    name: '1s_get_payment_info',
     title: 'Pricing & Payment',
     description:
       'Pricing and payment protocols for the OneSource REST API — which rails it accepts, the price range per call, ' +
       'and the recipient address. Pass an endpoint for that endpoint\'s specific price. ' +
       'This describes what the API charges; 1s_batch_config changes what this server pays with. Free, no authentication required.',
-    inputSchema: {
-      endpoint: z.string().max(200).optional()
-        .describe('Optional operation ID or path. Omit for a summary covering the whole API.'),
-    },
+    inputSchema: getPaymentInfoSchema.shape,
+    handler: (input) => handleGetPaymentInfo(getPaymentInfoSchema.parse(input), docs().api),
   },
   {
-    name: '1s_docs_auth_guide',
-    upstream: '1s_get_authentication_guide',
+    name: '1s_get_authentication_guide',
     title: 'Authentication Guide',
     description:
       'How to authenticate to the OneSource REST API — an API key from a subscription, x402 (USDC on Base), ' +
       'or MPP (USDC.e or pathUSD on Tempo) — and how to choose between them. ' +
       'This covers calling the REST API directly; to configure this MCP server, call 1s_setup_check. Free, no authentication required.',
-    inputSchema: {},
+    inputSchema: getAuthenticationGuideSchema.shape,
+    handler: (input) => handleGetAuthenticationGuide(getAuthenticationGuideSchema.parse(input)),
   },
 ];
+
+/**
+ * The documentation tool roster, in registration order.
+ *
+ * Exported so the build-time validator and the tests assert against the same
+ * list the server registers from, rather than against a copy that can drift out
+ * of agreement with it.
+ */
+export const DOCS_TOOL_NAMES: readonly string[] = DOCS_TOOLS.map((tool) => tool.name);
 
 export interface RegisterDocsToolsOptions {
   server: McpServer;
@@ -286,7 +306,7 @@ export function registerDocsTools(opts: RegisterDocsToolsOptions): number {
       tool.name,
       tool.description,
       tool.inputSchema,
-      (input: Record<string, unknown>) => callDocsTool(tool.upstream, input),
+      tool.handler,
       'docs',
       { title: tool.title, readOnlyHint: true, destructiveHint: false },
     );
