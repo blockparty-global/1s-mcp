@@ -56,14 +56,14 @@ return correct data.
 This is a **unified meta-package** (`@one-source/mcp`) that combines two independent MCP packages into a single MCP server without duplicating their tool implementations:
 
 - `@one-source/api-mcp` — 27 blockchain API tools (active)
-- `@one-source/docs-mcp` — documentation tools (integrated but disabled)
+- `@one-source/docs-mcp` — 8 REST API documentation tools (active)
 
 ### Server creation flow
 
 `cli.ts` → `createMcpServer()` in `create-server.ts` → three registrar modules:
 
 1. `register-api-tools.ts` — iterates `@one-source/api-mcp/tools`, wraps each with analytics + timing + error sanitization, tracks x402 payment events
-2. `register-docs-tools.ts` — same pattern, currently commented out
+2. `register-docs-tools.ts` — registers the 8 documentation tools from `@one-source/docs-mcp` (free, unauthenticated, read-only) plus the `1s_setup_check` and `1s_batch_config` ops tools
 3. `register-bug-report-tool.ts` — registers `1s_report_bug`, POSTs to analytics endpoint
 
 `createMcpServer()` returns `{ server, analytics, client, toolCount }`. The server and client can be overridden via options — this is used in HTTP mode for shared singletons.
@@ -82,6 +82,10 @@ Auth is detected at startup in `cli.ts` and baked into LLM system prompt instruc
 - Neither → unauthenticated (limited access)
 
 API key takes priority. The active auth method changes the instructions injected into the MCP server's system prompt (and suppresses x402 payment prompts when an API key is present).
+
+### Documentation tools
+
+The 8 documentation tools (`1s_search_docs`, `1s_get_api_overview`, `1s_list_endpoints`, `1s_get_endpoint_reference`, `1s_search_use_cases`, `1s_list_networks`, `1s_get_payment_info`, `1s_get_authentication_guide`) read a corpus bundled inside `@one-source/docs-mcp`. The corpus is loaded once per process via a memoized `docs()` call in `register-docs-tools.ts` and reused by all eight tools. Tool names match the standalone `@one-source/docs-mcp` server exactly — that is a stable contract. The `DOCS_TOOL_NAMES` export from `register-docs-tools.ts` is the authoritative roster; the build-time validator and tests both assert against it.
 
 ### Version update notifications
 
