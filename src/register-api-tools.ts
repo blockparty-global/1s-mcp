@@ -11,6 +11,7 @@ import type { ToolAnnotations } from '@modelcontextprotocol/sdk/types.js';
 import { createHash } from 'node:crypto';
 import { allTools } from '@one-source/api-mcp/tools';
 import { createClientFromEnv, type OneSourceClient } from '@one-source/api-mcp/client';
+import { z } from 'zod';
 import type { Analytics } from './analytics.js';
 import { errorCategoryFromMessage } from './analytics.js';
 import { VERSION } from './version.js';
@@ -71,6 +72,26 @@ const WARNINGS_NOTE =
 
 const TOKEN_LIST_WARNINGS_NOTE =
   'If warnings lists the token collection, the returned tokens are an incomplete set, not the full holdings for that address.';
+
+const MULTI_BALANCE_DESCRIPTION =
+  'Get native ETH plus balances for up to 20 caller-supplied ERC20 contract addresses in one bounded RPC batch. Tokens are queried, not discovered, and the tool does not calculate a portfolio value. Individual token errors are returned per-token without failing the entire request; exceeding the 20-token cap rejects the request.';
+
+const DESCRIPTION_OVERRIDE: Record<string, string> = Object.freeze({
+  '1s_multi_balance_live': MULTI_BALANCE_DESCRIPTION,
+});
+
+// @one-source/api-mcp@5.11.0 still publishes an unbounded token-list regex.
+// Keep the unified package's registered MCP contract aligned with the REST API
+// until the next coordinated api-mcp release carries the same bound upstream.
+const MAX_MULTI_BALANCE_TOKENS = 20;
+const EVM_ADDRESS_PATTERN = '0x[a-fA-F0-9]{40}';
+const MULTI_BALANCE_TOKENS_SCHEMA = z.string()
+  .regex(
+    new RegExp(`^${EVM_ADDRESS_PATTERN}(,${EVM_ADDRESS_PATTERN}){0,${MAX_MULTI_BALANCE_TOKENS - 1}}$`),
+    `Comma-separated 0x addresses (max ${MAX_MULTI_BALANCE_TOKENS})`,
+  )
+  .optional()
+  .describe(`Comma-separated ERC20 contract addresses (max ${MAX_MULTI_BALANCE_TOKENS})`);
 
 const DESCRIPTION_NOTE: Record<string, string> = Object.freeze({
   '1s_erc20_balance_live': WARNINGS_NOTE,
@@ -137,13 +158,17 @@ export function registerApiTools(
   for (const tool of tools) {
     const meta = TOOL_META[tool.name];
     const note = DESCRIPTION_NOTE[tool.name];
-    const description = note ? `${tool.description} ${note}` : tool.description;
+    const baseDescription = DESCRIPTION_OVERRIDE[tool.name] ?? tool.description;
+    const description = note ? `${baseDescription} ${note}` : baseDescription;
+    const inputSchema = tool.name === '1s_multi_balance_live'
+      ? { ...tool.schema, tokens: MULTI_BALANCE_TOKENS_SCHEMA }
+      : tool.schema;
     server.registerTool(
       tool.name,
       {
         title: meta?.title ?? tool.name,
         description,
-        inputSchema: tool.schema,
+        inputSchema,
         annotations: meta?.annotations ?? RO,
       },
       async (input, extra) => {
