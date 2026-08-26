@@ -35,6 +35,7 @@ checks on every PR to `develop`/`main`, in parallel rather than one behind the o
 | Unit | `src/auth-header.test.ts` | Bearer parsing: scheme case, whitespace, absent/non-Bearer/empty, repeated header |
 | Unit | `src/http-utils.test.ts` | The body reader: chunk reassembly, the byte cap on both sides, no partial resolve when the cap trips mid-stream, stream errors, stream left exhausted for later readers |
 | Unit | `src/session-store.test.ts` | Single-use consume (in-memory and Valkey `GETDEL`), concurrent double-submit yielding exactly one winner, CSRF cookie hashing, rate-limit windows and TTL preservation, capacity caps, fail-closed on corrupt entries, URL redaction |
+| Unit | `src/register-api-tools.test.ts` | `1s_multi_balance_live` registration contract: 20-token cap enforced by the Zod schema, and description wording (bounded query, no discovery, no portfolio value) |
 | Integration | `src/http-transport.test.ts` | Spawns the built `dist/cli.js` as a real subprocess and POSTs over a real socket: `initialize` handshake, `tools/list`, `-32700` on malformed JSON, and the 64KB cap on both sides plus a chunked body |
 | Registration | `scripts/validate-mcp.mjs` | `TOOL_META` coverage in both directions, SDK read-back of annotations, tool count, `server.json`, no deprecated `server.tool()` |
 
@@ -62,7 +63,7 @@ This is a **unified meta-package** (`@one-source/mcp`) that combines two indepen
 
 `cli.ts` → `createMcpServer()` in `create-server.ts` → three registrar modules:
 
-1. `register-api-tools.ts` — iterates `@one-source/api-mcp/tools`, wraps each with analytics + timing + error sanitization, tracks x402 payment events
+1. `register-api-tools.ts` — iterates `@one-source/api-mcp/tools`, wraps each with analytics + timing + error sanitization, tracks x402 payment events. Applies `DESCRIPTION_OVERRIDE` and a local Zod schema cap for `1s_multi_balance_live` (20-token max) to keep the unified server's registered contract aligned with the REST API until the upstream `@one-source/api-mcp` package carries the same bound.
 2. `register-docs-tools.ts` — same pattern, currently commented out
 3. `register-bug-report-tool.ts` — registers `1s_report_bug`, POSTs to analytics endpoint
 
