@@ -51,9 +51,10 @@ export const TOOL_META: Record<string, { title: string; annotations: ToolAnnotat
   '1s_simulate_call':        { title: 'Simulate Contract Call',   annotations: RO },
   '1s_storage_read':         { title: 'Contract Storage Read',    annotations: RO },
   '1s_tx_receipt':           { title: 'Transaction Receipt',      annotations: RO },
-  // Deepstate market data (markets.onesource.io, via api-mcp's separate
-  // Deepstate client — API-P2-2/API-P2-4). `service` distinguishes their
-  // analytics from the chain-RPC tools above, the same way
+  // Deepstate market data — served from api.onesource.io like every other
+  // tool (host consolidation, sre-services odap/DEEPSTATE_API_RUNBOOK.md
+  // API-D17), through the same single client as the chain-RPC tools above.
+  // `service` still distinguishes their analytics, the same way
   // register-docs-tools.ts's serviceForToolCategory splits 'ops' from 'docs' —
   // see that file's comment for why a shared label hides two different things.
   '1s_ds_markets':           { title: 'Deepstate Markets',          annotations: RO, service: 'onesource-deepstate' },

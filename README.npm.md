@@ -92,7 +92,7 @@ RPC only.
 
 ### Deepstate Market Data (8 tools)
 
-Deepstate is an on-chain order-book protocol on Robinhood Chain (chain 4663). These tools read market data — order books, trades, candles, stats, maker analytics, and gas/depth analytics — from `markets.onesource.io`. **API key only in this release** — x402/MPP payment for these tools is not yet supported.
+Deepstate is an on-chain order-book protocol on Robinhood Chain (chain 4663). These tools read market data — order books, trades, candles, stats, maker analytics, and gas/depth analytics. They're ordinary tools on the same API and take no `network` parameter — always Robinhood Chain — and are paid like every other tool: API key, x402, or MPP.
 
 | Tool | Description |
 |------|-------------|
