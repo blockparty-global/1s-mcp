@@ -1,6 +1,6 @@
 {
   "name": "onesource",
-  "description": "38 tools for live blockchain queries and REST API documentation, via x402 micropayments",
+  "description": "46 tools for live blockchain queries, Deepstate market data, and REST API documentation, via x402 micropayments",
   "version": "5.11.0",
   "author": {
     "name": "BlockParty",

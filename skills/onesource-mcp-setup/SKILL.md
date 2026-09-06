@@ -9,7 +9,7 @@ description: >-
 
 # OneSource MCP Setup Guide
 
-OneSource MCP provides 38 tools: blockchain data and live chain queries, plus documentation lookups for the OneSource REST API. The documentation tools (`1s_search_docs`, `1s_get_endpoint_reference`, `1s_get_authentication_guide` and five more) are free and need no authentication. Blockchain API tools do require authentication — either an API key (`ONESOURCE_API_KEY`) or x402 micropayments in USDC on the Base network (`X402_PRIVATE_KEY`). If both are set, API key takes priority.
+OneSource MCP provides 46 tools: blockchain data and live chain queries, Deepstate market data, plus documentation lookups for the OneSource REST API. The documentation tools (`1s_search_docs`, `1s_get_endpoint_reference`, `1s_get_authentication_guide` and five more) are free and need no authentication. Blockchain API tools do require authentication — either an API key (`ONESOURCE_API_KEY`) or x402 micropayments in USDC on the Base network (`X402_PRIVATE_KEY`). If both are set, API key takes priority. The 8 Deepstate tools (`1s_ds_*`) are API key only in this release — they do not accept x402/MPP payment yet.
 
 ## Before You Start
 

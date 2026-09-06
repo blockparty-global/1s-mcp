@@ -55,8 +55,10 @@ return correct data.
 
 This is a **unified meta-package** (`@one-source/mcp`) that combines two independent MCP packages into a single MCP server without duplicating their tool implementations:
 
-- `@one-source/api-mcp` — 27 blockchain API tools (active)
+- `@one-source/api-mcp` — 35 tools (active): 27 blockchain API tools + 8 Deepstate market-data tools (`1s_ds_*`, `markets.onesource.io`)
 - `@one-source/docs-mcp` — documentation tools (integrated but disabled)
+
+**Known gap (found 2026-09-06, not yet fixed):** `register-api-tools.ts` registers the 8 Deepstate tools with `TOOL_META` rows and an `onesource-deepstate` analytics `service` label, but its `registerApiTools()` only ever constructs one client — `createClientFromEnv()` (`ONESOURCE_BASE_URL`, api.onesource.io) — and passes it to every tool handler via `client.withContext(...)`, including the Deepstate ones. Unlike api-mcp's own `create-server.ts` (which dispatches to a second `createDeepstateClientFromEnv()` client by `tool.category`), this repo's registrar has no such branch, so `DEEPSTATE_BASE_URL` is inert here and Deepstate tool calls hit `api.onesource.io`, which does not serve `/deepstate/*` by design (see `odap/DEEPSTATE_API_RUNBOOK.md` API-D2 in sre-services). Needs a fix — a second client + category dispatch mirroring api-mcp's — before release.
 
 ### Server creation flow
 

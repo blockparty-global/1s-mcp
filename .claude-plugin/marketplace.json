@@ -4,13 +4,13 @@
     "name": "BlockParty"
   },
   "metadata": {
-    "description": "OneSource MCP — 38 tools for blockchain data and REST API documentation"
+    "description": "OneSource MCP — 46 tools for blockchain data, Deepstate market data, and REST API documentation"
   },
   "plugins": [
     {
       "name": "onesource",
       "source": "./",
-      "description": "38 tools for live blockchain queries and REST API documentation, via x402 micropayments",
+      "description": "46 tools for live blockchain queries, Deepstate market data, and REST API documentation, via x402 micropayments",
       "version": "5.11.0",
       "category": "blockchain",
       "tags": [
