@@ -296,5 +296,5 @@ export function registerApiTools(
     );
   }
 
-  return { client, count: allTools.length };
+  return { client, count: tools.length };
 }
