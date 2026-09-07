@@ -11,7 +11,7 @@
       "name": "onesource",
       "source": "./",
       "description": "46 tools for live blockchain queries, Deepstate market data, and REST API documentation, via x402 micropayments",
-      "version": "5.11.0",
+      "version": "5.12.0",
       "category": "blockchain",
       "tags": [
         "blockchain",
