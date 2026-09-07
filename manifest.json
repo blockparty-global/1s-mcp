@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "onesource-mcp",
   "display_name": "OneSource",
-  "version": "5.12.0",
+  "version": "5.12.1",
   "description": "46 OneSource tools for Claude — 25 live data queries (ERC-20 and NFT balances, transaction details, contract info, gas estimation, event queries across EVM networks), 8 Deepstate market-data tools (order books, trades, candles, stats, maker analytics), 8 REST API documentation lookups, plus 3 setup tools and 2 x402 payment controls.",
   "author": {
     "name": "BlockParty",
