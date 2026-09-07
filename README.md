@@ -1,6 +1,6 @@
 # @one-source/mcp
 
-Unified MCP server for [OneSource](https://docs.onesource.io) — 38 tools for blockchain data, live chain queries, and REST API documentation in a single server.
+Unified MCP server for [OneSource](https://docs.onesource.io) — 46 tools for blockchain data, live chain queries, Deepstate market data, and REST API documentation in a single server.
 
 > **What is MCP?** The [Model Context Protocol](https://modelcontextprotocol.io) lets AI assistants call tools and access data sources. This server exposes both the OneSource blockchain API and its documentation as tools.
 
@@ -44,7 +44,7 @@ Then connect your MCP client to `http://localhost:3000/` (or your `--port` value
 
 Health check: `GET http://localhost:3000/health` (substitute your port).
 
-## Tools (38)
+## Tools (46)
 
 ### Blockchain API — Live Chain (12 tools)
 
@@ -94,6 +94,25 @@ RPC only.
 | ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `1s_payment_mode` | View or switch the payment rail + scheme across all four modes: `x402-exact` / `x402-batch` (USDC on Base) and `mpp-charge` / `mpp-session` (USDC.e / pathUSD on Tempo). `batch` and `session` open a channel that funds many calls. |
 | `1s_refund`       | Reclaim an open payment channel's unspent deposit on demand — works for both an x402 `batch` channel (Base) and an MPP `session` voucher channel (Tempo)                                                                              |
+
+
+### Deepstate Market Data (8 tools)
+
+Deepstate is an on-chain order-book protocol on Robinhood Chain (chain 4663). These tools read market data — order books, trades, candles, stats, maker analytics, and gas/depth analytics. They're ordinary tools on the same API and take no `network` parameter — always Robinhood Chain — and are paid like every other tool: API key, x402, or MPP.
+
+
+| Tool                    | Description                                                                                          |
+| ----------------------- | ----------------------------------------------------------------------------------------------------- |
+| `1s_ds_markets`         | List the Deepstate markets (order books) this API serves, with each market's slug, token layout, and pool/router addresses |
+| `1s_ds_book`            | Order-book snapshot for a market — bids descending, asks ascending, with each price level's resting size |
+| `1s_ds_trades`          | Trade tape for a market, newest first — each fill's price, size, side, and block                     |
+| `1s_ds_candles`         | OHLCV candles for a market at a given timeframe                                                       |
+| `1s_ds_stats`           | Rolling 24h / 7d / 30d volume and price change for a market, plus the latest traded price             |
+| `1s_ds_makers`          | Per-maker analytics for a market — time at top of book, resting notional, fill count/rate, and DEEP rewards |
+| `1s_ds_cost_to_quote`   | Gas spent resting and cancelling orders on a market, bucketed over time                                |
+| `1s_ds_depth_history`   | Depth heatmap for a market — resting order size by price level over time                              |
+
+Every Deepstate tool except `1s_ds_markets` takes a `book` parameter: the market's canonical uppercase slug (e.g. `NVDA-USDG`) or its 32-byte `book_id`. Call `1s_ds_markets` first for the full list.
 
 
 ### Documentation (8 tools)

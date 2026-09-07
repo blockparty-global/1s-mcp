@@ -1,9 +1,9 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.onesource/mcp",
-  "description": "38 tools for blockchain data, live chain queries, and REST API documentation",
+  "description": "46 tools for blockchain data, Deepstate market data, live chain queries, and REST API documentation",
   "title": "OneSource MCP",
-  "version": "5.11.0",
+  "version": "5.12.0",
   "websiteUrl": "https://mcp.onesource.io",
   "privacyPolicyUrl": "https://onesource.io/privacy-policy",
   "repository": {
@@ -14,7 +14,7 @@
     {
       "registryType": "npm",
       "identifier": "@one-source/mcp",
-      "version": "5.11.0",
+      "version": "5.12.0",
       "transport": {
         "type": "stdio"
       },

@@ -18,7 +18,10 @@ import { VERSION } from './version.js';
 
 const RO: ToolAnnotations = Object.freeze({ readOnlyHint: true, destructiveHint: false });
 
-export const TOOL_META: Record<string, { title: string; annotations: ToolAnnotations }> = Object.freeze({
+/** Analytics service label for the api-mcp tools' shared client's default handler. */
+const DEFAULT_SERVICE = 'onesource-api';
+
+export const TOOL_META: Record<string, { title: string; annotations: ToolAnnotations; service?: string }> = Object.freeze({
   // Live chain data
   '1s_allowance_live':       { title: 'ERC-20 Allowance',        annotations: RO },
   '1s_contract_info_live':   { title: 'Contract Info',            annotations: RO },
@@ -48,6 +51,20 @@ export const TOOL_META: Record<string, { title: string; annotations: ToolAnnotat
   '1s_simulate_call':        { title: 'Simulate Contract Call',   annotations: RO },
   '1s_storage_read':         { title: 'Contract Storage Read',    annotations: RO },
   '1s_tx_receipt':           { title: 'Transaction Receipt',      annotations: RO },
+  // Deepstate market data — served from api.onesource.io like every other
+  // tool (host consolidation, sre-services odap/DEEPSTATE_API_RUNBOOK.md
+  // API-D17), through the same single client as the chain-RPC tools above.
+  // `service` still distinguishes their analytics, the same way
+  // register-docs-tools.ts's serviceForToolCategory splits 'ops' from 'docs' —
+  // see that file's comment for why a shared label hides two different things.
+  '1s_ds_markets':           { title: 'Deepstate Markets',          annotations: RO, service: 'onesource-deepstate' },
+  '1s_ds_book':              { title: 'Deepstate Order Book',       annotations: RO, service: 'onesource-deepstate' },
+  '1s_ds_trades':            { title: 'Deepstate Trade Tape',       annotations: RO, service: 'onesource-deepstate' },
+  '1s_ds_candles':           { title: 'Deepstate Candles',          annotations: RO, service: 'onesource-deepstate' },
+  '1s_ds_stats':             { title: 'Deepstate Market Stats',     annotations: RO, service: 'onesource-deepstate' },
+  '1s_ds_makers':            { title: 'Deepstate Maker Analytics',  annotations: RO, service: 'onesource-deepstate' },
+  '1s_ds_cost_to_quote':     { title: 'Deepstate Cost to Quote',    annotations: RO, service: 'onesource-deepstate' },
+  '1s_ds_depth_history':     { title: 'Deepstate Depth History',    annotations: RO, service: 'onesource-deepstate' },
 });
 
 /**
@@ -133,11 +150,14 @@ export function registerApiTools(
     ? createHash('sha256').update(opts.x402Address.toLowerCase()).digest('hex').slice(0, 16)
     : undefined;
 
-  // Wire HTTP-level analytics from base client (default handler for non-overridden calls)
+  // Wire HTTP-level analytics from base client (default handler for non-overridden calls).
+  // Not per-tool (no TOOL_META lookup available here), so it always reports the
+  // default service — matches this handler's role as the fallback, not the
+  // primary per-call path (that's the per-tool onHttpEvent override below).
   client.onHttpEvent = (event) => {
     analytics.trackHttp({
       type: 'http_call',
-      service: 'onesource-api',
+      service: DEFAULT_SERVICE,
       tool: event.tool,
       http_status: event.http_status,
       backend_latency_ms: event.backend_latency_ms,
@@ -188,7 +208,7 @@ export function registerApiTools(
           if (event.x402_required) x402Seen = true;
           analytics.trackHttp({
             type: 'http_call',
-            service: 'onesource-api',
+            service: meta?.service ?? DEFAULT_SERVICE,
             tool: event.tool,
             http_status: event.http_status,
             backend_latency_ms: event.backend_latency_ms,
@@ -217,7 +237,7 @@ export function registerApiTools(
 
           analytics.trackTool({
             type: 'tool_call',
-            service: 'onesource-api',
+            service: meta?.service ?? DEFAULT_SERVICE,
             tool: tool.name,
             category: tool.category,
             timestamp: new Date().toISOString(),
@@ -245,7 +265,7 @@ export function registerApiTools(
 
           analytics.trackTool({
             type: 'tool_call',
-            service: 'onesource-api',
+            service: meta?.service ?? DEFAULT_SERVICE,
             tool: tool.name,
             category: tool.category,
             timestamp: new Date().toISOString(),
