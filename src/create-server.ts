@@ -1,11 +1,19 @@
 /**
  * Unified MCP Server Factory
  *
- * Creates a single McpServer named 'onesource' with all 38 tools
- * (27 API incl. payment-mode + 8 documentation + 1 setup check + 1 batch config
- * + 1 bug report) by delegating to the register modules.
+ * Creates a single McpServer named 'onesource' with all 46 tools
+ * (35 API incl. payment-mode, live chain, and Deepstate market data + 8
+ * documentation + 1 setup check + 1 batch config + 1 bug report) by
+ * delegating to the register modules.
  *
- * Two of the API tools are stdio-only, so an HTTP server registers 36.
+ * Two of the API tools are stdio-only, so an HTTP server registers 44.
+ *
+ * Pending: 18 more API tools (`1s_std_*`, The Standard Reserve on Robinhood
+ * Chain) have TOOL_META rows in register-api-tools.ts but aren't in the
+ * above count yet — they only register once the @one-source/api-mcp
+ * dependency is bumped past ^5.12.0 to the version that ships them (see the
+ * TODO at the top of register-api-tools.ts). Once that bump lands, this
+ * becomes 64 tools total (62 registered over HTTP).
  */
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';

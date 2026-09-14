@@ -1,7 +1,7 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.onesource/mcp",
-  "description": "46 tools for blockchain data, Deepstate market data, live chain queries, and REST API documentation",
+  "description": "64 tools for blockchain data, Deepstate and The Standard Reserve market data, live chain queries, and REST API documentation",
   "title": "OneSource MCP",
   "version": "5.12.0",
   "websiteUrl": "https://mcp.onesource.io",

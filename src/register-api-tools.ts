@@ -1,9 +1,21 @@
 /**
- * Register all 27 API tools from @one-source/api-mcp onto a shared McpServer.
+ * Register all API tools from @one-source/api-mcp onto a shared McpServer.
  *
  * Replicates the exact instrumentation pattern from api-mcp's create-server.ts:
  * per-call client context, x402 detection, performance timing, session hashing,
  * and error sanitization.
+ *
+ * TODO(api-mcp bump): TOOL_META below already carries rows for the 18
+ * `1s_std_*` (The Standard Reserve) tools added in @one-source/api-mcp's
+ * feat/tsr-doi branch (source at sre-services/skills/mcp, package.json
+ * version 5.13.0 there, unpublished). This repo's dependency is still
+ * "@one-source/api-mcp": "^5.12.0" (5.12.0 installed — 35 tools, no
+ * `standard` category yet), so `allTools` won't include them and they won't
+ * actually register until that package is published and this dependency is
+ * bumped to the version that ships them (>=5.13.0, once published — do not
+ * guess a version here). Bump package.json's dependency, run `npm install`,
+ * and the `1s_std_*` tools will start registering with zero further code
+ * changes here.
  */
 
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
@@ -65,6 +77,26 @@ export const TOOL_META: Record<string, { title: string; annotations: ToolAnnotat
   '1s_ds_makers':            { title: 'Deepstate Maker Analytics',  annotations: RO, service: 'onesource-deepstate' },
   '1s_ds_cost_to_quote':     { title: 'Deepstate Cost to Quote',    annotations: RO, service: 'onesource-deepstate' },
   '1s_ds_depth_history':     { title: 'Deepstate Depth History',    annotations: RO, service: 'onesource-deepstate' },
+  // The Standard Reserve (TSR) market data on Robinhood Chain — same
+  // consolidation and `service` split rationale as the Deepstate block above.
+  '1s_std_policy_current':      { title: 'TSR Current Policy',            annotations: RO, service: 'onesource-standard' },
+  '1s_std_epochs':              { title: 'TSR Epoch History',             annotations: RO, service: 'onesource-standard' },
+  '1s_std_auctions_current':    { title: 'TSR Current Auction',           annotations: RO, service: 'onesource-standard' },
+  '1s_std_auction_sales':       { title: 'TSR Auction Sales',             annotations: RO, service: 'onesource-standard' },
+  '1s_std_branches_summary':    { title: 'TSR Branches Summary',          annotations: RO, service: 'onesource-standard' },
+  '1s_std_charter':             { title: 'TSR Charter Detail',            annotations: RO, service: 'onesource-standard' },
+  '1s_std_exit_pressure':       { title: 'TSR Exit Pressure',             annotations: RO, service: 'onesource-standard' },
+  '1s_std_supply':              { title: 'TSR Supply Breakdown',          annotations: RO, service: 'onesource-standard' },
+  '1s_std_vaults':              { title: 'TSR Vault Positions',           annotations: RO, service: 'onesource-standard' },
+  '1s_std_flow_hourly':         { title: 'TSR Hourly Flow',               annotations: RO, service: 'onesource-standard' },
+  '1s_std_events':              { title: 'TSR Event Feed',                annotations: RO, service: 'onesource-standard' },
+  '1s_std_addresses':           { title: 'TSR Address Registry',          annotations: RO, service: 'onesource-standard' },
+  '1s_std_dormancy':            { title: 'TSR Dormant Wallets',           annotations: RO, service: 'onesource-standard' },
+  '1s_std_exit_quote':          { title: 'TSR Exit Quote',                annotations: RO, service: 'onesource-standard' },
+  '1s_std_pool':                { title: 'TSR Pool State',                annotations: RO, service: 'onesource-standard' },
+  '1s_std_genesis_live':        { title: 'TSR Genesis Mint Live',         annotations: RO, service: 'onesource-standard' },
+  '1s_std_branches_doi':        { title: 'TSR Branches Days of Issuance', annotations: RO, service: 'onesource-standard' },
+  '1s_std_branch_auction_live': { title: 'TSR Branch Auction Live',       annotations: RO, service: 'onesource-standard' },
 });
 
 /**
