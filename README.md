@@ -1,6 +1,6 @@
 # @one-source/mcp
 
-Unified MCP server for [OneSource](https://docs.onesource.io) — 46 tools for blockchain data, live chain queries, Deepstate market data, and REST API documentation in a single server.
+Unified MCP server for [OneSource](https://docs.onesource.io) — 64 tools for blockchain data, live chain queries, Deepstate market data, The Standard Reserve, and REST API documentation in a single server.
 
 > **What is MCP?** The [Model Context Protocol](https://modelcontextprotocol.io) lets AI assistants call tools and access data sources. This server exposes both the OneSource blockchain API and its documentation as tools.
 
@@ -44,7 +44,7 @@ Then connect your MCP client to `http://localhost:3000/` (or your `--port` value
 
 Health check: `GET http://localhost:3000/health` (substitute your port).
 
-## Tools (46)
+## Tools (64)
 
 ### Blockchain API — Live Chain (12 tools)
 
@@ -113,6 +113,33 @@ Deepstate is an on-chain order-book protocol on Robinhood Chain (chain 4663). Th
 | `1s_ds_depth_history`   | Depth heatmap for a market — resting order size by price level over time                              |
 
 Every Deepstate tool except `1s_ds_markets` takes a `book` parameter: the market's canonical uppercase slug (e.g. `NVDA-USDG`) or its 32-byte `book_id`. Call `1s_ds_markets` first for the full list.
+
+
+### The Standard Reserve (18 tools)
+
+The Standard Reserve is an on-chain central-bank protocol on Robinhood Chain (chain id 4663). These tools read the deployed contracts' state as indexed and served by OneSource, with `basis`, `as_of_block`, and `serving_state` on every response. `1s_std_addresses` and `1s_std_genesis_live` are free; every other tool here is paid the same way as the rest of this API: API key, x402, or MPP.
+
+
+| Tool                        | Description                                                                                          |
+| --------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `1s_std_addresses`          | Official TSR contract, pool, and treasury addresses. Free, no payment required.                       |
+| `1s_std_auction_sales`      | Sales (fills) for a given TSR auction, newest first                                                   |
+| `1s_std_auctions_current`   | The current active TSR auction, if one is running                                                     |
+| `1s_std_branch_auction_live`| Raw live state of the Branch license auction: phase, price, today's sold/remaining counts, and sale velocity |
+| `1s_std_branches_doi`       | "Days of Issuance" figure for the Branch license auction, plus a wait-and-compare estimate             |
+| `1s_std_branches_summary`   | Summary across TSR's reserve branches                                                                 |
+| `1s_std_charter`            | Charter detail by id, the on-chain record backing one reserve branch or vault class                   |
+| `1s_std_dormancy`           | Wallets past their reportable dormancy window, or the full tracked wallet list                        |
+| `1s_std_epochs`             | TSR epoch history and boundaries                                                                       |
+| `1s_std_events`             | Raw protocol event feed, optionally filtered to one owner address                                     |
+| `1s_std_exit_pressure`      | Current exit-pressure gauge: queued redemption demand against the active policy                       |
+| `1s_std_exit_quote`         | Pro-rata exit quote for exiting a charter's open branches                                              |
+| `1s_std_flow_hourly`        | Hourly net flow into and out of the reserve                                                            |
+| `1s_std_genesis_live`       | Live stats for the genesis Dutch mint: phase, remaining charters, price, and sale velocity. Free during the genesis launch window. |
+| `1s_std_policy_current`     | Current reserve policy: target ratios and active parameters                                            |
+| `1s_std_pool`               | Latest STD/ETH pool state: price, tick, liquidity, reserves, and exit tax                              |
+| `1s_std_supply`             | Supply breakdown: circulating, reserved, and pending amounts                                           |
+| `1s_std_vaults`             | Vault positions, optionally filtered by owner                                                          |
 
 
 ### Documentation (8 tools)
