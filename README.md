@@ -1,6 +1,6 @@
 # @one-source/mcp
 
-Unified MCP server for [OneSource](https://docs.onesource.io) — 46 tools for blockchain data, live chain queries, Deepstate market data, and REST API documentation in a single server.
+Unified MCP server for [OneSource](https://docs.onesource.io) — 64 tools for blockchain data, live chain queries, Deepstate market data, The Standard Reserve, and REST API documentation in a single server.
 
 > **What is MCP?** The [Model Context Protocol](https://modelcontextprotocol.io) lets AI assistants call tools and access data sources. This server exposes both the OneSource blockchain API and its documentation as tools.
 
@@ -44,7 +44,7 @@ Then connect your MCP client to `http://localhost:3000/` (or your `--port` value
 
 Health check: `GET http://localhost:3000/health` (substitute your port).
 
-## Tools (46)
+## Tools (64)
 
 ### Blockchain API — Live Chain (12 tools)
 
@@ -113,6 +113,33 @@ Deepstate is an on-chain order-book protocol on Robinhood Chain (chain 4663). Th
 | `1s_ds_depth_history`   | Depth heatmap for a market — resting order size by price level over time                              |
 
 Every Deepstate tool except `1s_ds_markets` takes a `book` parameter: the market's canonical uppercase slug (e.g. `NVDA-USDG`) or its 32-byte `book_id`. Call `1s_ds_markets` first for the full list.
+
+
+### The Standard Reserve (18 tools)
+
+The Standard Reserve is an on-chain central-bank protocol on Robinhood Chain (chain id 4663). These tools read the deployed contracts' state as indexed and served by OneSource, with `basis`, `as_of_block`, and `serving_state` on every response. `1s_std_addresses` and `1s_std_genesis_live` are free; every other tool here is paid the same way as the rest of this API: API key, x402, or MPP.
+
+
+| Tool                        | Description                                                                                          |
+| --------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `1s_std_addresses`          | Verified registry of TSR contracts and pool, with a verification status per entry. Free, no payment required. |
+| `1s_std_auction_sales`      | Recent sales for the license or charter auction, newest first: buyer, unit price, count, and block. Filter by kind, page with before/limit |
+| `1s_std_auctions_current`   | Current state of the daily license auction and charter auction: price, floor, sold/remaining today, and last sale |
+| `1s_std_branch_auction_live`| Raw head-fresh state of the Branch license auction: phase, price, today's sold/remaining counts, and recent sale velocity |
+| `1s_std_branches_doi`       | Days of Issuance for the Branch license auction, plus a buy-now-vs-wait table                          |
+| `1s_std_branches_summary`   | Summary across TSR's active Branches: count, issuance per Branch per day, and license price in days of issuance |
+| `1s_std_charter`            | One charter by id, or charters filtered by owner: holder, branch count, mint kind, owed production, and branch history |
+| `1s_std_dormancy`           | Wallets past their reportable dormancy window, or the full tracked wallet list                        |
+| `1s_std_epochs`             | TSR epoch history: net flow, signal, regime, multiplier, and issuance per epoch. Page with before/limit |
+| `1s_std_events`             | Raw decoded protocol events, optionally filtered by contract_label, event_name, addresses, token_id, epoch, or block/log cursor, and paginated with before/limit |
+| `1s_std_exit_pressure`      | Exit-pressure reading and the resulting resolution fee rate, current or (with history_hours) history   |
+| `1s_std_exit_quote`         | Pro-rata exit quote for retiring a charter's open Branches                                              |
+| `1s_std_flow_hourly`        | Hourly ETH flow into and out of the ETH/STANDARD pool, with swap counts. Set hours for how far back to look |
+| `1s_std_genesis_live`       | Head-fresh stats for the genesis Dutch mint: phase, minted, remaining, price, and sale velocity. Free. |
+| `1s_std_policy_current`     | Current epoch's monetary policy: regime, multiplier, net flow, and the two-epoch signal                |
+| `1s_std_pool`               | Latest ETH/STANDARD Uniswap v4 pool state: price, tick, liquidity, reserves, and remaining launch tax   |
+| `1s_std_supply`             | STANDARD supply ledger: circulating, cumulative minted, cumulative burned by path, and max supply. Current, or (with history_hours) history |
+| `1s_std_vaults`             | Expansion and Contraction vault balances: WETH and STANDARD held, protocol-owned liquidity, and buyback capacity. Current, or (with history_hours) history |
 
 
 ### Documentation (8 tools)
