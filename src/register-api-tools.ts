@@ -5,7 +5,7 @@
  * per-call client context, x402 detection, performance timing, session hashing,
  * and error sanitization.
  *
- * The 18 `1s_std_*` (The Standard Reserve) rows below register only when the
+ * The 19 `1s_std_*` (The Standard Reserve) rows below register only when the
  * installed @one-source/api-mcp ships the `standard` category (>=5.13.0; a
  * tool added upstream needs a row here AND a dependency bump to the version
  * that ships it, otherwise `allTools` never includes it).
@@ -87,6 +87,7 @@ export const TOOL_META: Record<string, { title: string; annotations: ToolAnnotat
   '1s_std_dormancy':            { title: 'TSR Dormant Wallets',           annotations: RO, service: 'onesource-standard' },
   '1s_std_exit_quote':          { title: 'TSR Exit Quote',                annotations: RO, service: 'onesource-standard' },
   '1s_std_pool':                { title: 'TSR Pool State',                annotations: RO, service: 'onesource-standard' },
+  '1s_std_candles':             { title: 'TSR Price Candles',             annotations: RO, service: 'onesource-standard' },
   '1s_std_genesis_live':        { title: 'TSR Genesis Mint Live',         annotations: RO, service: 'onesource-standard' },
   '1s_std_branches_doi':        { title: 'TSR Branches Days of Issuance', annotations: RO, service: 'onesource-standard' },
   '1s_std_branch_auction_live': { title: 'TSR Branch Auction Live',       annotations: RO, service: 'onesource-standard' },
