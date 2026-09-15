@@ -135,6 +135,17 @@ const registeredCount = Object.keys(registered).length;
 if (registeredCount !== toolCount) {
   fail('check-4', `registered ${registeredCount} tools but createMcpServer().toolCount reports ${toolCount}`);
 }
+// The instructions string quotes expectedToolCount() (computed from the
+// registration tables before any server exists); make sure it equals what
+// actually registers on each transport, so the quoted number cannot go stale.
+const { expectedToolCount } = await import(pathToFileURL(join(root, 'dist/create-server.js')).href);
+for (const transport of [undefined, 'http']) {
+  const expected = expectedToolCount(transport);
+  const actual = createMcpServer({ analytics: noopAnalytics, transport }).toolCount;
+  if (expected !== actual) {
+    fail('check-4', `expectedToolCount(${transport ?? 'stdio'}) = ${expected} (what the instructions quote) but createMcpServer registers ${actual}`);
+  }
+}
 const countMatch = serverJson.description?.match(/^(\d+) tools/);
 if (!countMatch) {
   fail('check-4', `server.json description does not start with a tool count — expected format: "N tools ..."`);
