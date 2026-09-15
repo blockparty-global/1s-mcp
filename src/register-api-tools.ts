@@ -5,17 +5,10 @@
  * per-call client context, x402 detection, performance timing, session hashing,
  * and error sanitization.
  *
- * TODO(api-mcp bump): TOOL_META below already carries rows for the 18
- * `1s_std_*` (The Standard Reserve) tools added in @one-source/api-mcp's
- * feat/tsr-doi branch (source at sre-services/skills/mcp, package.json
- * version 5.13.0 there, unpublished). This repo's dependency is still
- * "@one-source/api-mcp": "^5.12.0" (5.12.0 installed — 35 tools, no
- * `standard` category yet), so `allTools` won't include them and they won't
- * actually register until that package is published and this dependency is
- * bumped to the version that ships them (>=5.13.0, once published — do not
- * guess a version here). Bump package.json's dependency, run `npm install`,
- * and the `1s_std_*` tools will start registering with zero further code
- * changes here.
+ * The 18 `1s_std_*` (The Standard Reserve) rows below register only when the
+ * installed @one-source/api-mcp ships the `standard` category (>=5.13.0; a
+ * tool added upstream needs a row here AND a dependency bump to the version
+ * that ships it, otherwise `allTools` never includes it).
  */
 
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
