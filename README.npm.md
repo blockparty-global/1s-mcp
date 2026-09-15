@@ -1,6 +1,6 @@
 # @one-source/mcp
 
-Unified MCP server for [OneSource](https://docs.onesource.io) — 64 tools for blockchain data, live chain queries, Deepstate market data, The Standard Reserve, and REST API documentation in a single server.
+Unified MCP server for [OneSource](https://docs.onesource.io) — 65 tools for blockchain data, live chain queries, Deepstate market data, The Standard Reserve, and REST API documentation in a single server.
 
 > **What is MCP?** The [Model Context Protocol](https://modelcontextprotocol.io) lets AI assistants call tools and access data sources. This server exposes both the OneSource blockchain API and its documentation as tools.
 
@@ -44,7 +44,7 @@ Then connect your MCP client to `http://localhost:3000/`.
 
 Health check: `GET http://localhost:3000/health`
 
-## Tools (64)
+## Tools (65)
 
 ### Blockchain API — Live Chain (12 tools)
 
@@ -107,7 +107,7 @@ Deepstate is an on-chain order-book protocol on Robinhood Chain (chain 4663). Th
 
 Every Deepstate tool except `1s_ds_markets` takes a `book` parameter: the market's canonical uppercase slug (e.g. `NVDA-USDG`) or its 32-byte `book_id`. Call `1s_ds_markets` first for the full list.
 
-### The Standard Reserve (18 tools)
+### The Standard Reserve (19 tools)
 
 The Standard Reserve is an on-chain central-bank protocol on Robinhood Chain (chain id 4663). These tools read the deployed contracts' state as indexed and served by OneSource, with `basis`, `as_of_block`, and `serving_state` on every response. `1s_std_addresses` and `1s_std_genesis_live` are free; every other tool here is paid the same way as the rest of this API: API key, x402, or MPP.
 
@@ -120,6 +120,7 @@ The Standard Reserve is an on-chain central-bank protocol on Robinhood Chain (ch
 | `1s_std_branch_auction_live`| Raw head-fresh state of the Branch license auction: phase, price, today's sold/remaining counts, and recent sale velocity |
 | `1s_std_branches_doi`       | Days of Issuance for the Branch license auction, plus a buy-now-vs-wait table                          |
 | `1s_std_branches_summary`   | Summary across TSR's active Branches: count, issuance per Branch per day, and license price in days of issuance |
+| `1s_std_candles`            | OHLC price candles for the ETH/STANDARD pool in ETH per STANDARD, with swap counts and volume. Set tf for candle width (1m to 1d) and from/to for the window |
 | `1s_std_charter`            | One charter by id, or charters filtered by owner: holder, branch count, mint kind, owed production, and branch history |
 | `1s_std_dormancy`           | Wallets past their reportable dormancy window, or the full tracked wallet list                        |
 | `1s_std_epochs`             | TSR epoch history: net flow, signal, regime, multiplier, and issuance per epoch. Page with before/limit |
