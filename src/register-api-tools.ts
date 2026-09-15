@@ -164,6 +164,21 @@ export interface RegisterApiToolsOptions {
 }
 
 /**
+ * The api-mcp tools this server registers for a transport. 1s_payment_mode and
+ * 1s_refund operate on the module-level x402 singleton, which is stdio-only:
+ * in HTTP mode multiple users share one process and cannot own that
+ * singleton, so those two are left out there.
+ *
+ * Exported so the tool count quoted in the MCP instructions (cli.ts) and the
+ * build-time validator derive from the same filter the registration loop uses.
+ */
+export function apiToolsFor(transport?: 'stdio' | 'http') {
+  return transport === 'http'
+    ? allTools.filter(t => t.name !== '1s_payment_mode' && t.name !== '1s_refund')
+    : allTools;
+}
+
+/**
  * Register all API tools and return the client instance + tool count.
  */
 export function registerApiTools(
@@ -194,12 +209,7 @@ export function registerApiTools(
     });
   };
 
-  // 1s_payment_mode and 1s_refund operate on the module-level x402 singleton,
-  // which is stdio-only. In HTTP mode multiple users share one process and cannot
-  // own that singleton, so these tools must not be registered.
-  const tools = transport === 'http'
-    ? allTools.filter(t => t.name !== '1s_payment_mode' && t.name !== '1s_refund')
-    : allTools;
+  const tools = apiToolsFor(transport);
 
   for (const tool of tools) {
     const meta = TOOL_META[tool.name];

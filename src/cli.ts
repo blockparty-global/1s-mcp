@@ -78,6 +78,7 @@ function buildInstructions(
   authMethod: 'api_key' | 'x402' | 'mpp' | 'none',
   batchPrompt: 'ask' | 'auto' | 'off',
   batchThreshold: number,
+  toolCount: number,
 ): string {
   const authLine = authMethod === 'api_key'
     ? 'Blockchain API tools are authenticated via API key. If a tool returns a 402 error, the API key may be invalid or inactive — tell the user to verify their key at app.onesource.io. If a tool returns a 403 error, the account does not have an active API key subscription — tell the user to subscribe or check their subscription status at app.onesource.io. To review or change configuration (auth method or either payment rail), run 1s_setup_check — it walks the user through every option interactively.'
@@ -90,7 +91,7 @@ function buildInstructions(
   const batchGuidance = buildBatchGuidance(authMethod, batchPrompt, batchThreshold);
 
   const baseline = [
-    'OneSource MCP — 38 tools: blockchain data, plus documentation for the OneSource REST API.',
+    `OneSource MCP — ${toolCount} tools: blockchain data, plus documentation for the OneSource REST API.`,
     '',
     authLine,
     '',
@@ -147,7 +148,7 @@ if (args.includes('--http')) {
     '@modelcontextprotocol/sdk/server/streamableHttp.js'
   );
   const { createServer } = await import('node:http');
-  const { createMcpServer, VERSION } = await import('./create-server.js');
+  const { createMcpServer, VERSION, expectedToolCount } = await import('./create-server.js');
   const { createAnalytics } = await import('./analytics.js');
   const { createClientFromEnv } = await import('@one-source/api-mcp/client');
   const { handleOAuthMetadata, handleAuthorize, handleToken, resolveBearer } = await import('./oauth.js');
@@ -203,7 +204,7 @@ if (args.includes('--http')) {
 
   // Check for updates (non-blocking, 3s timeout)
   const latestVersion = await checkLatestVersion();
-  const instructions = buildInstructions(VERSION, latestVersion, authMethod, batchPrefs.prompt, batchPrefs.threshold);
+  const instructions = buildInstructions(VERSION, latestVersion, authMethod, batchPrefs.prompt, batchPrefs.threshold, expectedToolCount('http'));
   if (latestVersion && latestVersion !== VERSION) {
     console.error(`[onesource] v${VERSION} (update available: v${latestVersion})`);
   } else if (latestVersion) {
@@ -214,7 +215,7 @@ if (args.includes('--http')) {
 
   // Instructions variant for requests that authenticate with a per-request
   // Bearer API key (multi-tenant HTTP hosting) — mirrors the api_key startup path.
-  const apiKeyInstructions = buildInstructions(VERSION, latestVersion, 'api_key', batchPrefs.prompt, batchPrefs.threshold);
+  const apiKeyInstructions = buildInstructions(VERSION, latestVersion, 'api_key', batchPrefs.prompt, batchPrefs.threshold, expectedToolCount('http'));
 
   // Shared singletons — reused across stateless per-request servers
   const sharedAnalytics = createAnalytics();
@@ -742,7 +743,7 @@ if (args.includes('--http')) {
 } else {
   // ---------- Stdio mode (default) ----------
 
-  const { createMcpServer, VERSION } = await import('./create-server.js');
+  const { createMcpServer, VERSION, expectedToolCount } = await import('./create-server.js');
   const { StdioServerTransport } = await import(
     '@modelcontextprotocol/sdk/server/stdio.js'
   );
@@ -792,7 +793,7 @@ if (args.includes('--http')) {
 
   // Check for updates (non-blocking, 3s timeout)
   const latestVersion = await checkLatestVersion();
-  const instructions = buildInstructions(VERSION, latestVersion, authMethod, batchPrefs.prompt, batchPrefs.threshold);
+  const instructions = buildInstructions(VERSION, latestVersion, authMethod, batchPrefs.prompt, batchPrefs.threshold, expectedToolCount('stdio'));
   if (latestVersion && latestVersion !== VERSION) {
     console.error(`[onesource] v${VERSION} (update available: v${latestVersion})`);
   } else if (latestVersion) {

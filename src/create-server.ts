@@ -1,25 +1,24 @@
 /**
  * Unified MCP Server Factory
  *
- * Creates a single McpServer named 'onesource' with all 46 tools
- * (35 API incl. payment-mode, live chain, and Deepstate market data + 8
- * documentation + 1 setup check + 1 batch config + 1 bug report) by
- * delegating to the register modules.
+ * Creates a single McpServer named 'onesource' with every OneSource tool by
+ * delegating to the register modules: the @one-source/api-mcp tools (live
+ * chain, chain utilities, payments, Deepstate market data, The Standard
+ * Reserve), the documentation tools, the setup/batch-config tools, and the
+ * bug report tool. Two of the API tools (1s_payment_mode, 1s_refund) are
+ * stdio-only, so an HTTP server registers two fewer.
  *
- * Two of the API tools are stdio-only, so an HTTP server registers 44.
- *
- * Pending: 18 more API tools (`1s_std_*`, The Standard Reserve on Robinhood
- * Chain) have TOOL_META rows in register-api-tools.ts but aren't in the
- * above count yet — they only register once the @one-source/api-mcp
- * dependency is bumped past ^5.12.0 to the version that ships them (see the
- * TODO at the top of register-api-tools.ts). Once that bump lands, this
- * becomes 64 tools total (62 registered over HTTP).
+ * The total is never written down as a number here: expectedToolCount()
+ * derives it from the same tables the register modules iterate, the
+ * instructions string quotes that, and scripts/validate-mcp.mjs asserts it
+ * matches what actually registered. A hardcoded count went stale at 38 while
+ * the server grew to 65, which is why.
  */
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { OneSourceClient } from '@one-source/api-mcp/client';
-import { registerApiTools } from './register-api-tools.js';
-import { registerDocsTools } from './register-docs-tools.js';
+import { registerApiTools, apiToolsFor } from './register-api-tools.js';
+import { registerDocsTools, DOCS_TOOL_COUNT } from './register-docs-tools.js';
 import { registerBugReportTool } from './register-bug-report-tool.js';
 import { createAnalytics, type Analytics } from './analytics.js';
 import { VERSION } from './version.js';
@@ -46,6 +45,17 @@ export interface CreateServerResult {
   analytics: Analytics;
   client: OneSourceClient;
   toolCount: number;
+}
+
+/**
+ * The number of tools createMcpServer() will register for a transport,
+ * computed from the registration tables without building a server. Used for
+ * the tool count quoted in the MCP instructions (which must exist before the
+ * server is constructed) and cross-checked against the real registration by
+ * scripts/validate-mcp.mjs.
+ */
+export function expectedToolCount(transport?: 'stdio' | 'http'): number {
+  return apiToolsFor(transport).length + DOCS_TOOL_COUNT + 1; // + 1s_report_bug
 }
 
 /**

@@ -176,7 +176,7 @@ function docs(): LoadedData {
  * Names match @one-source/docs-mcp exactly and are a stable contract with
  * clients. Descriptions are written here rather than reused from that package
  * so each one can say how the tool relates to the others this server exposes —
- * which of the 38 to reach for is a question only the unified server can answer.
+ * which of the server's tools to reach for is a question only the unified server can answer.
  *
  * Handlers re-parse their input through the tool's own schema. The SDK has
  * already validated it against that same schema, so the parse only narrows the
@@ -279,6 +279,14 @@ const DOCS_TOOLS: DocsToolSpec[] = [
  * of agreement with it.
  */
 export const DOCS_TOOL_NAMES: readonly string[] = DOCS_TOOLS.map((tool) => tool.name);
+
+/**
+ * How many tools registerDocsTools() registers: the documentation tools plus
+ * the two operational tools it also owns (1s_setup_check, 1s_batch_config).
+ * Kept next to the table so the count the instructions quote cannot drift
+ * from what is registered — see expectedToolCount() in create-server.ts.
+ */
+export const DOCS_TOOL_COUNT = DOCS_TOOLS.length + 2;
 
 export interface RegisterDocsToolsOptions {
   server: McpServer;
