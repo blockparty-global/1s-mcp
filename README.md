@@ -133,9 +133,9 @@ The Standard Reserve is an on-chain central-bank protocol on Robinhood Chain (ch
 | `1s_std_buyback_readiness`  | Contraction-vault buyback-tick readiness: this tick's ETH capacity, binding constraint, cooldown, TWAP deviation, and recent executed ticks |
 | `1s_std_candles`            | OHLC price candles for the ETH/STANDARD pool in ETH per STANDARD, with swap counts and volume. Set tf for candle width (1m to 1d) and from/to for the window |
 | `1s_std_charter`            | One charter by id, or charters filtered by owner: holder, branch count, mint kind, owed production, and branch history |
-| `1s_std_decision_branch`    | Composite: should I buy a Branch/license right now — bundles Days of Issuance, license cost vs. the charter auction, recent auction history, policy outlook, and pending governance changes |
-| `1s_std_decision_charter`   | Composite: should I buy into a new charter right now — bundles charter-auction state, license-cost cheapest path, Days of Issuance, backing ratio, and holder concentration |
-| `1s_std_decision_exit`      | Composite: should I exit a charter's branches right now — bundles the exit quote, fee curve, fee forecast, tax schedule, pool state, policy outlook, and pending governance changes |
+| `1s_std_decision_branch`    | Composite: should I buy a Branch/license right now. Bundles Days of Issuance, license cost vs. the charter auction, recent auction history, policy outlook, and pending governance changes |
+| `1s_std_decision_charter`   | Composite: should I buy into a new charter right now. Bundles charter-auction state, license-cost cheapest path, Days of Issuance, backing ratio, and holder concentration |
+| `1s_std_decision_exit`      | Composite: should I exit a charter's branches right now. Bundles the exit quote, fee curve, fee forecast, tax schedule, pool state, policy outlook, and pending governance changes |
 | `1s_std_dormancy`           | Wallets past their reportable dormancy window, or the full tracked wallet list                        |
 | `1s_std_dormancy_bounties`  | Dormancy bounty board: wallets already past their reportable window, ranked by estimated bounty        |
 | `1s_std_epochs`             | TSR epoch history: net flow, signal, regime, multiplier, and issuance per epoch. Page with before/limit |
