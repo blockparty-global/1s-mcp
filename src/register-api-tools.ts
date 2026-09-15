@@ -87,7 +87,7 @@ export const TOOL_META: Record<string, { title: string; annotations: ToolAnnotat
   '1s_std_charter':             { title: 'TSR Charter Detail',            annotations: RO, service: 'onesource-standard' },
   '1s_std_exit_pressure':       { title: 'TSR Exit Pressure',             annotations: RO, service: 'onesource-standard' },
   '1s_std_supply':              { title: 'TSR Supply Breakdown',          annotations: RO, service: 'onesource-standard' },
-  '1s_std_vaults':              { title: 'TSR Vault Positions',           annotations: RO, service: 'onesource-standard' },
+  '1s_std_vaults':              { title: 'TSR Vault Balances',            annotations: RO, service: 'onesource-standard' },
   '1s_std_flow_hourly':         { title: 'TSR Hourly Flow',               annotations: RO, service: 'onesource-standard' },
   '1s_std_events':              { title: 'TSR Event Feed',                annotations: RO, service: 'onesource-standard' },
   '1s_std_addresses':           { title: 'TSR Address Registry',          annotations: RO, service: 'onesource-standard' },
