@@ -55,10 +55,14 @@ return correct data.
 
 This is a **unified meta-package** (`@one-source/mcp`) that combines two independent MCP packages into a single MCP server without duplicating their tool implementations:
 
-- `@one-source/api-mcp` — 35 tools (active): 27 blockchain API tools + 8 Deepstate market-data tools (`1s_ds_*`), all served from `api.onesource.io` — the one canonical API front door
+- `@one-source/api-mcp` — live chain tools, chain utilities, payments, Deepstate market-data tools (`1s_ds_*`), and The Standard Reserve tools (`1s_std_*`), all served from `api.onesource.io` — the one canonical API front door
 - `@one-source/docs-mcp` — documentation tools (integrated but disabled)
 
-`register-api-tools.ts` registers the 8 Deepstate tools with `TOOL_META` rows and an `onesource-deepstate` analytics `service` label, and constructs a single client — `createClientFromEnv()` (`ONESOURCE_BASE_URL`, default `api.onesource.io`) — that it passes to every tool handler via `client.withContext(...)`, Deepstate included. That's correct: api-mcp's own `create-server.ts` also has just one client now, since Deepstate moved onto `api.onesource.io` alongside every other route (host consolidation, `odap/DEEPSTATE_API_RUNBOOK.md` API-D17 in sre-services). Releasing this repo's Deepstate support is a dependency bump (`@one-source/api-mcp` to the version carrying the change) + publish — no code change needed here.
+`register-api-tools.ts` registers all API tools with `TOOL_META` rows and per-category `service` analytics labels, and constructs a single client — `createClientFromEnv()` (`ONESOURCE_BASE_URL`, default `api.onesource.io`) — that it passes to every tool handler via `client.withContext(...)`. Adding a new tool from upstream requires a row in `TOOL_META` here AND a dependency bump to the `@one-source/api-mcp` version that ships it.
+
+**Tool count is never hardcoded.** `expectedToolCount(transport?)` in `create-server.ts` derives the count from the same registration tables the server uses; `cli.ts` quotes it in MCP instructions, and `scripts/validate-mcp.mjs` asserts it matches what actually registered. `DOCS_TOOL_COUNT` in `register-docs-tools.ts` is the companion constant for the docs side. A hardcoded count went stale at 38 while the server grew to 65, which is why this mechanism exists.
+
+Releasing new upstream tools is a dependency bump (`@one-source/api-mcp` to the version carrying the change) + adding `TOOL_META` rows here + publish — no other code change needed.
 
 ### Server creation flow
 
