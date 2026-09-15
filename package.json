@@ -1,7 +1,7 @@
 {
   "name": "@one-source/mcp",
   "mcpName": "io.onesource/mcp",
-  "version": "5.13.1",
+  "version": "5.13.2",
   "type": "module",
   "description": "64 tools: blockchain data, Deepstate and Standard Reserve markets, live chain queries, and API docs",
   "bin": {
