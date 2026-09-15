@@ -1,6 +1,6 @@
 # @one-source/mcp
 
-Unified MCP server for [OneSource](https://docs.onesource.io) — 65 tools for blockchain data, live chain queries, Deepstate market data, The Standard Reserve, and REST API documentation in a single server.
+Unified MCP server for [OneSource](https://docs.onesource.io) — 82 tools for blockchain data, live chain queries, Deepstate market data, The Standard Reserve, and REST API documentation in a single server.
 
 > **What is MCP?** The [Model Context Protocol](https://modelcontextprotocol.io) lets AI assistants call tools and access data sources. This server exposes both the OneSource blockchain API and its documentation as tools.
 
@@ -44,7 +44,7 @@ Then connect your MCP client to `http://localhost:3000/` (or your `--port` value
 
 Health check: `GET http://localhost:3000/health` (substitute your port).
 
-## Tools (65)
+## Tools (82)
 
 ### Blockchain API — Live Chain (12 tools)
 
@@ -115,32 +115,49 @@ Deepstate is an on-chain order-book protocol on Robinhood Chain (chain 4663). Th
 Every Deepstate tool except `1s_ds_markets` takes a `book` parameter: the market's canonical uppercase slug (e.g. `NVDA-USDG`) or its 32-byte `book_id`. Call `1s_ds_markets` first for the full list.
 
 
-### The Standard Reserve (19 tools)
+### The Standard Reserve (36 tools)
 
-The Standard Reserve is an on-chain central-bank protocol on Robinhood Chain (chain id 4663). These tools read the deployed contracts' state as indexed and served by OneSource, with `basis`, `as_of_block`, and `serving_state` on every response. `1s_std_addresses` and `1s_std_genesis_live` are free; every other tool here is paid the same way as the rest of this API: API key, x402, or MPP.
+The Standard Reserve is an on-chain central-bank protocol on Robinhood Chain (chain id 4663). These tools read the deployed contracts' state as indexed and served by OneSource, with `basis`, `as_of_block`, and `serving_state` on every response. `1s_std_addresses` and `1s_std_genesis_live` are free; every other tool here is paid the same way as the rest of this API: API key, x402, or MPP. Several tools (`1s_std_supply`, `_vaults`, `_pool`, `_exit_pressure`, `_backing`, `_policy_current`) also take an `atBlock` param to read that state as of a past block instead of the latest one.
 
 
 | Tool                        | Description                                                                                          |
 | --------------------------- | ----------------------------------------------------------------------------------------------------- |
 | `1s_std_addresses`          | Verified registry of TSR contracts and pool, with a verification status per entry. Free, no payment required. |
+| `1s_std_auction_days`       | Per-day auction history for the license or charter auction: open/floor/close price, sold vs. offered, time to sell out |
 | `1s_std_auction_sales`      | Recent sales for the license or charter auction, newest first: buyer, unit price, count, and block. Filter by kind, page with before/limit |
-| `1s_std_auctions_current`   | Current state of the daily license auction and charter auction: price, floor, sold/remaining today, and last sale |
+| `1s_std_auctions_current`   | Current state of the daily license auction and charter auction: price, floor, sold/remaining today, phase, and last sale |
+| `1s_std_backing`            | Reserve backing: vault ETH balances, unpriced reserve-asset holdings, and ETH-per-STANDARD backing ratio (excluding and including protocol-owned liquidity). Current, history, or as of a past block |
 | `1s_std_branch_auction_live`| Raw head-fresh state of the Branch license auction: phase, price, today's sold/remaining counts, and recent sale velocity |
 | `1s_std_branches_doi`       | Days of Issuance for the Branch license auction, plus a buy-now-vs-wait table                          |
 | `1s_std_branches_summary`   | Summary across TSR's active Branches: count, issuance per Branch per day, and license price in days of issuance |
+| `1s_std_buyback_readiness`  | Contraction-vault buyback-tick readiness: this tick's ETH capacity, binding constraint, cooldown, TWAP deviation, and recent executed ticks |
 | `1s_std_candles`            | OHLC price candles for the ETH/STANDARD pool in ETH per STANDARD, with swap counts and volume. Set tf for candle width (1m to 1d) and from/to for the window |
 | `1s_std_charter`            | One charter by id, or charters filtered by owner: holder, branch count, mint kind, owed production, and branch history |
+| `1s_std_decision_branch`    | Composite: should I buy a Branch/license right now — bundles Days of Issuance, license cost vs. the charter auction, recent auction history, policy outlook, and pending governance changes |
+| `1s_std_decision_charter`   | Composite: should I buy into a new charter right now — bundles charter-auction state, license-cost cheapest path, Days of Issuance, backing ratio, and holder concentration |
+| `1s_std_decision_exit`      | Composite: should I exit a charter's branches right now — bundles the exit quote, fee curve, fee forecast, tax schedule, pool state, policy outlook, and pending governance changes |
 | `1s_std_dormancy`           | Wallets past their reportable dormancy window, or the full tracked wallet list                        |
+| `1s_std_dormancy_bounties`  | Dormancy bounty board: wallets already past their reportable window, ranked by estimated bounty        |
 | `1s_std_epochs`             | TSR epoch history: net flow, signal, regime, multiplier, and issuance per epoch. Page with before/limit |
 | `1s_std_events`             | Raw decoded protocol events, optionally filtered by contract_label, event_name, addresses, token_id, epoch, or block/log cursor, and paginated with before/limit |
-| `1s_std_exit_pressure`      | Exit-pressure reading and the resulting resolution fee rate, current or (with history_hours) history   |
-| `1s_std_exit_quote`         | Pro-rata exit quote for retiring a charter's open Branches                                              |
+| `1s_std_exit_fee_curve`     | How the exit fee changes with withdrawal size: current fee rate plus a ladder at 1/5/10/25/50/100% of a gross withdrawal |
+| `1s_std_exit_fee_forecast`  | Current-pace projection of the exit fee if no more withdrawals happen, day by day, plus days until the fee reaches its floor |
+| `1s_std_exit_pressure`      | Exit-pressure reading and the resulting resolution fee rate. Current, history, or as of a past block   |
+| `1s_std_exit_quote`         | Pro-rata exit quote for retiring a charter's open Branches, plus a realizable-ETH estimate as of a given block |
 | `1s_std_flow_hourly`        | Hourly ETH flow into and out of the ETH/STANDARD pool, with swap counts. Set hours for how far back to look |
 | `1s_std_genesis_live`       | Head-fresh stats for the genesis Dutch mint: phase, minted, remaining, price, and sale velocity. Free. |
-| `1s_std_policy_current`     | Current epoch's monetary policy: regime, multiplier, net flow, and the two-epoch signal                |
-| `1s_std_pool`               | Latest ETH/STANDARD Uniswap v4 pool state: price, tick, liquidity, reserves, and remaining launch tax   |
-| `1s_std_supply`             | STANDARD supply ledger: circulating, cumulative minted, cumulative burned by path, and max supply. Current, or (with history_hours) history |
-| `1s_std_vaults`             | Expansion and Contraction vault balances: WETH and STANDARD held, protocol-owned liquidity, and buyback capacity. Current, or (with history_hours) history |
+| `1s_std_governance_changes` | Governance/param-change history across TSR's 12 contracts, what's currently queued, switch states, and guardian pause state |
+| `1s_std_holders_concentration` | Charter/Branch ownership concentration: distribution across Charters, top owners, an HHI (Herfindahl-Hirschman Index) score, and the genesis-vs-auction cohort split |
+| `1s_std_issuance_runway`    | Cumulative STANDARD issued against the Central Bank's issuance budget, current stream rate, and a same-state projection of when the budget runs out |
+| `1s_std_license_cost`       | What a Branch license costs in ETH right now, and whether the charter auction is a cheaper path to the same outcome |
+| `1s_std_license_headroom`   | How many more Branch licenses a charter can still buy today, with a live per-unit quote ladder            |
+| `1s_std_policy_current`     | Current epoch's monetary policy: regime, multiplier, net flow, and the two-epoch signal. Current or as of a past block |
+| `1s_std_policy_outlook`     | Same-state projection of the policy multiplier and issuance rate if the current epoch's net-flow sign holds to close |
+| `1s_std_pool`               | Latest ETH/STANDARD Uniswap v4 pool state: price, tick, liquidity, reserves, and remaining launch tax. Current or as of a past block |
+| `1s_std_supply`             | STANDARD supply ledger: circulating, cumulative minted, cumulative burned by path, and max supply. Current, history, or as of a past block |
+| `1s_std_tax_schedule`       | Launch tax-hook schedule: current buy/sell tax, decay configuration, and a labeled projection while the launch schedule is active |
+| `1s_std_vaults`             | Expansion and Contraction vault balances: WETH and STANDARD held, protocol-owned liquidity, and buyback capacity. Current, history, or as of a past block |
+| `1s_std_wallet`             | One wallet's full TSR position across every Charter it holds: pending owed, a summary exit quote, dormancy status, and license headroom |
 
 
 ### Documentation (8 tools)
