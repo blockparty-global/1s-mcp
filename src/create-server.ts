@@ -14,6 +14,14 @@
  * dependency is bumped past ^5.12.0 to the version that ships them (see the
  * TODO at the top of register-api-tools.ts). Once that bump lands, this
  * becomes 64 tools total (62 registered over HTTP).
+ *
+ * Also pending: the 8 documentation tools registered here only know about
+ * the 25 /api/chain/* chain-RPC endpoints. @one-source/docs-mcp 5.1.0 adds
+ * the Deepstate (8) and Standard Reserve (22) route families to the same
+ * corpus, but this package's dependency stays on ^5.0.0 until 5.1.0 is
+ * published to npm — bump it (`npm install @one-source/docs-mcp@^5.1.0`)
+ * once that lands. No code change is needed here: registerDocsTools() reads
+ * whatever the installed docs-mcp version bundles.
  */
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
