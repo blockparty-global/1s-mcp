@@ -39,7 +39,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.27.1",
-    "@one-source/api-mcp": "^5.13.1",
+    "@one-source/api-mcp": "^5.13.2",
     "@one-source/docs-mcp": "^5.1.0",
     "redis": "^4.7.0",
     "zod": "^3.24.0"
