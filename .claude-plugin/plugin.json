@@ -1,7 +1,7 @@
 {
   "name": "onesource",
-  "description": "82 tools for live blockchain queries, Deepstate and Standard Reserve market data, and REST API documentation, via x402 micropayments",
-  "version": "5.14.0",
+  "description": "83 tools for live blockchain queries, Deepstate and Standard Reserve market data, and REST API documentation, via x402 micropayments",
+  "version": "5.15.0",
   "author": {
     "name": "BlockParty",
     "url": "https://github.com/blockparty-global"

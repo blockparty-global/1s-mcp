@@ -5,7 +5,7 @@
  * per-call client context, x402 detection, performance timing, session hashing,
  * and error sanitization.
  *
- * The 36 `1s_std_*` (The Standard Reserve) rows below register only when the
+ * The 37 `1s_std_*` (The Standard Reserve) rows below register only when the
  * installed @one-source/api-mcp ships the `standard` category (>=5.13.0; a
  * tool added upstream needs a row here AND a dependency bump to the version
  * that ships it, otherwise `allTools` never includes it).
@@ -97,6 +97,7 @@ export const TOOL_META: Record<string, { title: string; annotations: ToolAnnotat
   '1s_std_decision_branch':       { title: 'TSR Decision: Branch',         annotations: RO, service: 'onesource-standard' },
   '1s_std_decision_charter':      { title: 'TSR Decision: Charter',        annotations: RO, service: 'onesource-standard' },
   '1s_std_decision_exit':         { title: 'TSR Decision: Exit',           annotations: RO, service: 'onesource-standard' },
+  '1s_std_decision_plan':         { title: 'TSR Decision: Plan',           annotations: RO, service: 'onesource-standard' },
   '1s_std_dormancy_bounties':     { title: 'TSR Dormancy Bounty Board',    annotations: RO, service: 'onesource-standard' },
   '1s_std_exit_fee_curve':        { title: 'TSR Exit Fee Curve',           annotations: RO, service: 'onesource-standard' },
   '1s_std_exit_fee_forecast':     { title: 'TSR Exit Fee Forecast',        annotations: RO, service: 'onesource-standard' },
