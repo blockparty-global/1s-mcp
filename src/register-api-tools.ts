@@ -5,7 +5,7 @@
  * per-call client context, x402 detection, performance timing, session hashing,
  * and error sanitization.
  *
- * The 19 `1s_std_*` (The Standard Reserve) rows below register only when the
+ * The 36 `1s_std_*` (The Standard Reserve) rows below register only when the
  * installed @one-source/api-mcp ships the `standard` category (>=5.13.0; a
  * tool added upstream needs a row here AND a dependency bump to the version
  * that ships it, otherwise `allTools` never includes it).
@@ -91,6 +91,23 @@ export const TOOL_META: Record<string, { title: string; annotations: ToolAnnotat
   '1s_std_genesis_live':        { title: 'TSR Genesis Mint Live',         annotations: RO, service: 'onesource-standard' },
   '1s_std_branches_doi':        { title: 'TSR Branches Days of Issuance', annotations: RO, service: 'onesource-standard' },
   '1s_std_branch_auction_live': { title: 'TSR Branch Auction Live',       annotations: RO, service: 'onesource-standard' },
+  '1s_std_auction_days':          { title: 'TSR Auction Day History',      annotations: RO, service: 'onesource-standard' },
+  '1s_std_backing':               { title: 'TSR Reserve Backing',          annotations: RO, service: 'onesource-standard' },
+  '1s_std_buyback_readiness':     { title: 'TSR Buyback Readiness',        annotations: RO, service: 'onesource-standard' },
+  '1s_std_decision_branch':       { title: 'TSR Decision: Branch',         annotations: RO, service: 'onesource-standard' },
+  '1s_std_decision_charter':      { title: 'TSR Decision: Charter',        annotations: RO, service: 'onesource-standard' },
+  '1s_std_decision_exit':         { title: 'TSR Decision: Exit',           annotations: RO, service: 'onesource-standard' },
+  '1s_std_dormancy_bounties':     { title: 'TSR Dormancy Bounty Board',    annotations: RO, service: 'onesource-standard' },
+  '1s_std_exit_fee_curve':        { title: 'TSR Exit Fee Curve',           annotations: RO, service: 'onesource-standard' },
+  '1s_std_exit_fee_forecast':     { title: 'TSR Exit Fee Forecast',        annotations: RO, service: 'onesource-standard' },
+  '1s_std_governance_changes':    { title: 'TSR Governance Changes',       annotations: RO, service: 'onesource-standard' },
+  '1s_std_holders_concentration': { title: 'TSR Holder Concentration',     annotations: RO, service: 'onesource-standard' },
+  '1s_std_issuance_runway':       { title: 'TSR Issuance Runway',          annotations: RO, service: 'onesource-standard' },
+  '1s_std_license_cost':          { title: 'TSR License Cost',             annotations: RO, service: 'onesource-standard' },
+  '1s_std_license_headroom':      { title: 'TSR License Headroom',         annotations: RO, service: 'onesource-standard' },
+  '1s_std_policy_outlook':        { title: 'TSR Policy Outlook',           annotations: RO, service: 'onesource-standard' },
+  '1s_std_tax_schedule':          { title: 'TSR Tax Schedule',             annotations: RO, service: 'onesource-standard' },
+  '1s_std_wallet':                { title: 'TSR Wallet Position',          annotations: RO, service: 'onesource-standard' },
 });
 
 /**
