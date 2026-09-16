@@ -1,9 +1,9 @@
 {
   "name": "@one-source/mcp",
   "mcpName": "io.onesource/mcp",
-  "version": "5.14.0",
+  "version": "5.15.0",
   "type": "module",
-  "description": "64 tools: blockchain data, Deepstate and Standard Reserve markets, live chain queries, and API docs",
+  "description": "83 tools: blockchain data, Deepstate and Standard Reserve markets, live chain queries, and API docs",
   "bin": {
     "onesource-mcp": "./dist/cli.js"
   },
@@ -39,7 +39,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.27.1",
-    "@one-source/api-mcp": "^5.14.0",
+    "@one-source/api-mcp": "^5.15.0",
     "@one-source/docs-mcp": "^5.1.0",
     "redis": "^4.7.0",
     "zod": "^3.24.0"
