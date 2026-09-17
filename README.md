@@ -44,7 +44,7 @@ Then connect your MCP client to `http://localhost:3000/` (or your `--port` value
 
 Health check: `GET http://localhost:3000/health` (substitute your port).
 
-## Tools (82)
+## Tools (83)
 
 ### Blockchain API — Live Chain (12 tools)
 
