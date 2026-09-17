@@ -280,13 +280,16 @@ const DOCS_TOOLS: DocsToolSpec[] = [
  */
 export const DOCS_TOOL_NAMES: readonly string[] = DOCS_TOOLS.map((tool) => tool.name);
 
+/** Operational tools registered by registerDocsTools(), kept next to their call sites. */
+export const OPS_TOOL_NAMES = Object.freeze(['1s_setup_check', '1s_batch_config'] as const);
+
 /**
  * How many tools registerDocsTools() registers: the documentation tools plus
  * the two operational tools it also owns (1s_setup_check, 1s_batch_config).
  * Kept next to the table so the count the instructions quote cannot drift
  * from what is registered — see expectedToolCount() in create-server.ts.
  */
-export const DOCS_TOOL_COUNT = DOCS_TOOLS.length + 2;
+export const DOCS_TOOL_COUNT = DOCS_TOOL_NAMES.length + OPS_TOOL_NAMES.length;
 
 export interface RegisterDocsToolsOptions {
   server: McpServer;
@@ -324,7 +327,7 @@ export function registerDocsTools(opts: RegisterDocsToolsOptions): number {
   const authMethod = opts.authMethod;
   const x402Address = opts.x402Address;
   instrumentedTool(server, analytics, transport,
-    '1s_setup_check',
+    OPS_TOOL_NAMES[0],
     'Interactive setup & health check for the OneSource MCP server. Returns a step-by-step setup script that the AGENT must run by consulting the user: it walks through EVERY configuration choice for BOTH payment rails (auth method, API key, x402 on Base, MPP on Tempo, payment modes, channel preferences) one decision at a time, every time it is run — even when everything is already configured, so the user can review and adjust without touching env vars or config files directly. Also reports version, auth status, channel status, and connectivity. Free, no authentication required. Call this first to set up, to change configuration, or to troubleshoot.',
     {},
     async () => {
@@ -550,7 +553,7 @@ export function registerDocsTools(opts: RegisterDocsToolsOptions): number {
   // them, and a live mode switch only happens when x402 is enabled.
   // ---------------------------------------------------------------------------
   instrumentedTool(server, analytics, transport,
-    '1s_batch_config',
+    OPS_TOOL_NAMES[1],
     'View or change payment preferences and save them so they persist across restarts — no MCP config editing or restart required. ' +
       'Call with no arguments to see current settings. ' +
       'Set "prompt" (ask/auto/off — agent autonomy when switching to a cheaper channel mode), "threshold" (anticipated calls before a channel is worth it), ' +

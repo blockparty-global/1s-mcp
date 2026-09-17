@@ -18,6 +18,7 @@ import { VERSION } from './version.js';
 
 /** Default bug report endpoint (analytics dashboard). */
 const DEFAULT_BUG_REPORT_URL = 'https://1s-analytics.vercel.app/api/bugs';
+export const BUG_REPORT_TOOL_NAMES = Object.freeze(['1s_report_bug'] as const);
 
 function hashSession(sessionId: string | undefined): string | undefined {
   if (!sessionId) return undefined;
@@ -49,7 +50,7 @@ export function registerBugReportTool(opts: RegisterBugReportToolOptions): numbe
   const bugReportUrl = opts.bugReportUrl ?? DEFAULT_BUG_REPORT_URL;
 
   server.registerTool(
-    '1s_report_bug',
+    BUG_REPORT_TOOL_NAMES[0],
     {
       title: 'Report Bug',
       description: 'Report a bug or issue to the OneSource team. Use when a tool returns an unexpected error or when the user asks to report a problem. Free, no payment required.',
