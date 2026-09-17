@@ -16,12 +16,10 @@
  * split made the same way.
  */
 import { allTools } from '@one-source/api-mcp/tools';
-import { DOCS_TOOL_COUNT } from './register-docs-tools.js';
+import { STDIO_ONLY_API_TOOL_NAMES } from './register-api-tools.js';
+import { DOCS_TOOL_NAMES, OPS_TOOL_NAMES } from './register-docs-tools.js';
+import { BUG_REPORT_TOOL_NAMES } from './register-bug-report-tool.js';
 import { expectedToolCount } from './create-server.js';
-
-const PAYMENT_TOOL_NAMES = new Set(['1s_payment_mode', '1s_refund']);
-/** The two operational tools registerDocsTools() also owns (not documentation lookups). */
-const SETUP_DOC_TOOL_COUNT = 2; // 1s_setup_check, 1s_batch_config
 
 export interface ActualToolCounts {
   /** Total tools registered on the stdio transport (package.json / server.json / plugin.json / marketplace.json count). */
@@ -41,20 +39,32 @@ export interface ActualToolCounts {
 
 export function actualToolCounts(): ActualToolCounts {
   const byCategory: Record<string, number> = {};
+  let payments = 0;
   for (const tool of allTools) {
-    if (PAYMENT_TOOL_NAMES.has(tool.name)) continue;
+    if (STDIO_ONLY_API_TOOL_NAMES.includes(tool.name)) {
+      payments++;
+      continue;
+    }
     byCategory[tool.category] = (byCategory[tool.category] ?? 0) + 1;
   }
 
-  return {
+  const counts = {
     total: expectedToolCount('stdio'),
     totalHttp: expectedToolCount('http'),
     live: byCategory.live ?? 0,
     chainUtils: byCategory.chain ?? 0,
-    payments: PAYMENT_TOOL_NAMES.size,
+    payments,
     deepstate: byCategory.deepstate ?? 0,
     standard: byCategory.standard ?? 0,
-    docs: DOCS_TOOL_COUNT - SETUP_DOC_TOOL_COUNT,
-    setup: SETUP_DOC_TOOL_COUNT + 1, // + 1s_report_bug
+    docs: DOCS_TOOL_NAMES.length,
+    setup: OPS_TOOL_NAMES.length + BUG_REPORT_TOOL_NAMES.length,
   };
+
+  const categorizedTotal = counts.live + counts.chainUtils + counts.payments
+    + counts.deepstate + counts.standard + counts.docs + counts.setup;
+  if (categorizedTotal !== counts.total) {
+    throw new Error(`Tool categories sum to ${categorizedTotal}, but the stdio server registers ${counts.total}.`);
+  }
+
+  return counts;
 }

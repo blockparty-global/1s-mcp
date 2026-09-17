@@ -181,6 +181,9 @@ export interface RegisterApiToolsOptions {
   x402Address?: string;
 }
 
+/** API tools backed by process-wide wallet state and therefore unavailable over HTTP. */
+export const STDIO_ONLY_API_TOOL_NAMES: readonly string[] = Object.freeze(['1s_payment_mode', '1s_refund']);
+
 /**
  * The api-mcp tools this server registers for a transport. 1s_payment_mode and
  * 1s_refund operate on the module-level x402 singleton, which is stdio-only:
@@ -192,7 +195,7 @@ export interface RegisterApiToolsOptions {
  */
 export function apiToolsFor(transport?: 'stdio' | 'http') {
   return transport === 'http'
-    ? allTools.filter(t => t.name !== '1s_payment_mode' && t.name !== '1s_refund')
+    ? allTools.filter(t => !STDIO_ONLY_API_TOOL_NAMES.includes(t.name))
     : allTools;
 }
 
