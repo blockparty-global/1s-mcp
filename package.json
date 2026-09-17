@@ -3,7 +3,7 @@
   "mcpName": "io.onesource/mcp",
   "version": "5.15.0",
   "type": "module",
-  "description": "83 tools: blockchain data, Deepstate and Standard Reserve markets, live chain queries, and API docs",
+  "description": "Blockchain data, Deepstate and Standard Reserve markets, live chain queries, and API docs",
   "bin": {
     "onesource-mcp": "./dist/cli.js"
   },

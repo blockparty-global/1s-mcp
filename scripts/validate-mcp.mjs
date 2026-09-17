@@ -146,16 +146,22 @@ for (const transport of [undefined, 'http']) {
     fail('check-4', `expectedToolCount(${transport ?? 'stdio'}) = ${expected} (what the instructions quote) but createMcpServer registers ${actual}`);
   }
 }
-const countMatch = serverJson.description?.match(/^(\d+) tools/);
-if (!countMatch) {
-  fail('check-4', `server.json description does not start with a tool count — expected format: "N tools ..."`);
-} else {
-  const declaredCount = Number(countMatch[1]);
-  if (!Number.isInteger(declaredCount)) {
-    fail('check-4', `server.json description tool count is not a valid integer: "${countMatch[1]}"`);
-  } else if (registeredCount !== declaredCount) {
-    fail('check-4', `registered ${registeredCount} tools but server.json description says ${declaredCount}`);
-  }
+// The tool count used to be baked into server.json's description ("N tools:
+// ..."), which meant every release that changed the tool count also had to
+// rewrite the description — and the MCP Registry rejects a description over
+// 100 chars, so the count was fighting the limit it was closest to blowing.
+// The count now lives only in generated/asserted places (this script's check
+// 4 above, tool-count-sites.json); the description must NOT restate it.
+if (/^\d+\s+tools?\b/i.test(serverJson.description ?? '')) {
+  fail('check-4', `server.json description embeds a tool count again ("${serverJson.description}") — drop it; the count is generated/asserted elsewhere, not hand-written prose`);
+}
+
+// Check 4b — MCP Registry description length limit
+// The registry rejects a server.json description over 100 chars outright;
+// catching it here fails a local run instead of a registry publish.
+const REGISTRY_DESCRIPTION_LIMIT = 100;
+if ((serverJson.description ?? '').length > REGISTRY_DESCRIPTION_LIMIT) {
+  fail('check-4b', `server.json description is ${serverJson.description.length} chars, over the ${REGISTRY_DESCRIPTION_LIMIT}-char MCP Registry limit: "${serverJson.description}"`);
 }
 
 // Check 5 — server.json validity
@@ -238,4 +244,4 @@ if (failures.length > 0) {
   process.exit(1);
 }
 
-console.log(`[validate-mcp] OK — ${registeredCount} tools validated (10 checks passed)`);
+console.log(`[validate-mcp] OK — ${registeredCount} tools validated (11 checks passed)`);

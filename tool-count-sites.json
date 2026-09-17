@@ -1,0 +1,31 @@
+[
+  { "path": ".claude-plugin/plugin.json", "category": "total", "regex": "\"description\": \"(\\d+) tools for" },
+  { "path": ".claude-plugin/marketplace.json", "category": "total", "regex": "OneSource MCP — (\\d+) tools for" },
+  { "path": ".claude-plugin/marketplace.json", "category": "total", "regex": "\"description\": \"(\\d+) tools for live blockchain" },
+  { "path": "manifest.json", "category": "total", "regex": "\"description\": \"(\\d+) OneSource tools for Claude" },
+  { "path": "manifest.json", "category": "live-chain-utils", "regex": "— (\\d+) live data queries" },
+  { "path": "manifest.json", "category": "deepstate", "regex": "(\\d+) Deepstate market-data tools \\(" },
+  { "path": "manifest.json", "category": "standard", "regex": "(\\d+) Standard Reserve \\(TSR\\) tools" },
+  { "path": "manifest.json", "category": "docs", "regex": "(\\d+) REST API documentation lookups" },
+  { "path": "manifest.json", "category": "setup", "regex": "plus (\\d+) setup tools" },
+  { "path": "manifest.json", "category": "payments", "regex": "and (\\d+) x402 payment controls" },
+
+  { "path": "README.md", "category": "total", "regex": "## Tools \\((\\d+)\\)" },
+  { "path": "README.md", "category": "live", "regex": "### Blockchain API — Live Chain \\((\\d+) tools\\)" },
+  { "path": "README.md", "category": "chainUtils", "regex": "### Blockchain API — Chain Utilities \\((\\d+) tools\\)" },
+  { "path": "README.md", "category": "payments", "regex": "### Payments \\((\\d+) tools\\)" },
+  { "path": "README.md", "category": "deepstate", "regex": "### Deepstate Market Data \\((\\d+) tools\\)" },
+  { "path": "README.md", "category": "standard", "regex": "### The Standard Reserve \\((\\d+) tools\\)" },
+  { "path": "README.md", "category": "docs", "regex": "### Documentation \\((\\d+) tools\\)" },
+  { "path": "README.md", "category": "setup", "regex": "### Setup & Ops \\((\\d+) tools\\)" },
+
+  { "path": "README.npm.md", "category": "total", "regex": "— (\\d+) tools for blockchain data" },
+  { "path": "README.npm.md", "category": "total", "regex": "## Tools \\((\\d+)\\)" },
+  { "path": "README.npm.md", "category": "live", "regex": "### Blockchain API — Live Chain \\((\\d+) tools\\)" },
+  { "path": "README.npm.md", "category": "chainUtils", "regex": "### Blockchain API — Chain Utilities \\((\\d+) tools\\)" },
+  { "path": "README.npm.md", "category": "payments", "regex": "### Payments \\((\\d+) tools\\)" },
+  { "path": "README.npm.md", "category": "deepstate", "regex": "### Deepstate Market Data \\((\\d+) tools\\)" },
+  { "path": "README.npm.md", "category": "standard", "regex": "### The Standard Reserve \\((\\d+) tools\\)" },
+  { "path": "README.npm.md", "category": "docs", "regex": "### Documentation \\((\\d+) tools\\)" },
+  { "path": "README.npm.md", "category": "setup", "regex": "### Setup & Ops \\((\\d+) tools\\)" }
+]
