@@ -3,7 +3,7 @@
   "name": "io.onesource/mcp",
   "description": "Blockchain data, Deepstate and Standard Reserve markets, live chain queries, and API docs",
   "title": "OneSource MCP",
-  "version": "5.16.0",
+  "version": "5.17.0",
   "websiteUrl": "https://mcp.onesource.io",
   "privacyPolicyUrl": "https://onesource.io/privacy-policy",
   "repository": {
@@ -14,7 +14,7 @@
     {
       "registryType": "npm",
       "identifier": "@one-source/mcp",
-      "version": "5.16.0",
+      "version": "5.17.0",
       "transport": {
         "type": "stdio"
       },
