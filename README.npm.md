@@ -115,7 +115,7 @@ The Standard Reserve is an on-chain central-bank protocol on Robinhood Chain (ch
 | Tool                        | Description                                                                                          |
 | --------------------------- | ----------------------------------------------------------------------------------------------------- |
 | `1s_std_addresses`          | Verified registry of TSR contracts and pool, with a verification status per entry. Free, no payment required. |
-| `1s_std_auction_days`       | Per-day auction history for the license or charter auction: open/floor/close price, sold vs. offered, time to sell out |
+| `1s_std_auction_days`       | Per-day auction history for the license or charter auction: open/floor/close price, sold vs. offered, time to sell out; license days add purchase counts, distinct charters, average and total paid, and a purchases-per-transaction breakdown |
 | `1s_std_auction_sales`      | Recent sales for the license or charter auction, newest first: buyer, unit price, count, and block. Filter by kind, page with before/limit |
 | `1s_std_auctions_current`   | Current state of the daily license auction and charter auction: price, floor, sold/remaining today, phase, and last sale |
 | `1s_std_backing`            | Reserve backing: vault ETH balances, unpriced reserve-asset holdings, and ETH-per-STANDARD backing ratio (excluding and including protocol-owned liquidity). Current, history, or as of a past block |
@@ -134,7 +134,7 @@ The Standard Reserve is an on-chain central-bank protocol on Robinhood Chain (ch
 | `1s_std_epochs`             | TSR epoch history: net flow, signal, regime, multiplier, and issuance per epoch. Page with before/limit |
 | `1s_std_events`             | Raw decoded protocol events, optionally filtered by contract_label, event_name, addresses, token_id, epoch, or block/log cursor, and paginated with before/limit |
 | `1s_std_exit_fee_curve`     | How the exit fee changes with withdrawal size: current fee rate plus a ladder at 1/5/10/25/50/100% of a gross withdrawal |
-| `1s_std_exit_fee_forecast`  | Current-pace projection of the exit fee if no more withdrawals happen, day by day, plus days until the fee reaches its floor |
+| `1s_std_exit_fee_forecast`  | Current-pace projection of the exit fee if no more withdrawals happen, day by day, plus days until the fee reaches its floor and the exact instant each recorded withdrawal day leaves the fee window |
 | `1s_std_exit_pressure`      | Exit-pressure reading and the resulting resolution fee rate. Current, history, or as of a past block   |
 | `1s_std_exit_quote`         | Pro-rata exit quote for retiring a charter's open Branches, plus a realizable-ETH estimate as of a given block |
 | `1s_std_flow_hourly`        | Hourly ETH flow into and out of the ETH/STANDARD pool, with swap counts. Set hours for how far back to look |
