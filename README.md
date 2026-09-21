@@ -44,7 +44,7 @@ Then connect your MCP client to `http://localhost:3000/` (or your `--port` value
 
 Health check: `GET http://localhost:3000/health` (substitute your port).
 
-## Tools (83)
+## Tools (84)
 
 ### Blockchain API — Live Chain (12 tools)
 
@@ -115,7 +115,7 @@ Deepstate is an on-chain order-book protocol on Robinhood Chain (chain 4663). Th
 Every Deepstate tool except `1s_ds_markets` takes a `book` parameter: the market's canonical uppercase slug (e.g. `NVDA-USDG`) or its 32-byte `book_id`. Call `1s_ds_markets` first for the full list.
 
 
-### The Standard Reserve (37 tools)
+### The Standard Reserve (38 tools)
 
 The Standard Reserve is an on-chain central-bank protocol on Robinhood Chain (chain id 4663). These tools read the deployed contracts' state as indexed and served by OneSource, with `basis`, `as_of_block`, and `serving_state` on every response. `1s_std_addresses` and `1s_std_genesis_live` are free; every other tool here is paid the same way as the rest of this API: API key, x402, or MPP. Several tools (`1s_std_supply`, `_vaults`, `_pool`, `_exit_pressure`, `_backing`, `_policy_current`) also take an `atBlock` param to read that state as of a past block instead of the latest one.
 
