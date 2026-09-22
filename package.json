@@ -1,7 +1,7 @@
 {
   "name": "@one-source/mcp",
   "mcpName": "io.onesource/mcp",
-  "version": "5.18.0",
+  "version": "5.19.0",
   "type": "module",
   "description": "Blockchain data, Deepstate and Standard Reserve markets, live chain queries, and API docs",
   "bin": {
@@ -40,7 +40,7 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.27.1",
     "@one-source/api-mcp": "^5.18.0",
-    "@one-source/docs-mcp": "^5.2.0",
+    "@one-source/docs-mcp": "^5.3.0",
     "redis": "^4.7.0",
     "zod": "^3.24.0"
   },
