@@ -139,7 +139,7 @@ The Standard Reserve is an on-chain central-bank protocol on Robinhood Chain (ch
 | `1s_std_exit_quote`         | Pro-rata exit quote for retiring a charter's open Branches, plus a realizable-ETH estimate as of a given block |
 | `1s_std_flow_hourly`        | Hourly ETH flow into and out of the ETH/STANDARD pool, with swap counts. Set hours for how far back to look |
 | `1s_std_genesis_live`       | Head-fresh stats for the genesis Dutch mint: phase, minted, remaining, price, and sale velocity. Free. |
-| `1s_std_governance_changes` | Governance/param-change history across TSR's 12 contracts, what's currently queued, switch states, and guardian pause state |
+| `1s_std_governance_changes` | Governance/param-change history across TSR's 15 tracked contracts, what's currently queued, switch states, and guardian pause state |
 | `1s_std_holders_concentration` | Charter/Branch ownership concentration: distribution across Charters, top owners, an HHI (Herfindahl-Hirschman Index) score, and the genesis-vs-auction cohort split |
 | `1s_std_issuance_runway`    | Cumulative STANDARD issued against the Central Bank's issuance budget, current stream rate, and a same-state projection of when the budget runs out |
 | `1s_std_license_cost`       | What a Branch license costs in ETH right now, and whether the charter auction is a cheaper path to the same outcome |
