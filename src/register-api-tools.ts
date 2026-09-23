@@ -70,6 +70,19 @@ export const TOOL_META: Record<string, { title: string; annotations: ToolAnnotat
   '1s_ds_makers':            { title: 'Deepstate Maker Analytics',  annotations: RO, service: 'onesource-deepstate' },
   '1s_ds_cost_to_quote':     { title: 'Deepstate Cost to Quote',    annotations: RO, service: 'onesource-deepstate' },
   '1s_ds_depth_history':     { title: 'Deepstate Depth History',    annotations: RO, service: 'onesource-deepstate' },
+  // DGP-3 (2026-09-22, Robinhood Chain): STATE + DEEP were replaced by 2DEEP.
+  // These two rows are forward-compatible placeholders, same pattern as the
+  // 1s_std_flow_charters guard below — they take effect only once
+  // @one-source/api-mcp publishes ToolDefs for getTwoDeepToken / getMigration
+  // (operationIds on the live openapi.yaml) and the dependency here is bumped
+  // to that version. Until then `allTools` doesn't include them, so this is a
+  // no-op, not a claim that the tools are live yet.
+  ...(allTools.some((tool) => tool.name === '1s_ds_token_2deep') ? {
+    '1s_ds_token_2deep':     { title: 'Deepstate 2DEEP Token',      annotations: RO, service: 'onesource-deepstate' },
+  } : {}),
+  ...(allTools.some((tool) => tool.name === '1s_ds_migration') ? {
+    '1s_ds_migration':       { title: 'Deepstate DGP-3 Migration',  annotations: RO, service: 'onesource-deepstate' },
+  } : {}),
   // The Standard Reserve (TSR) market data on Robinhood Chain — same
   // consolidation and `service` split rationale as the Deepstate block above.
   '1s_std_policy_current':      { title: 'TSR Current Policy',            annotations: RO, service: 'onesource-standard' },
@@ -140,8 +153,25 @@ const TOKEN_LIST_WARNINGS_NOTE =
 const MULTI_BALANCE_DESCRIPTION =
   'Get native ETH plus balances for up to 20 caller-supplied ERC20 contract addresses in one bounded RPC batch. Tokens are queried, not discovered, and the tool does not calculate a portfolio value. Individual token errors are returned per-token without failing the entire request; exceeding the 20-token cap rejects the request.';
 
+// DGP-3 (2026-09-22, Robinhood Chain): STATE and DEEP were replaced by one
+// token, 2DEEP. NVDA/USDG maker rewards are now paid in 2DEEP by Rewarder V3;
+// DEEP/USDG is a legacy book with no reward hook. The underlying REST
+// response already reflects this (server-side, no MCP code change needed —
+// these tools just proxy `client.get(...)`), but @one-source/api-mcp still
+// publishes the pre-migration "DEEP rewards" wording (checked against
+// @one-source/api-mcp@5.19.1 dist). Same ahead-of-upstream pattern as
+// MULTI_BALANCE_DESCRIPTION above: override here now, drop the override once
+// a coordinated api-mcp release carries the same wording upstream.
+const DS_MAKERS_DESCRIPTION =
+  'Get per-maker analytics for a Deepstate market over a time window: time spent at the top of book, current resting notional, fill count and fill rate, and maker rewards earned. The reward token is per-market, not fixed — call 1s_ds_markets and read that market\'s `reward_token` (NVDA/USDG has paid 2DEEP since the DGP-3 migration on 2026-09-22; DEEP/USDG is a legacy book and earns no rewards). Rows are keyed by maker (resting-order owner) address. Requires a book — call 1s_ds_markets for the list of available book slugs.';
+
+const DS_MARKETS_DESCRIPTION =
+  'List the Deepstate markets (order books) this API serves, with each market\'s slug, token layout, pool/router addresses, `status` (live, price_decode_pending, legacy, or registered), and `reward_token` — the token that market currently pays maker rewards in (see the DGP-3 migration on 2026-09-22, which moved NVDA/USDG rewards from DEEP to 2DEEP and left DEEP/USDG a legacy book with no reward token). Call this first: every other Deepstate tool takes a book identifier, and this is the source of truth for which books exist, their canonical uppercase slug form (e.g. "NVDA-USDG"), and whether they\'re currently rewarded. Configuration data that changes only on a governance action, safe to cache client-side with a short TTL.';
+
 const DESCRIPTION_OVERRIDE: Record<string, string> = Object.freeze({
   '1s_multi_balance_live': MULTI_BALANCE_DESCRIPTION,
+  '1s_ds_makers': DS_MAKERS_DESCRIPTION,
+  '1s_ds_markets': DS_MARKETS_DESCRIPTION,
 });
 
 // @one-source/api-mcp@5.11.0 still publishes an unbounded token-list regex.
