@@ -92,16 +92,16 @@ RPC only.
 
 ### Deepstate Market Data (8 tools)
 
-Deepstate is an on-chain order-book protocol on Robinhood Chain (chain 4663). These tools read market data — order books, trades, candles, stats, maker analytics, and gas/depth analytics. They're ordinary tools on the same API and take no `network` parameter — always Robinhood Chain — and are paid like every other tool: API key, x402, or MPP.
+Deepstate is an on-chain order-book protocol on Robinhood Chain (chain 4663). These tools read market data — order books, trades, candles, stats, maker analytics, and gas/depth analytics. They're ordinary tools on the same API and take no `network` parameter — always Robinhood Chain — and are paid like every other tool: API key, x402, or MPP. Since the DGP-3 migration (2026-09-22), maker rewards are per-market rather than a single fixed token — always check a market's `reward_token` on `1s_ds_markets` rather than assuming DEEP.
 
 | Tool | Description |
 |------|-------------|
-| `1s_ds_markets` | List the Deepstate markets (order books) this API serves, with each market's slug, token layout, and pool/router addresses |
+| `1s_ds_markets` | List the Deepstate markets (order books) this API serves, with each market's slug, token layout, pool/router addresses, `status`, and `reward_token` |
 | `1s_ds_book` | Order-book snapshot for a market — bids descending, asks ascending, with each price level's resting size |
 | `1s_ds_trades` | Trade tape for a market, newest first — each fill's price, size, side, and block |
 | `1s_ds_candles` | OHLCV candles for a market at a given timeframe |
 | `1s_ds_stats` | Rolling 24h / 7d / 30d volume and price change for a market, plus the latest traded price |
-| `1s_ds_makers` | Per-maker analytics for a market — time at top of book, resting notional, fill count/rate, and DEEP rewards |
+| `1s_ds_makers` | Per-maker analytics for a market — time at top of book, resting notional, fill count/rate, and maker rewards earned (reward token is per-market — see `reward_token` on `1s_ds_markets`) |
 | `1s_ds_cost_to_quote` | Gas spent resting and cancelling orders on a market, bucketed over time |
 | `1s_ds_depth_history` | Depth heatmap for a market — resting order size by price level over time |
 
