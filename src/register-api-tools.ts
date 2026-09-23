@@ -168,7 +168,7 @@ const DS_MAKERS_DESCRIPTION =
 const DS_MARKETS_DESCRIPTION =
   'List the Deepstate markets (order books) this API serves, with each market\'s slug, token layout, pool/router addresses, `status` (live, price_decode_pending, legacy, or registered), and `reward_token` — the token that market currently pays maker rewards in (see the DGP-3 migration on 2026-09-22, which moved NVDA/USDG rewards from DEEP to 2DEEP and left DEEP/USDG a legacy book with no reward token). Call this first: every other Deepstate tool takes a book identifier, and this is the source of truth for which books exist, their canonical uppercase slug form (e.g. "NVDA-USDG"), and whether they\'re currently rewarded. Configuration data that changes only on a governance action, safe to cache client-side with a short TTL.';
 
-const DESCRIPTION_OVERRIDE: Record<string, string> = Object.freeze({
+export const DESCRIPTION_OVERRIDE: Record<string, string> = Object.freeze({
   '1s_multi_balance_live': MULTI_BALANCE_DESCRIPTION,
   '1s_ds_makers': DS_MAKERS_DESCRIPTION,
   '1s_ds_markets': DS_MARKETS_DESCRIPTION,
