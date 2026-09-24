@@ -44,7 +44,7 @@ Then connect your MCP client to `http://localhost:3000/` (or your `--port` value
 
 Health check: `GET http://localhost:3000/health` (substitute your port).
 
-## Tools (84)
+## Tools (86)
 
 ### Blockchain API — Live Chain (12 tools)
 
@@ -96,7 +96,7 @@ RPC only.
 | `1s_refund`       | Reclaim an open payment channel's unspent deposit on demand — works for both an x402 `batch` channel (Base) and an MPP `session` voucher channel (Tempo)                                                                              |
 
 
-### Deepstate Market Data (8 tools)
+### Deepstate Market Data (10 tools)
 
 Deepstate is an on-chain order-book protocol on Robinhood Chain (chain 4663). These tools read market data — order books, trades, candles, stats, maker analytics, and gas/depth analytics. They're ordinary tools on the same API and take no `network` parameter — always Robinhood Chain — and are paid like every other tool: API key, x402, or MPP. Since the DGP-3 migration (2026-09-22), maker rewards are per-market rather than a single fixed token — always check a market's `reward_token` on `1s_ds_markets` rather than assuming DEEP.
 
@@ -111,6 +111,8 @@ Deepstate is an on-chain order-book protocol on Robinhood Chain (chain 4663). Th
 | `1s_ds_makers`          | Per-maker analytics for a market — time at top of book, resting notional, fill count/rate, and maker rewards earned (reward token is per-market — see `reward_token` on `1s_ds_markets`) |
 | `1s_ds_cost_to_quote`   | Gas spent resting and cancelling orders on a market, bucketed over time                                |
 | `1s_ds_depth_history`   | Depth heatmap for a market — resting order size by price level over time                              |
+| `1s_ds_token_2deep`     | 2DEEP supply, cap, float, reward pool and endowment balances, migration liabilities, and pool price — live from chain |
+| `1s_ds_migration`       | DEEP/STATE-to-2DEEP redemption progress since DGP-3 (2026-09-22): totals, counts, remaining, and a daily series |
 
 Every Deepstate tool except `1s_ds_markets` takes a `book` parameter: the market's canonical uppercase slug (e.g. `NVDA-USDG`) or its 32-byte `book_id`. Call `1s_ds_markets` first for the full list.
 
