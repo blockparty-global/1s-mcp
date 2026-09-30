@@ -6,10 +6,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```bash
 npm run build       # tsc → ./dist (ES2022 modules)
-npm publish --access public   # prepack swaps README.md → README.npm.md, postpack restores it
+npm publish --access public   # release-mcp.mjs runs this; don't run it by hand (prepack swaps README.md → README.npm.md, postpack restores it)
 ```
 
-**Before publishing**, always run the version bump script so all four version fields stay in sync:
+Releases go through `scripts/release-mcp.mjs` in sre-services (see [MCP Registry publishing](#mcp-registry-publishing)), which runs the version bump and the publish for you. To run the bump on its own:
 
 ```bash
 npm run bump-version -- <new-version>   # e.g. npm run bump-version -- 5.5.0
@@ -17,7 +17,7 @@ npm install                              # syncs package-lock.json
 npm run build && npm run validate        # confirm build is clean
 ```
 
-The script updates `package.json`, `server.json` (both fields), `.claude-plugin/plugin.json`, and `.claude-plugin/marketplace.json`. Use `--dry-run` to preview without writing.
+The script updates `package.json`, `server.json` (both fields), `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`, and `manifest.json` (the list is `scripts/version-targets.mjs`). It only checks `package-lock.json`; `npm install` syncs that. Use `--dry-run` to preview without writing.
 
 ## Tests
 
@@ -106,21 +106,32 @@ On startup, `cli.ts` checks the npm registry for the latest version (3s timeout,
 
 ## MCP Registry publishing
 
-Releases are normally driven by the **coordinated release script** in the
-sre-services repo (`scripts/release-mcp.mjs`; see `sre-services/RELEASING.md`).
-It publishes `@one-source/api-mcp` and `@one-source/mcp` in the required order,
-refreshes this repo's `@one-source/api-mcp` dependency, bumps `server.json`, and
-runs `mcp-publisher publish` — so the steps below normally happen for you.
+Releases are driven by the **coordinated release script** in the sre-services
+repo (`scripts/release-mcp.mjs`; `sre-services/RELEASING.md` is the full procedure
+and the only supported one). It releases `@one-source/api-mcp` and
+`@one-source/mcp` at one shared version, in the required order: it bumps this
+repo's versions, refreshes the `@one-source/docs-mcp` dependency if npm has a newer
+one, moves the `@one-source/api-mcp` dependency once api-mcp is published, and runs
+`mcp-publisher publish`. The steps below normally happen for you.
 
-Run it from the `sre-services` repo, logged in to npm:
+Run it from the `sre-services` root, logged in to npm. Each subcommand is safe to
+re-run, and each takes `--dry-run`:
 
 ```bash
-npm login                                          # publishing needs an authenticated npm session
-node scripts/release-mcp.mjs <version>             # e.g. 5.8.2 — bumps + publishes both packages in order
-node scripts/release-mcp.mjs <version> --dry-run   # preview the plan; no mutations, no publish
+npm login                                         # publishing needs an authenticated npm session
+node scripts/release-mcp.mjs status  <version>    # read-only: where the release stands, and the next command
+node scripts/release-mcp.mjs prepare <version>    # opens 3 draft PRs: api-mcp bump, this repo's bump, Dockerfile pin
+node scripts/release-mcp.mjs publish <version>    # npm publish both packages + MCP Registry
+node scripts/release-mcp.mjs finish  <version>    # leftovers PR, un-drafts the Dockerfile pin PR, checks /health
 ```
 
-The script prompts at each step, so you can stop and back out mid-run if something looks off.
+After `prepare`, merge the api-mcp bump and this repo's bump, but leave the
+Dockerfile pin PR open until `publish` has run. `publish` asks for confirmation
+once, then for the npm OTP once per package. Publish a new `@one-source/docs-mcp`
+(1s-developer-docs repo, manual) before `prepare` if one is needed, since
+`prepare` only picks up a version already on npm.
+
+`node scripts/release-mcp.mjs <version>` still works as an alias for `publish`.
 
 Manual fallback (registry-only fixes, or when the script can't run) — after `npm publish`:
 
@@ -140,10 +151,10 @@ That last point is the one that trips people up: the container builds from the p
 To ship a release to production:
 
 1. Merge code changes to `develop` (this repo).
-2. Log in to npm (`npm login`), then from `sre-services` run `node scripts/release-mcp.mjs <version>` (add `--dry-run` to preview). This publishes both packages to npm and the MCP Registry — see [MCP Registry publishing](#mcp-registry-publishing) for detail.
-3. In `sre-services/mcp/build/Dockerfile`, bump **both** `MCP_VERSION` and `API_MCP_VERSION` to the new version, then commit. This is the deploy trigger.
+2. Log in to npm (`npm login`), then from `sre-services` run `release-mcp.mjs` `prepare`, `publish` and `finish` for the version. This publishes both packages to npm and the MCP Registry; see [MCP Registry publishing](#mcp-registry-publishing) for detail.
+3. Merge the Dockerfile pin PR (`chore(deploy): pin mcp image to <version>`) in `sre-services` once `publish` has run. `prepare` opens it with **both** `MCP_VERSION` and `API_MCP_VERSION` in `mcp/build/Dockerfile` set to the new version, and `finish` takes it out of draft. Merging it is the deploy trigger.
 4. That commit touches `mcp/build/**`, firing the `build-mcp.yaml` workflow. It builds the image, pushes it to ECR, and auto-commits the new image SHA into `mcp/deploy/base/deployment.yaml`.
 5. Confirm the auto-pin landed in `deployment.yaml`. Pin it by hand only if the workflow's pin step exhausted its retries.
 6. ArgoCD auto-syncs and rolls out. Verify with `curl https://mcp.onesource.io/health` — it should report the new version.
 
-`release-mcp.mjs` covers npm and the MCP Registry only; it does not touch the Dockerfile or the k8s manifests. The `MCP_VERSION` / `API_MCP_VERSION` bump in step 3 is a separate manual step, and it is what actually moves a published version onto the cluster.
+`release-mcp.mjs` writes the `MCP_VERSION` / `API_MCP_VERSION` bump, but only as a PR: nothing reaches the cluster until you merge the pin PR in step 3. Merging it before `publish` builds a broken image, because the Dockerfile installs those exact versions from npm. The script never touches the k8s manifests; the image SHA pin in step 4 is the build workflow's job.
