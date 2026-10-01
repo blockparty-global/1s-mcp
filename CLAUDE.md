@@ -35,6 +35,10 @@ checks on every PR to `develop`/`main`, in parallel rather than one behind the o
 | Unit | `src/auth-header.test.ts` | Bearer parsing: scheme case, whitespace, absent/non-Bearer/empty, repeated header |
 | Unit | `src/http-utils.test.ts` | The body reader: chunk reassembly, the byte cap on both sides, no partial resolve when the cap trips mid-stream, stream errors, stream left exhausted for later readers |
 | Unit | `src/session-store.test.ts` | Single-use consume (in-memory and Valkey `GETDEL`), concurrent double-submit yielding exactly one winner, CSRF cookie hashing, rate-limit windows and TTL preservation, capacity caps, fail-closed on corrupt entries, URL redaction |
+| Unit | `src/register-api-tools.test.ts` | Reported tool count matches what registered on each transport (HTTP omits the two stdio-only payment tools); `1s_multi_balance_live` contract: 20-token cap in the schema, description says bounded query, no discovery, no portfolio value |
+| Unit | `src/register-docs-tools.test.ts` | Docs roster, docs tools registered on both stdio and HTTP, real corpus lookups, analytics `service` split (`onesource-docs` vs `onesource-ops`) |
+| Unit | `src/tool-meta-api-mcp-parity.test.ts` | Every installed api-mcp tool has a `TOOL_META` row and no row is orphaned; every `DESCRIPTION_OVERRIDE` still differs from upstream |
+| Unit | `src/tool-count-parity.test.ts` | Every hand-written tool count listed in `tool-count-sites.json` (READMEs, `package.json`, `server.json`, plugin/marketplace/manifest JSON) equals the count computed in `src/tool-count-actual.ts` |
 | Integration | `src/http-transport.test.ts` | Spawns the built `dist/cli.js` as a real subprocess and POSTs over a real socket: `initialize` handshake, `tools/list`, `-32700` on malformed JSON, and the 64KB cap on both sides plus a chunked body |
 | Registration | `scripts/validate-mcp.mjs` | `TOOL_META` coverage in both directions, SDK read-back of annotations, tool count, `server.json`, no deprecated `server.tool()` |
 
@@ -55,17 +59,27 @@ return correct data.
 
 This is a **unified meta-package** (`@one-source/mcp`) that combines two independent MCP packages into a single MCP server without duplicating their tool implementations:
 
-- `@one-source/api-mcp` — 35 tools (active): 27 blockchain API tools + 8 Deepstate market-data tools (`1s_ds_*`), all served from `api.onesource.io` — the one canonical API front door
-- `@one-source/docs-mcp` — documentation tools (integrated but disabled)
+- `@one-source/api-mcp` — live chain tools, chain utilities, payments, Deepstate market data (`1s_ds_*`) and The Standard Reserve (`1s_std_*`), all served from `api.onesource.io`, the one canonical API front door
+- `@one-source/docs-mcp` — 8 REST API documentation tools (active, free, no auth)
 
-`register-api-tools.ts` registers the 8 Deepstate tools with `TOOL_META` rows and an `onesource-deepstate` analytics `service` label, and constructs a single client — `createClientFromEnv()` (`ONESOURCE_BASE_URL`, default `api.onesource.io`) — that it passes to every tool handler via `client.withContext(...)`, Deepstate included. That's correct: api-mcp's own `create-server.ts` also has just one client now, since Deepstate moved onto `api.onesource.io` alongside every other route (host consolidation, `odap/DEEPSTATE_API_RUNBOOK.md` API-D17 in sre-services). Releasing this repo's Deepstate support is a dependency bump (`@one-source/api-mcp` to the version carrying the change) + publish — no code change needed here.
+`register-api-tools.ts` constructs a single client — `createClientFromEnv()` (`ONESOURCE_BASE_URL`, default `api.onesource.io`) — and passes it to every tool handler via `client.withContext(...)`, Deepstate and Standard Reserve included. That's correct: api-mcp's own `create-server.ts` also has one client, since Deepstate moved onto `api.onesource.io` alongside every other route (host consolidation, `odap/DEEPSTATE_API_RUNBOOK.md` API-D17 in sre-services). Each tool needs a `TOOL_META` row (title, annotations, analytics `service` label: `onesource-api` by default, `onesource-deepstate` for `1s_ds_*`, `onesource-standard` for `1s_std_*`). `src/tool-meta-api-mcp-parity.test.ts` fails if a row is missing or orphaned.
+
+Shipping new upstream tools = bump `@one-source/api-mcp` to the version that has them + add their `TOOL_META` rows + update the hand-written counts the parity test flags + publish. Nothing else in this repo changes.
+
+### Tool counts
+
+**The server never hardcodes its tool count.** `expectedToolCount(transport)` in `create-server.ts` computes it from the same tables the registrars iterate (`apiToolsFor(transport)` + `DOCS_TOOL_COUNT` + 1 for `1s_report_bug`). `cli.ts` quotes it in the MCP instructions, and check 4 of `scripts/validate-mcp.mjs` asserts it equals what `createMcpServer()` actually registered. `DOCS_TOOL_COUNT` in `register-docs-tools.ts` is the 8 docs tools plus the 2 ops tools (`OPS_TOOL_NAMES`). A hardcoded count went stale at 38 while the server grew to 65, which is why this exists.
+
+HTTP registers 2 fewer tools than stdio: `1s_payment_mode` and `1s_refund` (`STDIO_ONLY_API_TOOL_NAMES`) operate on a module-level payment singleton that can't be shared across tenants. So `GET /health` on the hosted server reports the HTTP count.
+
+Prose counts (READMEs, `package.json`, plugin/marketplace/manifest JSON) are still written by hand, but each one is listed in `tool-count-sites.json` and checked by `src/tool-count-parity.test.ts`. `server.json`'s description must not contain a count at all (validator check 4).
 
 ### Server creation flow
 
 `cli.ts` → `createMcpServer()` in `create-server.ts` → three registrar modules:
 
-1. `register-api-tools.ts` — iterates `@one-source/api-mcp/tools`, wraps each with analytics + timing + error sanitization, tracks x402 payment events
-2. `register-docs-tools.ts` — same pattern, currently commented out
+1. `register-api-tools.ts` — iterates `apiToolsFor(transport)` from `@one-source/api-mcp/tools` and wraps each one with analytics, timing and error sanitization; tracks x402 payment events. Tool descriptions come from upstream verbatim, except for two local layers: `DESCRIPTION_OVERRIDE` (currently only `1s_multi_balance_live`) and `DESCRIPTION_NOTE` (a `warnings` addendum on several chain-read tools). It also swaps in a local Zod schema for `1s_multi_balance_live`'s `tokens` (20-address max). That schema was added while upstream had no bound (the code comment cites api-mcp 5.11.0). Published api-mcp 5.21.0 has the same `{0,19}` bound itself, so the local schema is now redundant, though harmless. The description override is still live, and the parity test above will flag it once upstream's wording matches.
+2. `register-docs-tools.ts` — registers the 8 documentation tools from `@one-source/docs-mcp` plus the `1s_setup_check` and `1s_batch_config` ops tools, on both transports
 3. `register-bug-report-tool.ts` — registers `1s_report_bug`, POSTs to analytics endpoint
 
 `createMcpServer()` returns `{ server, analytics, client, toolCount }`. The server and client can be overridden via options — this is used in HTTP mode for shared singletons.
@@ -84,6 +98,10 @@ Auth is detected at startup in `cli.ts` and baked into LLM system prompt instruc
 - Neither → unauthenticated (limited access)
 
 API key takes priority. The active auth method changes the instructions injected into the MCP server's system prompt (and suppresses x402 payment prompts when an API key is present).
+
+### Documentation tools
+
+The 8 documentation tools (`1s_search_docs`, `1s_get_api_overview`, `1s_list_endpoints`, `1s_get_endpoint_reference`, `1s_search_use_cases`, `1s_list_networks`, `1s_get_payment_info`, `1s_get_authentication_guide`) read a corpus bundled inside `@one-source/docs-mcp`. `register-docs-tools.ts` loads it lazily, once per process, through a memoized `docs()` wrapper around `loadData()`, so a session that never asks a docs question doesn't pay for it, and HTTP mode doesn't reload it on every request. Tool names match the standalone `@one-source/docs-mcp` server exactly; that's a stable contract, because the corpus itself documents those names. Descriptions are written locally so each one can point at the right sibling tool. `DOCS_TOOL_NAMES` is the authoritative roster: validator check 8 and `register-docs-tools.test.ts` both assert against it.
 
 ### Version update notifications
 
