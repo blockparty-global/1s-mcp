@@ -146,6 +146,15 @@ export const TOOL_META: Record<string, { title: string; annotations: ToolAnnotat
   ...(allTools.some((tool) => tool.name === '1s_std_sbills_events') ? {
     '1s_std_sbills_events':       { title: 'TSR S-Bills Event Feed',       annotations: RO, service: 'onesource-standard' },
   } : {}),
+  // Stake/hold decision composites over /v1/decisions/stake and /hold. Same
+  // conditional pattern as the S-Bills rows: a no-op until @one-source/api-mcp
+  // publishes the ToolDefs and the dependency here is bumped to that version.
+  ...(allTools.some((tool) => tool.name === '1s_std_decision_stake') ? {
+    '1s_std_decision_stake':      { title: 'TSR Decision: Stake',        annotations: RO, service: 'onesource-standard' },
+  } : {}),
+  ...(allTools.some((tool) => tool.name === '1s_std_decision_hold') ? {
+    '1s_std_decision_hold':       { title: 'TSR Decision: Hold',         annotations: RO, service: 'onesource-standard' },
+  } : {}),
 });
 
 /**
