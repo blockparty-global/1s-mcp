@@ -138,9 +138,9 @@ The Standard Reserve is an on-chain central-bank protocol on Robinhood Chain (ch
 | `1s_std_decision_branch`    | Composite: should I buy a Branch/license right now. Bundles Days of Issuance, license cost vs. the charter auction, recent auction history, policy outlook, and pending governance changes |
 | `1s_std_decision_charter`   | Composite: should I buy into a new charter right now. Bundles charter-auction state, license-cost cheapest path, Days of Issuance, backing ratio, and holder concentration |
 | `1s_std_decision_exit`      | Composite: should I exit a charter's branches right now. Bundles the exit quote, fee curve, fee forecast, tax schedule, pool state, policy outlook, and pending governance changes |
-| `1s_std_decision_hold`      | Composite: should I keep holding STANDARD. Read-only bundle over the TSR hold decision endpoint; takes no arguments |
+| `1s_std_decision_hold`      | Composite: should I keep holding STANDARD. Bundles the policy outlook, issuance runway, pending governance changes, tax schedule, buyback readiness, and dormancy state; takes no arguments |
 | `1s_std_decision_plan`      | Simulate three Branch-buying strategies (keep, selective, aggressive) over a horizon, seeded from live prices, issuance, and license cost unless overridden. A planning tool, not a forecast: it never names a winning strategy |
-| `1s_std_decision_stake`     | Composite: should I stake this STANDARD in an S-Bill now, or wait. Takes the `amount`; `wallet` is optional |
+| `1s_std_decision_stake`     | Composite: should I stake this STANDARD in an S-Bill now, or wait. Bundles the S-Bills quote, caps checked against the wallet, the exit fee right after depositing, and the rate over 1h/6h/24h if nobody else deposits (derived). Takes `amount`; `wallet` is optional |
 | `1s_std_dormancy`           | Wallets past their reportable dormancy window, or the full tracked wallet list                        |
 | `1s_std_dormancy_bounties`  | Dormancy bounty board: wallets already past their reportable window, ranked by estimated bounty        |
 | `1s_std_epochs`             | TSR epoch history: net flow, signal, regime, multiplier, and issuance per epoch. Page with before/limit |
