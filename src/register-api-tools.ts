@@ -125,6 +125,27 @@ export const TOOL_META: Record<string, { title: string; annotations: ToolAnnotat
   '1s_std_policy_outlook':        { title: 'TSR Policy Outlook',           annotations: RO, service: 'onesource-standard' },
   '1s_std_tax_schedule':          { title: 'TSR Tax Schedule',             annotations: RO, service: 'onesource-standard' },
   '1s_std_wallet':                { title: 'TSR Wallet Position',          annotations: RO, service: 'onesource-standard' },
+  // S-Bills (TSR fixed-term STANDARD staking, deployed 2026-10-01). Same
+  // forward-compatible-placeholder pattern as the 1s_std_flow_charters and
+  // 1s_ds_token_2deep guards above: these rows take effect only once
+  // @one-source/api-mcp publishes ToolDefs for them and the dependency here
+  // is bumped to that version (5.22.0). Until then `allTools` doesn't
+  // include them, so this is a no-op, not a claim that the tools are live.
+  ...(allTools.some((tool) => tool.name === '1s_std_sbills_current') ? {
+    '1s_std_sbills_current':      { title: 'TSR S-Bills Current Terms',    annotations: RO, service: 'onesource-standard' },
+  } : {}),
+  ...(allTools.some((tool) => tool.name === '1s_std_sbills_rate_history') ? {
+    '1s_std_sbills_rate_history': { title: 'TSR S-Bill Rate History',      annotations: RO, service: 'onesource-standard' },
+  } : {}),
+  ...(allTools.some((tool) => tool.name === '1s_std_sbills_quote') ? {
+    '1s_std_sbills_quote':        { title: 'TSR S-Bill Stake Quote',       annotations: RO, service: 'onesource-standard' },
+  } : {}),
+  ...(allTools.some((tool) => tool.name === '1s_std_sbills_bills') ? {
+    '1s_std_sbills_bills':        { title: 'TSR S-Bills',                  annotations: RO, service: 'onesource-standard' },
+  } : {}),
+  ...(allTools.some((tool) => tool.name === '1s_std_sbills_events') ? {
+    '1s_std_sbills_events':       { title: 'TSR S-Bills Event Feed',       annotations: RO, service: 'onesource-standard' },
+  } : {}),
 });
 
 /**
