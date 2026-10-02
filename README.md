@@ -1,6 +1,6 @@
 # @one-source/mcp
 
-Unified MCP server for [OneSource](https://docs.onesource.io) — 83 tools for blockchain data, live chain queries, Deepstate market data, The Standard Reserve, and REST API documentation in a single server.
+Unified MCP server for [OneSource](https://docs.onesource.io) — 86 tools for blockchain data, live chain queries, Deepstate market data, The Standard Reserve, and REST API documentation in a single server.
 
 > **What is MCP?** The [Model Context Protocol](https://modelcontextprotocol.io) lets AI assistants call tools and access data sources. This server exposes both the OneSource blockchain API and its documentation as tools.
 
@@ -157,6 +157,11 @@ The Standard Reserve is an on-chain central-bank protocol on Robinhood Chain (ch
 | `1s_std_policy_current`     | Current epoch's monetary policy: regime, multiplier, net flow, and the two-epoch signal. Current or as of a past block |
 | `1s_std_policy_outlook`     | Same-state projection of the policy multiplier and issuance rate if the current epoch's net-flow sign holds to close |
 | `1s_std_pool`               | Latest ETH/STANDARD Uniswap v4 pool state: price, tick, liquidity, reserves, and remaining launch tax. Current or as of a past block |
+| `1s_std_sbills_bills`       | One S-Bill by id, or S-Bills filtered by owner or status: principal, premium, locked rate, maturity, and how each closed. The single-bill form also returns a live exit and redeem quote |
+| `1s_std_sbills_current`     | S-Bills staking terms right now: the per-term rate and its simple APR, drift state, locked principal, premium budget, caps, and the early-exit fee window. Rates are per term, not annual |
+| `1s_std_sbills_events`      | Decoded S-Bills contract events, newest first: deposits, early exits, redemptions, rolls, settlements, bonus distributions, rate changes, and admin changes |
+| `1s_std_sbills_quote`       | Live quote for staking STANDARD into an S-Bill: the rate you'd lock, the premium escrowed, the rate after your deposit, and whether caps or a pause would block it. Read straight from the contract |
+| `1s_std_sbills_rate_history`| How the S-Bill rate has moved: every on-chain rate change plus periodic drift samples, each tagged with the term length in force at the time |
 | `1s_std_supply`             | STANDARD supply ledger: circulating, cumulative minted, cumulative burned by path, and max supply. Current, history, or as of a past block |
 | `1s_std_tax_schedule`       | Launch tax-hook schedule: current buy/sell tax, decay configuration, and a labeled projection while the launch schedule is active |
 | `1s_std_vaults`             | Expansion and Contraction vault balances: WETH and STANDARD held, protocol-owned liquidity, and buyback capacity. Current, history, or as of a past block |
