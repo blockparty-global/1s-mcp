@@ -136,6 +136,7 @@ The Standard Reserve is an on-chain central-bank protocol on Robinhood Chain (ch
 | `1s_std_candles`            | OHLC price candles for the ETH/STANDARD pool in ETH per STANDARD, with swap counts and volume. Set tf for candle width (1m to 1d) and from/to for the window |
 | `1s_std_charter`            | One charter by id, or charters filtered by owner: holder, branch count, mint kind, owed production, and branch history |
 | `1s_std_decision_branch`    | Composite: should I buy a Branch/license right now. Bundles Days of Issuance, license cost vs. the charter auction, recent auction history, policy outlook, and pending governance changes |
+| `1s_std_decision_bid`       | Composite: when would a standing license-auction bid at this max price be reached, how many bids and licenses are ahead of it, and (with `charter_id`) whether that charter's pending STANDARD and caps cover it. Fill is a separate transaction anyone may send; the response states that and the measured fill history. Takes `max_unit_price`; `count` and `charter_id` optional |
 | `1s_std_decision_charter`   | Composite: should I buy into a new charter right now. Bundles charter-auction state, license-cost cheapest path, Days of Issuance, backing ratio, and holder concentration |
 | `1s_std_decision_exit`      | Composite: should I exit a charter's branches right now. Bundles the exit quote, fee curve, fee forecast, tax schedule, pool state, policy outlook, and pending governance changes |
 | `1s_std_decision_hold`      | Composite: should I keep holding STANDARD. Bundles the policy outlook, issuance runway, pending governance changes, tax schedule, buyback readiness, and dormancy state; takes no arguments |
@@ -155,6 +156,7 @@ The Standard Reserve is an on-chain central-bank protocol on Robinhood Chain (ch
 | `1s_std_governance_changes` | Governance/param-change history across TSR's 15 tracked contracts, what's currently queued, switch states, and guardian pause state |
 | `1s_std_holders_concentration` | Charter/Branch ownership concentration: distribution across Charters, top owners, an HHI (Herfindahl-Hirschman Index) score, and the genesis-vs-auction cohort split |
 | `1s_std_issuance_runway`    | Cumulative STANDARD issued against the Central Bank's issuance budget, current stream rate, and a same-state projection of when the budget runs out |
+| `1s_std_license_bids`       | Every standing bid on the license auction at one block: count, max unit price, whether the contract says it can fill now and which checks block it (price, supply, window or branch cap, pending, owner). Stale bids are flagged. Filters: `charter_id`, `bidder`, `fillable_only` |
 | `1s_std_license_cost`       | What a Branch license costs in ETH right now, and whether the charter auction is a cheaper path to the same outcome |
 | `1s_std_license_headroom`   | How many more Branch licenses a charter can still buy today, with a live per-unit quote ladder            |
 | `1s_std_policy_current`     | Current epoch's monetary policy: regime, multiplier, net flow, and the two-epoch signal. Current or as of a past block |
