@@ -155,6 +155,9 @@ export const TOOL_META: Record<string, { title: string; annotations: ToolAnnotat
   ...(allTools.some((tool) => tool.name === '1s_std_decision_hold') ? {
     '1s_std_decision_hold':       { title: 'TSR Decision: Hold',         annotations: RO, service: 'onesource-standard' },
   } : {}),
+  ...(allTools.some((tool) => tool.name === '1s_std_decision_sbill') ? {
+    '1s_std_decision_sbill':      { title: 'TSR Decision: S-Bill',       annotations: RO, service: 'onesource-standard' },
+  } : {}),
 });
 
 /**
