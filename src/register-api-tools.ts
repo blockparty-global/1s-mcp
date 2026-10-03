@@ -158,6 +158,12 @@ export const TOOL_META: Record<string, { title: string; annotations: ToolAnnotat
   ...(allTools.some((tool) => tool.name === '1s_std_decision_sbill') ? {
     '1s_std_decision_sbill':      { title: 'TSR Decision: S-Bill',       annotations: RO, service: 'onesource-standard' },
   } : {}),
+  ...(allTools.some((tool) => tool.name === '1s_std_license_bids') ? {
+    '1s_std_license_bids':        { title: 'TSR License Auction Bids',   annotations: RO, service: 'onesource-standard' },
+  } : {}),
+  ...(allTools.some((tool) => tool.name === '1s_std_decision_bid') ? {
+    '1s_std_decision_bid':        { title: 'TSR Decision: Bid',          annotations: RO, service: 'onesource-standard' },
+  } : {}),
 });
 
 /**
