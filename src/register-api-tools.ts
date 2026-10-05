@@ -164,6 +164,9 @@ export const TOOL_META: Record<string, { title: string; annotations: ToolAnnotat
   ...(allTools.some((tool) => tool.name === '1s_std_decision_bid') ? {
     '1s_std_decision_bid':        { title: 'TSR Decision: Bid',          annotations: RO, service: 'onesource-standard' },
   } : {}),
+  ...(allTools.some((tool) => tool.name === '1s_std_protocol_flows') ? {
+    '1s_std_protocol_flows':      { title: 'TSR Protocol Flows',         annotations: RO, service: 'onesource-standard' },
+  } : {}),
 });
 
 /**
