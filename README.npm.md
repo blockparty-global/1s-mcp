@@ -120,17 +120,17 @@ The Standard Reserve is an on-chain central-bank protocol on Robinhood Chain (ch
 | `1s_std_auction_days`       | Per-day auction history for the license or charter auction: open/floor/close price, sold vs. offered, time to sell out; license days add purchase counts, distinct charters, average and total paid, and a purchases-per-transaction breakdown |
 | `1s_std_auction_sales`      | Recent sales for the license or charter auction, newest first: buyer, unit price, count, and block. Filter by kind, page with before/limit |
 | `1s_std_auctions_current`   | Current state of the daily license auction and charter auction: price, floor, sold/remaining today, phase, and last sale |
-| `1s_std_backing`            | Reserve backing: vault ETH balances, unpriced reserve-asset holdings, and ETH-per-STANDARD backing ratio (excluding and including protocol-owned liquidity). Current, history, or as of a past block |
+| `1s_std_backing`            | Reserve backing: vault ETH balances, reserve-asset holdings, the vault's Uniswap v4 positions, and ETH backing per STANDARD in three variants (ETH only, plus protocol-owned liquidity, and plus all reserve assets valued at the Reserve's own pool prices, with USDG at $1). Current, history, or as of a past block |
 | `1s_std_branch_auction_live`| Raw head-fresh state of the Branch license auction: phase, price, today's sold/remaining counts, and recent sale velocity |
 | `1s_std_branches_doi`       | Days of Issuance for the Branch license auction, plus a buy-now-vs-wait table                          |
 | `1s_std_branches_summary`   | Summary across TSR's active Branches: count, issuance per Branch per day, and license price in days of issuance |
 | `1s_std_buyback_readiness`  | Contraction-vault buyback-tick readiness: this tick's ETH capacity, binding constraint, cooldown, TWAP deviation, and recent executed ticks |
 | `1s_std_candles`            | OHLC price candles for the ETH/STANDARD pool in ETH per STANDARD, with swap counts and volume. Set tf for candle width (1m to 1d) and from/to for the window |
-| `1s_std_charter`            | One charter by id, or charters filtered by owner: holder, branch count, mint kind, owed production, and branch history |
-| `1s_std_decision_branch`    | Composite: should I buy a Branch/license right now. Bundles Days of Issuance, license cost vs. the charter auction, recent auction history, policy outlook, and pending governance changes |
-| `1s_std_decision_charter`   | Composite: should I buy into a new charter right now. Bundles charter-auction state, license-cost cheapest path, Days of Issuance, backing ratio, and holder concentration |
-| `1s_std_decision_exit`      | Composite: should I exit a charter's branches right now. Bundles the exit quote, fee curve, fee forecast, tax schedule, pool state, policy outlook, and pending governance changes |
-| `1s_std_decision_plan`      | Simulate three Branch-buying strategies (keep, selective, aggressive) over a horizon, seeded from live prices, issuance, and license cost unless overridden. A planning tool, not a forecast: it never names a winning strategy |
+| `1s_std_charter`            | One charter by id, or charters filtered by owner: holder, branch count, mint kind, owed production, branch history, its share of the one-time charter stimulus, and its share of each launchpad charter drop |
+| `1s_std_decision_branch`    | Composite: should I buy a Branch/license right now. Bundles Days of Issuance, license cost vs. the charter auction, recent auction history, policy outlook, pending governance changes, plus what one branch would have earned in past launchpad charter drops (history, not a forecast) |
+| `1s_std_decision_charter`   | Composite: should I buy into a new charter right now. Bundles charter-auction state, license-cost cheapest path, Days of Issuance, backing ratio, holder concentration, and past launchpad charter-drop history (not a forecast) |
+| `1s_std_decision_exit`      | Composite: should I exit a charter's branches right now. Bundles the exit quote, fee curve, fee forecast, tax schedule, pool state, policy outlook, pending governance changes, the stimulus a full exit would forfeit, and the charter drops that closing would make claimable (with a noteOwner warning) |
+| `1s_std_decision_plan`      | Simulate three Branch-buying strategies (keep, selective, aggressive) over a horizon, seeded from live prices, issuance, and license cost unless overridden, with past launchpad charter-drop history as context. A planning tool, not a forecast: it never names a winning strategy |
 | `1s_std_dormancy`           | Wallets past their reportable dormancy window, or the full tracked wallet list                        |
 | `1s_std_dormancy_bounties`  | Dormancy bounty board: wallets already past their reportable window, ranked by estimated bounty        |
 | `1s_std_epochs`             | TSR epoch history: net flow, signal, regime, multiplier, and issuance per epoch. Page with before/limit |
@@ -149,10 +149,10 @@ The Standard Reserve is an on-chain central-bank protocol on Robinhood Chain (ch
 | `1s_std_policy_current`     | Current epoch's monetary policy: regime, multiplier, net flow, and the two-epoch signal. Current or as of a past block |
 | `1s_std_policy_outlook`     | Same-state projection of the policy multiplier and issuance rate if the current epoch's net-flow sign holds to close |
 | `1s_std_pool`               | Latest ETH/STANDARD Uniswap v4 pool state: price, tick, liquidity, reserves, and remaining launch tax. Current or as of a past block |
-| `1s_std_supply`             | STANDARD supply ledger: circulating, cumulative minted, cumulative burned by path, and max supply. Current, history, or as of a past block |
+| `1s_std_supply`             | STANDARD supply ledger: circulating, cumulative minted, cumulative burned by path, max supply, and the one-time charter stimulus still unclaimed (a live read, so it is null for past blocks). Current, history, or as of a past block |
 | `1s_std_tax_schedule`       | Launch tax-hook schedule: current buy/sell tax, decay configuration, and a labeled projection while the launch schedule is active |
 | `1s_std_vaults`             | Expansion and Contraction vault balances: WETH and STANDARD held, protocol-owned liquidity, and buyback capacity. Current, history, or as of a past block |
-| `1s_std_wallet`             | One wallet's full TSR position across every Charter it holds: pending owed, a summary exit quote, dormancy status, and license headroom |
+| `1s_std_wallet`             | One wallet's full TSR position across every Charter it holds: pending owed, a summary exit quote, dormancy status, license headroom, claimable charter stimulus, and claimable and locked charter drops |
 
 ### Documentation (8 tools)
 
