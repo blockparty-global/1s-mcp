@@ -37,6 +37,8 @@ export interface BatchPrefs {
   depositMultiplier: number;
   /** MPP session channel max deposit, in human token units (e.g. '1'). */
   mppMaxDeposit: string;
+  /** MPP session channel deposit = call price × this multiplier (capped by mppMaxDeposit). */
+  mppDepositMultiplier: number;
   /** Payment rail+mode the session starts in. */
   mode: PaymentMode;
 }
@@ -46,6 +48,7 @@ export const DEFAULT_BATCH_PREFS: BatchPrefs = {
   threshold: 5,
   depositMultiplier: 10,
   mppMaxDeposit: '1',
+  mppDepositMultiplier: 10,
   mode: 'x402-exact',
 };
 
@@ -102,6 +105,7 @@ const ENV_SNAPSHOT = {
   threshold: process.env.X402_BATCH_THRESHOLD,
   depositMultiplier: process.env.X402_DEPOSIT_MULTIPLIER,
   mppMaxDeposit: process.env.MPP_MAX_DEPOSIT,
+  mppDepositMultiplier: process.env.MPP_DEPOSIT_MULTIPLIER,
   // Prefer the unified mode; fall back to the legacy x402 sub-mode env.
   mode: process.env.ONESOURCE_PAYMENT_MODE ?? process.env.X402_PAYMENT_MODE,
 };
@@ -121,6 +125,8 @@ function readPersisted(): Partial<BatchPrefs> {
     if (depositMultiplier) out.depositMultiplier = depositMultiplier;
     const mppMaxDeposit = coerceMaxDeposit(data.mppMaxDeposit);
     if (mppMaxDeposit) out.mppMaxDeposit = mppMaxDeposit;
+    const mppDepositMultiplier = coerceMultiplier(data.mppDepositMultiplier);
+    if (mppDepositMultiplier) out.mppDepositMultiplier = mppDepositMultiplier;
     const mode = coerceMode(data.mode);
     if (mode) out.mode = mode;
     return out;
@@ -140,6 +146,8 @@ function fromEnv(): Partial<BatchPrefs> {
   if (depositMultiplier) out.depositMultiplier = depositMultiplier;
   const mppMaxDeposit = coerceMaxDeposit(ENV_SNAPSHOT.mppMaxDeposit);
   if (mppMaxDeposit) out.mppMaxDeposit = mppMaxDeposit;
+  const mppDepositMultiplier = coerceMultiplier(ENV_SNAPSHOT.mppDepositMultiplier);
+  if (mppDepositMultiplier) out.mppDepositMultiplier = mppDepositMultiplier;
   const mode = coerceMode(ENV_SNAPSHOT.mode);
   if (mode) out.mode = mode;
   return out;
@@ -159,6 +167,7 @@ function mirrorToEnv(prefs: BatchPrefs): void {
   }
   process.env.X402_DEPOSIT_MULTIPLIER = String(prefs.depositMultiplier);
   process.env.MPP_MAX_DEPOSIT = prefs.mppMaxDeposit;
+  process.env.MPP_DEPOSIT_MULTIPLIER = String(prefs.mppDepositMultiplier);
 }
 
 function resolve(): BatchPrefs {
