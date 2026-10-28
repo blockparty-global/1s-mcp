@@ -120,6 +120,16 @@ export const TOOL_META: Record<string, { title: string; annotations: ToolAnnotat
   '1s_std_governance_changes':    { title: 'TSR Governance Changes',       annotations: RO, service: 'onesource-standard' },
   '1s_std_holders_concentration': { title: 'TSR Holder Concentration',     annotations: RO, service: 'onesource-standard' },
   '1s_std_issuance_runway':       { title: 'TSR Issuance Runway',          annotations: RO, service: 'onesource-standard' },
+  // URC-5 launchpad venue policy (tsr-live #1542, live 2026-10-28). Same
+  // forward-compatible-placeholder pattern as the S-Bills rows below: these
+  // take effect once @one-source/api-mcp publishes the ToolDefs and the
+  // dependency here is bumped to that version.
+  ...(allTools.some((tool) => tool.name === '1s_std_launchpad_token') ? {
+    '1s_std_launchpad_token':     { title: 'TSR Launchpad Token Venues',   annotations: RO, service: 'onesource-standard' },
+  } : {}),
+  ...(allTools.some((tool) => tool.name === '1s_std_launchpad_venues') ? {
+    '1s_std_launchpad_venues':    { title: 'TSR Launchpad Venue Check',    annotations: RO, service: 'onesource-standard' },
+  } : {}),
   '1s_std_license_cost':          { title: 'TSR License Cost',             annotations: RO, service: 'onesource-standard' },
   '1s_std_license_headroom':      { title: 'TSR License Headroom',         annotations: RO, service: 'onesource-standard' },
   '1s_std_policy_outlook':        { title: 'TSR Policy Outlook',           annotations: RO, service: 'onesource-standard' },
